@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/registry/datastore/metrics"
 	"github.com/docker/distribution/registry/datastore/models"
+	"gitlab.com/gitlab-org/labkit/log"
 
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
@@ -273,12 +275,24 @@ func (s *repositoryStore) FindByPath(ctx context.Context, path string) (*models.
 		WHERE
 			path = $1`
 
+	start := time.Now()
 	row := s.db.QueryRowContext(ctx, q, path)
+	queryDuration := time.Since(start)
 
+	start = time.Now()
 	r, err := scanFullRepository(row)
 	if err != nil {
 		return r, err
 	}
+	scanDuration := time.Since(start)
+
+	log.WithFields(log.Fields{
+		"path":             path,
+		"found":            r != nil,
+		"query_duration_s": queryDuration.Seconds(),
+		"scan_duration_s":  scanDuration.Seconds(),
+		"total_duration_s": (queryDuration + scanDuration).Seconds(),
+	}).Info("finding repository by path")
 
 	s.cache.Set(r)
 
