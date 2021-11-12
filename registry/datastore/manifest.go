@@ -12,6 +12,7 @@ import (
 	"github.com/docker/distribution/registry/datastore/models"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
+	"github.com/opencontainers/go-digest"
 )
 
 // ManifestReader is the interface that defines read operations for a Manifest store.
@@ -29,7 +30,7 @@ type ManifestWriter interface {
 	DissociateManifest(ctx context.Context, ml *models.Manifest, m *models.Manifest) error
 	AssociateLayerBlob(ctx context.Context, m *models.Manifest, b *models.Blob) error
 	DissociateLayerBlob(ctx context.Context, m *models.Manifest, b *models.Blob) error
-	Delete(ctx context.Context, m *models.Manifest) (bool, error)
+	Delete(ctx context.Context, namespaceID, repositoryID, id int64) (*digest.Digest, error)
 }
 
 // ManifestStore is the interface that a Manifest store should conform to.
@@ -395,26 +396,35 @@ func (s *manifestStore) DissociateLayerBlob(ctx context.Context, m *models.Manif
 	return nil
 }
 
-// Delete deletes a manifest. A boolean is returned to denote whether the manifest was deleted or not. This avoids the
+// Delete deletes a manifest. The digest is returned to denote whether the manifest was deleted or not. This avoids the
 // need for a separate preceding `SELECT` to find if it exists. A manifest cannot be deleted if it is referenced by a
 // manifest list.
-func (s *manifestStore) Delete(ctx context.Context, m *models.Manifest) (bool, error) {
+func (s *manifestStore) Delete(ctx context.Context, namespaceID, repositoryID, id int64) (*digest.Digest, error) {
 	defer metrics.InstrumentQuery("manifest_delete")()
-	q := "DELETE FROM manifests WHERE top_level_namespace_id = $1 AND repository_id = $2 AND id = $3"
+	q := `DELETE FROM manifests
+		WHERE top_level_namespace_id = $1
+			AND repository_id = $2
+			AND id = $3
+		RETURNING
+			encode(digest, 'hex')`
 
-	res, err := s.db.ExecContext(ctx, q, m.NamespaceID, m.RepositoryID, m.ID)
-	if err != nil {
+	var tmp Digest
+	row := s.db.QueryRowContext(ctx, q, namespaceID, repositoryID, id)
+	if err := row.Scan(&tmp); err != nil {
 		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.ForeignKeyViolation && pgErr.TableName == "manifest_references" {
-			return false, fmt.Errorf("deleting manifest: %w", ErrManifestReferencedInList)
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, nil
+		case errors.As(err, &pgErr) && pgErr.Code == pgerrcode.ForeignKeyViolation && pgErr.TableName == "manifest_references":
+			return nil, fmt.Errorf("deleting manifest: %w", ErrManifestReferencedInList)
+		default:
+			return nil, fmt.Errorf("deleting manifest: %w", err)
 		}
-		return false, fmt.Errorf("deleting manifest: %w", err)
 	}
 
-	count, err := res.RowsAffected()
+	dgst, err := tmp.Parse()
 	if err != nil {
-		return false, fmt.Errorf("deleting manifest: %w", err)
+		return nil, err
 	}
-
-	return count == 1, nil
+	return &dgst, nil
 }

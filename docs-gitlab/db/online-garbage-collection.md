@@ -635,8 +635,10 @@ The process of reviewing and possibly deleting a manifest or a manifest list (it
    DELETE FROM manifests
    WHERE top_level_namespace_id = $1
        AND repository_id = $2
-       AND id = $3;
-  
+       AND id = $3
+   RETURNING
+       encode(digest, 'hex');
+    
    COMMIT;
    ```
 

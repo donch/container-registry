@@ -213,6 +213,7 @@ func (w *BlobWorker) deleteBlob(ctx context.Context, tx datastore.Transactor, t 
 		report(err)
 		return err
 	}
+	l.WithFields(log.Fields{"digest": t.Digest}).Info("blob deleted")
 
 	report(nil)
 	return nil

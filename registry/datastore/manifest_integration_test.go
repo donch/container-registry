@@ -1,3 +1,4 @@
+//go:build integration
 // +build integration
 
 package datastore_test
@@ -11,6 +12,7 @@ import (
 	"github.com/docker/distribution/registry/datastore"
 	"github.com/docker/distribution/registry/datastore/models"
 	"github.com/docker/distribution/registry/datastore/testutil"
+	"github.com/opencontainers/go-digest"
 	"github.com/stretchr/testify/require"
 )
 
@@ -632,11 +634,12 @@ func TestManifestStore_DeleteManifest(t *testing.T) {
 		ID:           4,
 		NamespaceID:  1,
 		RepositoryID: 4,
+		Digest:       digest.Digest("sha256:ea1650093606d9e76dfc78b986d57daea6108af2d5a9114a98d7198548bfdfc7"),
 	}
 
-	found, err := s.Delete(suite.ctx, m)
+	dgst, err := s.Delete(suite.ctx, m.NamespaceID, m.RepositoryID, m.ID)
 	require.NoError(t, err)
-	require.True(t, found)
+	require.Equal(t, m.Digest, *dgst)
 
 	// make sure the manifest was deleted
 	mm, err := s.FindAll(suite.ctx)
@@ -656,9 +659,9 @@ func TestManifestStore_DeleteManifest_FailsIfReferencedInList(t *testing.T) {
 		RepositoryID: 3,
 	}
 
-	ok, err := s.Delete(suite.ctx, m)
+	dgst, err := s.Delete(suite.ctx, m.NamespaceID, m.RepositoryID, m.ID)
 	require.EqualError(t, err, fmt.Errorf("deleting manifest: %w", datastore.ErrManifestReferencedInList).Error())
-	require.False(t, ok)
+	require.Nil(t, dgst)
 
 	// make sure the manifest was not deleted
 	mm, err := s.FindAll(suite.ctx)
@@ -680,7 +683,7 @@ func TestManifestStore_DeleteManifest_NotFoundDoesNotFail(t *testing.T) {
 		NamespaceID:  1,
 		RepositoryID: 3,
 	}
-	found, err := s.Delete(suite.ctx, m)
+	dgst, err := s.Delete(suite.ctx, m.NamespaceID, m.RepositoryID, m.ID)
 	require.NoError(t, err)
-	require.False(t, found)
+	require.Nil(t, dgst)
 }
