@@ -10,6 +10,7 @@ import (
 
 	models "github.com/docker/distribution/registry/datastore/models"
 	gomock "github.com/golang/mock/gomock"
+	digest "github.com/opencontainers/go-digest"
 )
 
 // MockManifestStore is a mock of ManifestStore interface.
@@ -93,18 +94,18 @@ func (mr *MockManifestStoreMockRecorder) Create(arg0, arg1 interface{}) *gomock.
 }
 
 // Delete mocks base method.
-func (m *MockManifestStore) Delete(arg0 context.Context, arg1 *models.Manifest) (bool, error) {
+func (m *MockManifestStore) Delete(arg0 context.Context, arg1, arg2, arg3 int64) (*digest.Digest, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Delete", arg0, arg1)
-	ret0, _ := ret[0].(bool)
+	ret := m.ctrl.Call(m, "Delete", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(*digest.Digest)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Delete indicates an expected call of Delete.
-func (mr *MockManifestStoreMockRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockManifestStoreMockRecorder) Delete(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockManifestStore)(nil).Delete), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockManifestStore)(nil).Delete), arg0, arg1, arg2, arg3)
 }
 
 // DissociateLayerBlob mocks base method.

@@ -14,6 +14,7 @@ import (
 	"github.com/docker/distribution/registry/internal/testutil"
 	"github.com/golang/mock/gomock"
 	"github.com/hashicorp/go-multierror"
+	"github.com/opencontainers/go-digest"
 	"github.com/stretchr/testify/require"
 )
 
@@ -92,13 +93,13 @@ func TestManifestWorker_processTask(t *testing.T) {
 
 	ctx := testutil.IsContextWithDeadline{Deadline: clockMock.Now().Add(defaultTxTimeout)}
 	mt := fakeManifestTask()
-	m := &models.Manifest{RepositoryID: mt.RepositoryID, ID: mt.ManifestID}
+	m := &models.Manifest{RepositoryID: mt.RepositoryID, ID: mt.ManifestID, Digest: digest.FromString("foo")}
 
 	gomock.InOrder(
 		dbMock.EXPECT().BeginTx(ctx, nil).Return(txMock, nil).Times(1),
 		mtsMock.EXPECT().Next(ctx).Return(mt, nil).Times(1),
 		mtsMock.EXPECT().IsDangling(ctx, mt).Return(true, nil).Times(1),
-		msMock.EXPECT().Delete(ctx, m).Return(true, nil).Times(1),
+		msMock.EXPECT().Delete(ctx, m.NamespaceID, m.RepositoryID, m.ID).Return(&m.Digest, nil).Times(1),
 		txMock.EXPECT().Commit().Return(nil).Times(1),
 		txMock.EXPECT().Rollback().Return(sql.ErrTxDone).Times(1),
 	)
@@ -308,7 +309,7 @@ func TestManifestWorker_processTask_StoreDeleteNotFoundError(t *testing.T) {
 		dbMock.EXPECT().BeginTx(dbCtx, nil).Return(txMock, nil).Times(1),
 		mtsMock.EXPECT().Next(dbCtx).Return(mt, nil).Times(1),
 		mtsMock.EXPECT().IsDangling(dbCtx, mt).Return(true, nil).Times(1),
-		msMock.EXPECT().Delete(dbCtx, m).Return(false, nil).Times(1),
+		msMock.EXPECT().Delete(dbCtx, m.NamespaceID, m.RepositoryID, m.ID).Return(nil, nil).Times(1),
 		mtsMock.EXPECT().Delete(dbCtx, mt).Return(nil).Times(1),
 		txMock.EXPECT().Commit().Return(nil).Times(1),
 		txMock.EXPECT().Rollback().Return(sql.ErrTxDone).Times(1),
@@ -336,7 +337,7 @@ func TestManifestWorker_processTask_StoreDeleteDeadlineExceededError(t *testing.
 		dbMock.EXPECT().BeginTx(dbCtx, nil).Return(txMock, nil).Times(1),
 		mtsMock.EXPECT().Next(dbCtx).Return(mt, nil).Times(1),
 		mtsMock.EXPECT().IsDangling(dbCtx, mt).Return(true, nil).Times(1),
-		msMock.EXPECT().Delete(dbCtx, m).Return(false, context.DeadlineExceeded).Times(1),
+		msMock.EXPECT().Delete(dbCtx, m.NamespaceID, m.RepositoryID, m.ID).Return(nil, context.DeadlineExceeded).Times(1),
 		txMock.EXPECT().Rollback().Return(nil).Times(1),
 	)
 
@@ -363,7 +364,7 @@ func TestManifestWorker_processTask_StoreDeleteUnknownError(t *testing.T) {
 		dbMock.EXPECT().BeginTx(dbCtx, nil).Return(processTxMock, nil).Times(1),
 		mtsMock.EXPECT().Next(dbCtx).Return(mt, nil).Times(1),
 		mtsMock.EXPECT().IsDangling(dbCtx, mt).Return(true, nil).Times(1),
-		msMock.EXPECT().Delete(dbCtx, m).Return(false, fakeErrorA).Times(1),
+		msMock.EXPECT().Delete(dbCtx, m.NamespaceID, m.RepositoryID, m.ID).Return(nil, fakeErrorA).Times(1),
 		dbMock.EXPECT().BeginTx(dbCtx, nil).Return(postponeTxMock, nil).Times(1),
 		mtsMock.EXPECT().FindAndLock(dbCtx, mt.NamespaceID, mt.RepositoryID, mt.ManifestID).Return(mt, nil).Times(1),
 		mtsMock.EXPECT().Postpone(dbCtx, mt, isDuration{5 * time.Minute}).Return(nil).Times(1),

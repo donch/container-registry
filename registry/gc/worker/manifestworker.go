@@ -126,22 +126,21 @@ func (w *ManifestWorker) processTask(ctx context.Context) (bool, error) {
 func (w *ManifestWorker) deleteManifest(ctx context.Context, tx datastore.Transactor, t *models.GCManifestTask) error {
 	l := log.GetLogger(log.WithContext(ctx))
 
-	var err error
-	var found bool
 	ms := manifestStoreConstructor(tx)
 
 	report := metrics.ManifestDelete()
-	found, err = ms.Delete(ctx, &models.Manifest{NamespaceID: t.NamespaceID, RepositoryID: t.RepositoryID, ID: t.ManifestID})
+	dgst, err := ms.Delete(ctx, t.NamespaceID, t.RepositoryID, t.ManifestID)
 	if err != nil {
 		report(err)
 		return err
 	}
-	if !found {
+	if dgst == nil {
 		// this should never happen because deleting a manifest cascades to the review queue, nevertheless...
 		l.Warn("manifest no longer exists on database, deleting task")
 		mts := manifestTaskStoreConstructor(tx)
 		return mts.Delete(ctx, t)
 	}
+	l.WithFields(log.Fields{"digest": dgst, "repository_id": t.RepositoryID}).Info("manifest deleted")
 
 	report(nil)
 	return nil
