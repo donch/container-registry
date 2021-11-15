@@ -115,11 +115,11 @@ BEGIN
             top_level_namespace_id = OLD.top_level_namespace_id
             AND repository_id = OLD.repository_id
             AND id = OLD.manifest_id) THEN
-    INSERT INTO gc_manifest_review_queue (top_level_namespace_id, repository_id, manifest_id, review_after)
-        VALUES (OLD.top_level_namespace_id, OLD.repository_id, OLD.manifest_id, gc_review_after ('tag_delete'))
+    INSERT INTO gc_manifest_review_queue (top_level_namespace_id, repository_id, manifest_id, review_after, event)
+        VALUES (OLD.top_level_namespace_id, OLD.repository_id, OLD.manifest_id, gc_review_after ('tag_delete'), 'tag_delete')
     ON CONFLICT (top_level_namespace_id, repository_id, manifest_id)
         DO UPDATE SET
-            review_after = gc_review_after ('tag_delete');
+            review_after = gc_review_after ('tag_delete'), event = 'tag_delete';
 END IF;
     RETURN NULL;
 END;
@@ -154,11 +154,11 @@ CREATE FUNCTION public.gc_track_switched_tags ()
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    INSERT INTO gc_manifest_review_queue (top_level_namespace_id, repository_id, manifest_id, review_after)
-        VALUES (OLD.top_level_namespace_id, OLD.repository_id, OLD.manifest_id, gc_review_after ('tag_switch'))
+    INSERT INTO gc_manifest_review_queue (top_level_namespace_id, repository_id, manifest_id, review_after, event)
+        VALUES (OLD.top_level_namespace_id, OLD.repository_id, OLD.manifest_id, gc_review_after ('tag_switch'), 'tag_switch')
     ON CONFLICT (top_level_namespace_id, repository_id, manifest_id)
         DO UPDATE SET
-            review_after = gc_review_after ('tag_switch');
+            review_after = gc_review_after ('tag_switch'), event = 'tag_switch';
     RETURN NULL;
 END;
 $$;
