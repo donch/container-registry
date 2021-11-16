@@ -28,7 +28,9 @@ A table named `gc_blob_review_queue` is used as a review queue for blobs that ma
 
 - `digest`: The digest of the blob that may be eligible for deletion. This is used to query the database to determine if a blob is eligible for deletion and delete it from the storage backend.
 - `review_after`: The minimum amount of time after which the garbage collector should pick up a record for review. Defaults to one day.
-- `review_count`: The number of times the garbage collector reviewed a blob. In conjunction with `review_after`, this field is used to implement an exponential backoff algorithm for failed reviews.
+- `review_count`: The number of times the garbage collector reviewed a record. In conjunction with `review_after`, this field is used to implement an exponential backoff algorithm for failed reviews.
+- `created_at`: The timestamp at which the task was first queued.
+- `event`: The identifier of the _latest_ event that led to the task being queued (e.g. tag delete, manifest delete, etc.). Each trigger has its own event identifier.
 
 ### Manifests
 
@@ -174,8 +176,8 @@ CREATE FUNCTION gc_track_manifest_uploads ()
     RETURNS TRIGGER
     AS $$
 BEGIN
-    INSERT INTO gc_manifest_review_queue (top_level_namespace_id, repository_id, manifest_id, review_after)
-        VALUES (NEW.top_level_namespace_id, NEW.repository_id, NEW.id, gc_review_after('manifest_upload'));
+    INSERT INTO gc_manifest_review_queue (top_level_namespace_id, repository_id, manifest_id, review_after, event)
+        VALUES (NEW.top_level_namespace_id, NEW.repository_id, NEW.id, gc_review_after('manifest_upload'), 'manifest_upload');
     RETURN NULL;
 END;
 $$

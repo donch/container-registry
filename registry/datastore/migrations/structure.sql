@@ -143,8 +143,8 @@ CREATE FUNCTION public.gc_track_manifest_uploads ()
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    INSERT INTO gc_manifest_review_queue (top_level_namespace_id, repository_id, manifest_id, review_after)
-        VALUES (NEW.top_level_namespace_id, NEW.repository_id, NEW.id, gc_review_after ('manifest_upload'));
+    INSERT INTO gc_manifest_review_queue (top_level_namespace_id, repository_id, manifest_id, review_after, event)
+        VALUES (NEW.top_level_namespace_id, NEW.repository_id, NEW.id, gc_review_after ('manifest_upload'), 'manifest_upload');
     RETURN NULL;
 END;
 $$;
@@ -6884,7 +6884,9 @@ CREATE TABLE public.gc_manifest_review_queue (
     manifest_id bigint NOT NULL,
     review_after timestamp with time zone DEFAULT (now() + '1 day'::interval) NOT NULL,
     review_count integer DEFAULT 0 NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    event text,
+    CONSTRAINT check_gc_manifest_review_queue_event_length CHECK ((char_length(event) <= 255))
 );
 
 CREATE TABLE public.gc_review_after_defaults (
