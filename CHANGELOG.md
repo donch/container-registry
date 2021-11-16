@@ -1,3 +1,13 @@
+# [3.15.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.14.3-gitlab...v3.15.0-gitlab) (2021-11-16)
+
+
+### Features
+
+* **gc:** improve logging for artifact deletions ([4d77d47](https://gitlab.com/gitlab-org/container-registry/commit/4d77d473ba9539bad8f4049b84748fcce697dbc7))
+* **gc:** record event type for manifest tasks queued due to an upload ([1b2a534](https://gitlab.com/gitlab-org/container-registry/commit/1b2a53467bda396c7893eadc3e636ad3bdb70e2c))
+* **handlers:** temporarily log details of "find repository by path" queries ([8a3fcca](https://gitlab.com/gitlab-org/container-registry/commit/8a3fcca3cc0da95d8a76ba301da270b557c0fa04))
+* **storage:** add Prometheus histogram metric for new blob uploads ([8a9c4a0](https://gitlab.com/gitlab-org/container-registry/commit/8a9c4a01f07e4eb98dbcb18891b676162ffcf5d5))
+
 ## [3.14.3](https://gitlab.com/gitlab-org/container-registry/compare/v3.14.2-gitlab...v3.14.3-gitlab) (2021-11-09)
 
 
