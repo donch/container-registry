@@ -147,6 +147,8 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 		app.migrationDriver = migrationDriver(config)
 	}
 
+	log := dcontext.GetLogger(app)
+
 	purgeConfig := uploadPurgeDefaultConfig()
 	if mc, ok := config.Storage["maintenance"]; ok {
 		if v, ok := mc["uploadpurging"]; ok {
@@ -165,11 +167,16 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 				if !ok {
 					panic("readonly's enabled config key must have a boolean value")
 				}
+
+				if app.readOnly {
+					if enabled, ok := purgeConfig["enabled"].(bool); ok && enabled {
+						log.Info("disabled upload purging in readonly mode")
+						purgeConfig["enabled"] = false
+					}
+				}
 			}
 		}
 	}
-
-	log := dcontext.GetLogger(app)
 
 	startUploadPurger(app, app.driver, log, purgeConfig)
 

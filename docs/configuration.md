@@ -518,7 +518,8 @@ functions available.
 
 Upload purging is a background process that periodically removes orphaned files
 from the upload directories of the registry. Upload purging is enabled by
-default. To configure upload directory purging, the following parameters must
+default. Upload purging will be disabled if `readonly` is enabled.
+To configure upload directory purging, the following parameters must
 be set.
 
 
@@ -535,9 +536,10 @@ fraction and a unit suffix. Some examples: `45m`, `2h10m`, `168h`.
 ### `readonly`
 
 If the `readonly` section under `maintenance` has `enabled` set to `true`,
-clients will not be allowed to write to the registry. This mode is useful to
-temporarily prevent writes to the backend storage so a garbage collection pass
-can be run.  Before running garbage collection, the registry should be
+clients will not be allowed to write to the registry, including`uploadpurging`.
+This mode is useful to temporarily prevent writes to the backend storage so a
+garbage collection pass can be run.
+Before running garbage collection, the registry should be
 restarted with readonly's `enabled` set to true. After the garbage collection
 pass finishes, the registry may be restarted again, this time with `readonly`
 removed from the configuration (or set to false).
