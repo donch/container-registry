@@ -76,11 +76,11 @@ CREATE FUNCTION public.gc_track_deleted_manifest_lists ()
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    INSERT INTO gc_manifest_review_queue (top_level_namespace_id, repository_id, manifest_id, review_after)
-        VALUES (OLD.top_level_namespace_id, OLD.repository_id, OLD.child_id, gc_review_after ('manifest_list_delete'))
+    INSERT INTO gc_manifest_review_queue (top_level_namespace_id, repository_id, manifest_id, review_after, event)
+        VALUES (OLD.top_level_namespace_id, OLD.repository_id, OLD.child_id, gc_review_after ('manifest_list_delete'), 'manifest_list_delete')
     ON CONFLICT (top_level_namespace_id, repository_id, manifest_id)
         DO UPDATE SET
-            review_after = gc_review_after ('manifest_list_delete');
+            review_after = gc_review_after ('manifest_list_delete'), event = 'manifest_list_delete';
     RETURN NULL;
 END;
 $$;
