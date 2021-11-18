@@ -1,3 +1,11 @@
+# [3.16.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.15.0-gitlab...v3.16.0-gitlab) (2021-11-18)
+
+
+### Features
+
+* **gc:** record event type for manifest tasks queued due to a tag delete or switch ([e0d918a](https://gitlab.com/gitlab-org/container-registry/commit/e0d918ab1d1276cf4aa848f54252ba5fa3d54a2f))
+* **gc:** record event type for manifest tasks queued due to list delete ([68828ea](https://gitlab.com/gitlab-org/container-registry/commit/68828ea1f857027a64aa41e728b0d055706798ad))
+
 # [3.15.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.14.3-gitlab...v3.15.0-gitlab) (2021-11-16)
 
 
