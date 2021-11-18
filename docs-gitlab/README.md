@@ -215,10 +215,8 @@ perf(registry/storage/driver/gcs): improve blob upload performance
 
 ### Golang Version Support
 
-Starting from version 1.13, this project will support being built with the
-latest three major [releases](https://golang.org/doc/devel/release.html) of the
-Go Programming Language.
+Please see the [Supporting multiple Go versions](https://docs.gitlab.com/ee/development/go_guide/go_upgrade.html#supporting-multiple-go-versions).
 
-This support is ensured via the `.gitlab-ci.yml` file in the root of this
-repository, if you modify this file to add additional jobs, please ensure that
-those jobs are ran with all three versions.
+Support for individual versions is ensured via the `.gitlab-ci.yml` file in the
+root of this repository. If you modify this file to add additional jobs, please
+ensure that those jobs run against all supported versions.
