@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/docker/distribution"
+	"github.com/docker/distribution/log"
 	"github.com/docker/distribution/registry/datastore/metrics"
 	"github.com/docker/distribution/registry/datastore/models"
-	"gitlab.com/gitlab-org/labkit/log"
 
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
@@ -102,11 +102,18 @@ type RepositoryManifestService struct {
 
 // Exists returns true if the manifest is linked in the repository.
 func (rms *RepositoryManifestService) Exists(ctx context.Context, dgst digest.Digest) (bool, error) {
+	l := log.GetLogger(log.WithContext(ctx))
+	start := time.Now()
 	r, err := rms.FindByPath(ctx, rms.RepositoryPath)
 	if err != nil {
 		return false, err
 	}
-
+	l.WithFields(log.Fields{
+		"duration_s": time.Since(start),
+		"path":       rms.RepositoryPath,
+		"found":      r != nil,
+		"caller":     "datastore.RepositoryManifestService.Exists",
+	}).Info("finding repository by path")
 	if r == nil {
 		return false, errors.New("unable to find repository in database")
 	}
@@ -129,10 +136,18 @@ type RepositoryBlobService struct {
 // Stat returns the descriptor of the blob with the provided digest, returns
 // distribution.ErrBlobUnknown if not found.
 func (rbs *RepositoryBlobService) Stat(ctx context.Context, dgst digest.Digest) (distribution.Descriptor, error) {
+	l := log.GetLogger(log.WithContext(ctx))
+	start := time.Now()
 	r, err := rbs.FindByPath(ctx, rbs.RepositoryPath)
 	if err != nil {
 		return distribution.Descriptor{}, err
 	}
+	l.WithFields(log.Fields{
+		"duration_s": time.Since(start),
+		"path":       rbs.RepositoryPath,
+		"found":      r != nil,
+		"caller":     "datastore.RepositoryBlobService.Stat",
+	}).Info("finding repository by path")
 
 	if r == nil {
 		return distribution.Descriptor{}, errors.New("unable to find repository in database")
@@ -275,24 +290,11 @@ func (s *repositoryStore) FindByPath(ctx context.Context, path string) (*models.
 		WHERE
 			path = $1`
 
-	start := time.Now()
 	row := s.db.QueryRowContext(ctx, q, path)
-	queryDuration := time.Since(start)
-
-	start = time.Now()
 	r, err := scanFullRepository(row)
 	if err != nil {
 		return r, err
 	}
-	scanDuration := time.Since(start)
-
-	log.WithFields(log.Fields{
-		"path":             path,
-		"found":            r != nil,
-		"query_duration_s": queryDuration.Seconds(),
-		"scan_duration_s":  scanDuration.Seconds(),
-		"total_duration_s": (queryDuration + scanDuration).Seconds(),
-	}).Info("finding repository by path")
 
 	s.cache.Set(r)
 
@@ -865,10 +867,18 @@ func (s *repositoryStore) CreateOrFind(ctx context.Context, r *models.Repository
 
 	// First, check if the repository already exists, this avoids incrementing the repositories.id sequence
 	// unnecessarily as we know that the target repository will already exist for all requests except the first.
+	l := log.GetLogger(log.WithContext(ctx))
+	start := time.Now()
 	tmp, err := s.FindByPath(ctx, r.Path)
 	if err != nil {
 		return err
 	}
+	l.WithFields(log.Fields{
+		"duration_s": time.Since(start),
+		"path":       r.Path,
+		"found":      tmp != nil,
+		"caller":     "datastore.repositoryStore.CreateOrFind(1)",
+	}).Info("finding repository by path")
 	if tmp != nil {
 		*r = *tmp
 		return nil
@@ -888,10 +898,17 @@ func (s *repositoryStore) CreateOrFind(ctx context.Context, r *models.Repository
 			return fmt.Errorf("creating repository: %w", err)
 		}
 		// if the result set has no rows, then the repository already exists
+		start = time.Now()
 		tmp, err := s.FindByPath(ctx, r.Path)
 		if err != nil {
 			return err
 		}
+		l.WithFields(log.Fields{
+			"duration_s": time.Since(start),
+			"path":       r.Path,
+			"found":      tmp != nil,
+			"caller":     "datastore.repositoryStore.CreateOrFind(2)",
+		}).Info("finding repository by path")
 		*r = *tmp
 		s.cache.Set(r)
 	}
