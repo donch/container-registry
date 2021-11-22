@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/docker/distribution/configuration"
 	"github.com/docker/distribution/log"
@@ -61,10 +62,17 @@ func dbBlobLinkExists(ctx context.Context, db datastore.Queryer, repoPath string
 	l.Debug("finding blob in database")
 
 	rStore := datastore.NewRepositoryStore(db)
+	start := time.Now()
 	r, err := rStore.FindByPath(ctx, repoPath)
 	if err != nil {
 		return err
 	}
+	l.WithFields(log.Fields{
+		"duration_s": time.Since(start),
+		"path":       repoPath,
+		"found":      r != nil,
+		"caller":     "handlers.dbBlobLinkExists",
+	}).Info("finding repository by path")
 	if r == nil {
 		l.Warn("repository not found in database")
 		return v2.ErrorCodeBlobUnknown.WithDetail(dgst)
@@ -134,10 +142,17 @@ func dbDeleteBlob(ctx context.Context, config *configuration.Configuration, db d
 	}
 
 	rStore := datastore.NewRepositoryStore(db)
+	start := time.Now()
 	r, err := rStore.FindByPath(ctx, repoPath)
 	if err != nil {
 		return err
 	}
+	l.WithFields(log.Fields{
+		"duration_s": time.Since(start),
+		"path":       repoPath,
+		"found":      r != nil,
+		"caller":     "handlers.dbDeleteBlob",
+	}).Info("finding repository by path")
 	if r == nil {
 		return distribution.ErrRepositoryUnknown{Name: repoPath}
 	}
