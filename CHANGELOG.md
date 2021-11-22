@@ -1,3 +1,15 @@
+# [3.17.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.16.0-gitlab...v3.17.0-gitlab) (2021-11-22)
+
+
+### Bug Fixes
+
+* **handlers:** disable upload purging if read-only mode is enabled ([#169](https://gitlab.com/gitlab-org/container-registry/issues/169)) ([6f24d30](https://gitlab.com/gitlab-org/container-registry/commit/6f24d301765d92af7b29690fff80067010544b1d))
+
+
+### Features
+
+* **gc:** track event that led to creation of an online GC blob review task ([1354996](https://gitlab.com/gitlab-org/container-registry/commit/1354996332547609622f202adce7aed800245646))
+
 # [3.16.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.15.0-gitlab...v3.16.0-gitlab) (2021-11-18)
 
 
