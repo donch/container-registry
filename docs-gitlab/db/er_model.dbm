@@ -520,10 +520,10 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	</constraint>
 </table>
 
-<table name="gc_blob_review_queue" layer="0" collapse-mode="2" max-obj-count="3" z-value="0">
+<table name="gc_blob_review_queue" layer="0" collapse-mode="2" max-obj-count="6" z-value="0">
 	<schema name="public"/>
 	<role name="postgres"/>
-	<position x="1820" y="180"/>
+	<position x="1820" y="160"/>
 	<column name="review_after" not-null="true" default-value="(now() + '1 day'::interval)">
 		<type name="timestamp with time zone" length="0" with-timezone="true"/>
 	</column>
@@ -533,8 +533,17 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<column name="digest" not-null="true">
 		<type name="bytea" length="0"/>
 	</column>
+	<column name="created_at" not-null="true" default-value="now()">
+		<type name="timestamp with time zone" length="0" with-timezone="true"/>
+	</column>
+	<column name="event">
+		<type name="text" length="0"/>
+	</column>
 	<constraint name="pk_gc_blob_review_queue" type="pk-constr" table="public.gc_blob_review_queue">
 		<columns names="digest" ref-type="src-columns"/>
+	</constraint>
+	<constraint name="check_gc_blob_review_queue_event_length" type="ck-constr" table="public.gc_blob_review_queue">
+			<expression><![CDATA[(char_length(event) <= 255)]]></expression>
 	</constraint>
 </table>
 
@@ -546,7 +555,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 		</idxelement>
 </index>
 
-<table name="gc_manifest_review_queue" layer="0" collapse-mode="2" max-obj-count="6" z-value="0">
+<table name="gc_manifest_review_queue" layer="0" collapse-mode="2" max-obj-count="8" z-value="0">
 	<schema name="public"/>
 	<role name="postgres"/>
 	<position x="20" y="820"/>
@@ -565,8 +574,17 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<column name="review_count" not-null="true" default-value="0">
 		<type name="integer" length="0"/>
 	</column>
+	<column name="created_at" not-null="true" default-value="now()">
+		<type name="timestamp with time zone" length="0" with-timezone="true"/>
+	</column>
+	<column name="event">
+		<type name="text" length="0"/>
+	</column>
 	<constraint name="pk_gc_manifest_review_queue" type="pk-constr" table="public.gc_manifest_review_queue">
 		<columns names="top_level_namespace_id,repository_id,manifest_id" ref-type="src-columns"/>
+	</constraint>
+	<constraint name="check_gc_manifest_review_queue_event_length" type="ck-constr" table="public.gc_manifest_review_queue">
+			<expression><![CDATA[(char_length(event) <= 255)]]></expression>
 	</constraint>
 </table>
 

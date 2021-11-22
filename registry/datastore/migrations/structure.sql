@@ -33,11 +33,11 @@ CREATE FUNCTION public.gc_track_blob_uploads ()
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    INSERT INTO gc_blob_review_queue (digest, review_after)
-        VALUES (NEW.digest, gc_review_after ('blob_upload'))
+    INSERT INTO gc_blob_review_queue (digest, review_after, event)
+        VALUES (NEW.digest, gc_review_after ('blob_upload'), 'blob_upload')
     ON CONFLICT (digest)
         DO UPDATE SET
-            review_after = gc_review_after ('blob_upload');
+            review_after = gc_review_after ('blob_upload'), event = 'blob_upload';
     RETURN NULL;
 END;
 $$;
@@ -62,11 +62,11 @@ CREATE FUNCTION public.gc_track_deleted_layers ()
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    INSERT INTO gc_blob_review_queue (digest, review_after)
-        VALUES (OLD.digest, gc_review_after ('layer_delete'))
+    INSERT INTO gc_blob_review_queue (digest, review_after, event)
+        VALUES (OLD.digest, gc_review_after ('layer_delete'), 'layer_delete')
     ON CONFLICT (digest)
         DO UPDATE SET
-            review_after = gc_review_after ('layer_delete');
+            review_after = gc_review_after ('layer_delete'), event = 'layer_delete';
     RETURN NULL;
 END;
 $$;
@@ -91,11 +91,11 @@ CREATE FUNCTION public.gc_track_deleted_manifests ()
     AS $$
 BEGIN
     IF OLD.configuration_blob_digest IS NOT NULL THEN
-        INSERT INTO gc_blob_review_queue (digest, review_after)
-            VALUES (OLD.configuration_blob_digest, gc_review_after ('manifest_delete'))
+        INSERT INTO gc_blob_review_queue (digest, review_after, event)
+            VALUES (OLD.configuration_blob_digest, gc_review_after ('manifest_delete'), 'manifest_delete')
         ON CONFLICT (digest)
             DO UPDATE SET
-                review_after = gc_review_after ('manifest_delete');
+                review_after = gc_review_after ('manifest_delete'), event = 'manifest_delete';
     END IF;
     RETURN NULL;
 END;
@@ -6859,7 +6859,9 @@ CREATE TABLE public.gc_blob_review_queue (
     review_after timestamp with time zone DEFAULT (now() + '1 day'::interval) NOT NULL,
     review_count integer DEFAULT 0 NOT NULL,
     digest bytea NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    event text,
+    CONSTRAINT check_gc_blob_review_queue_event_length CHECK ((char_length(event) <= 255))
 );
 
 ALTER TABLE public.gc_blobs_configurations

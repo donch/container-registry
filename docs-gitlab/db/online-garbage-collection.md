@@ -81,11 +81,11 @@ CREATE FUNCTION gc_track_blob_uploads ()
     RETURNS TRIGGER
     AS $$
 BEGIN
-    INSERT INTO gc_blob_review_queue (digest, review_after)
-        VALUES (NEW.digest, gc_review_after('blob_upload'))
+    INSERT INTO gc_blob_review_queue (digest, review_after, event)
+        VALUES (NEW.digest, gc_review_after('blob_upload'), 'blob_upload')
     ON CONFLICT (digest)
         DO UPDATE SET
-            review_after = gc_review_after('blob_upload');
+            review_after = gc_review_after('blob_upload'), event = 'blob_upload';
     RETURN NULL;
 END;
 $$
@@ -229,11 +229,11 @@ CREATE FUNCTION gc_track_deleted_manifests ()
     AS $$
 BEGIN
     IF OLD.configuration_blob_digest IS NOT NULL THEN -- not all manifests have a configuration
-        INSERT INTO gc_blob_review_queue (digest, review_after)
-            VALUES (OLD.configuration_blob_digest, gc_review_after('manifest_delete'))
+        INSERT INTO gc_blob_review_queue (digest, review_after, event)
+            VALUES (OLD.configuration_blob_digest, gc_review_after('manifest_delete'), 'manifest_delete')
         ON CONFLICT (digest)
             DO UPDATE SET
-                review_after = gc_review_after('manifest_delete');
+                review_after = gc_review_after('manifest_delete'), event = 'manifest_delete';
     END IF;
     RETURN NULL;
 END;
@@ -244,11 +244,11 @@ CREATE FUNCTION gc_track_deleted_layers ()
     RETURNS TRIGGER
     AS $$
 BEGIN
-    INSERT INTO gc_blob_review_queue (digest, review_after)
-        VALUES (OLD.digest, gc_review_after('layer_delete'))
+    INSERT INTO gc_blob_review_queue (digest, review_after, event)
+        VALUES (OLD.digest, gc_review_after('layer_delete'), 'layer_delete')
     ON CONFLICT (digest)
         DO UPDATE SET
-            review_after = gc_review_after('layer_delete');
+            review_after = gc_review_after('layer_delete'), event = 'layer_delete';
     RETURN NULL;
 END;
 $$
@@ -278,11 +278,11 @@ CREATE FUNCTION gc_track_deleted_manifest_lists ()
     RETURNS TRIGGER
     AS $$
 BEGIN
-    INSERT INTO gc_manifest_review_queue (top_level_namespace_id, repository_id, manifest_id, review_after)
-        VALUES (OLD.top_level_namespace_id, OLD.repository_id, OLD.child_id, gc_review_after('manifest_list_delete'))
+    INSERT INTO gc_manifest_review_queue (top_level_namespace_id, repository_id, manifest_id, review_after, event)
+        VALUES (OLD.top_level_namespace_id, OLD.repository_id, OLD.child_id, gc_review_after('manifest_list_delete'), 'manifest_list_delete')
     ON CONFLICT (top_level_namespace_id, repository_id, manifest_id)
         DO UPDATE SET
-            review_after = gc_review_after('manifest_list_delete');
+            review_after = gc_review_after('manifest_list_delete'), event = 'manifest_list_delete';
     RETURN NULL;
 END;
 $$
@@ -319,11 +319,11 @@ BEGIN
         WHERE
             repository_id = OLD.repository_id
             AND id = OLD.manifest_id) THEN
-        INSERT INTO gc_manifest_review_queue (top_level_namespace_id, repository_id, manifest_id, review_after)
-            VALUES (OLD.top_level_namespace_id, OLD.repository_id, OLD.manifest_id, gc_review_after('tag_delete'))
+        INSERT INTO gc_manifest_review_queue (top_level_namespace_id, repository_id, manifest_id, review_after, event)
+            VALUES (OLD.top_level_namespace_id, OLD.repository_id, OLD.manifest_id, gc_review_after('tag_delete'), 'tag_delete')
         ON CONFLICT (top_level_namespace_id, repository_id, manifest_id)
             DO UPDATE SET
-                review_after = gc_review_after('tag_delete');
+                review_after = gc_review_after('tag_delete'), event = 'tag_delete';
     END IF;
     RETURN NULL;
 END;
@@ -364,11 +364,11 @@ CREATE FUNCTION gc_track_switched_tags ()
     RETURNS TRIGGER
     AS $$
 BEGIN
-    INSERT INTO gc_manifest_review_queue (top_level_namespace_id, repository_id, manifest_id, review_after)
-        VALUES (OLD.top_level_namespace_id, OLD.repository_id, OLD.manifest_id, gc_review_after('tag_switch'))
+    INSERT INTO gc_manifest_review_queue (top_level_namespace_id, repository_id, manifest_id, review_after, event)
+        VALUES (OLD.top_level_namespace_id, OLD.repository_id, OLD.manifest_id, gc_review_after('tag_switch'), 'tag_switch')
     ON CONFLICT (top_level_namespace_id, repository_id, manifest_id)
         DO UPDATE SET
-            review_after = gc_review_after('tag_switch');
+            review_after = gc_review_after('tag_switch'), event = 'tag_switch';
     RETURN NULL;
 END;
 $$
