@@ -20,6 +20,7 @@ func TestOpen(t *testing.T) {
 		dsnFactory func() (*datastore.DSN, error)
 		opts       []datastore.OpenOption
 		wantErr    bool
+		wantErrMsg string
 	}{
 		{
 			name:       "success",
@@ -45,7 +46,21 @@ func TestOpen(t *testing.T) {
 				dsn.DBName = "nonexistent"
 				return dsn, nil
 			},
-			wantErr: true,
+			wantErr:    true,
+			wantErrMsg: `FATAL: database "nonexistent" does not exist`,
+		},
+		{
+			name: "wrong_credentials",
+			dsnFactory: func() (*datastore.DSN, error) {
+				dsn, err := testutil.NewDSNFromEnv()
+				if err != nil {
+					return nil, err
+				}
+				dsn.Password = "bad_password"
+				return dsn, nil
+			},
+			wantErr:    true,
+			wantErrMsg: "FATAL: password authentication failed for user",
 		},
 	}
 	for _, tt := range tests {
@@ -56,6 +71,7 @@ func TestOpen(t *testing.T) {
 			db, err := datastore.Open(dsn)
 			if tt.wantErr {
 				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.wantErrMsg)
 			} else {
 				defer db.Close()
 				require.NoError(t, err)

@@ -345,7 +345,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 			}),
 		)
 		if err != nil {
-			panic(fmt.Sprintf("failed to construct database connection: %v", err))
+			log.Fatalf(fmt.Sprintf("failed to construct database connection: %v", err))
 		}
 
 		// Skip postdeployment migrations to prevent pending post deployment

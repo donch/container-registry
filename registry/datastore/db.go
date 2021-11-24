@@ -261,8 +261,9 @@ func Open(dsn *DSN, opts ...OpenOption) (*DB, error) {
 	config := applyOptions(opts)
 	pgxConfig, err := pgx.ParseConfig(dsn.String())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("datastore: parse config: %w", err)
 	}
+
 	pgxConfig.Logger = &logger{config.logger}
 	pgxConfig.LogLevel = config.logLevel
 	pgxConfig.PreferSimpleProtocol = config.preferSimpleProtocol
@@ -270,7 +271,7 @@ func Open(dsn *DSN, opts ...OpenOption) (*DB, error) {
 	connStr := stdlib.RegisterConnConfig(pgxConfig)
 	db, err := sql.Open(driverName, connStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("open connection handle failed: %w", err)
 	}
 
 	db.SetMaxOpenConns(config.pool.MaxOpen)
@@ -279,7 +280,8 @@ func Open(dsn *DSN, opts ...OpenOption) (*DB, error) {
 	db.SetConnMaxIdleTime(config.pool.MaxIdleTime)
 
 	if err := db.Ping(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("verification failed: %w", err)
 	}
+
 	return &DB{db, dsn}, nil
 }
