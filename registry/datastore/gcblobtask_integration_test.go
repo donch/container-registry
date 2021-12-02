@@ -1,3 +1,4 @@
+//go:build integration
 // +build integration
 
 package datastore_test
@@ -37,21 +38,29 @@ func TestGCBlobTaskStore_FindAll(t *testing.T) {
 			ReviewAfter: testutil.ParseTimestamp(t, "2020-03-05 20:05:35.338639", local),
 			ReviewCount: 0,
 			Digest:      "sha256:c9b1b535fdd91a9855fb7f82348177e5f019329a58c53c47272962dd60f71fc9",
+			CreatedAt:   testutil.ParseTimestamp(t, "2020-03-04 20:05:35.338639", local),
+			Event:       sql.NullString{String: "blob_upload", Valid: true},
 		},
 		{
 			ReviewAfter: testutil.ParseTimestamp(t, "2020-03-05 20:05:35.338639", local),
 			ReviewCount: 3,
 			Digest:      "sha256:6b0937e234ce911b75630b744fb12836fe01bda5f7db203927edbb1390bc7e21",
+			CreatedAt:   testutil.ParseTimestamp(t, "2020-03-04 20:05:35.338639", local),
+			Event:       sql.NullString{String: "blob_upload", Valid: true},
 		},
 		{
 			ReviewAfter: testutil.ParseTimestamp(t, "9999-12-31 23:59:59.999999", local),
 			ReviewCount: 0,
 			Digest:      "sha256:ea8a54fd13889d3649d0a4e45735116474b8a650815a2cda4940f652158579b9",
+			CreatedAt:   testutil.ParseTimestamp(t, "9999-12-30 23:59:59.999999", local),
+			Event:       sql.NullString{String: "blob_upload", Valid: true},
 		},
 		{
 			ReviewAfter: testutil.ParseTimestamp(t, "2020-03-03 17:57:23.405516", local),
 			ReviewCount: 1,
 			Digest:      "sha256:9ead3a93fc9c9dd8f35221b1f22b155a513815b7b00425d6645b34d98e83b073",
+			CreatedAt:   testutil.ParseTimestamp(t, "2020-03-02 17:57:23.405516", local),
+			Event:       sql.NullString{String: "layer_delete", Valid: true},
 		},
 	}
 
@@ -105,6 +114,8 @@ func TestGcBlobTaskStore_Next(t *testing.T) {
 		ReviewAfter: testutil.ParseTimestamp(t, "2020-03-03 17:57:23.405516", local),
 		ReviewCount: 1,
 		Digest:      "sha256:9ead3a93fc9c9dd8f35221b1f22b155a513815b7b00425d6645b34d98e83b073",
+		CreatedAt:   testutil.ParseTimestamp(t, "2020-03-02 17:57:23.405516", local),
+		Event:       sql.NullString{String: "layer_delete", Valid: true},
 	}, b1)
 
 	// The 2nd call should yield the unlocked record with the 2nd oldest review_after. In case of a draw (multiple
@@ -116,6 +127,8 @@ func TestGcBlobTaskStore_Next(t *testing.T) {
 		ReviewAfter: testutil.ParseTimestamp(t, "2020-03-05 20:05:35.338639", local),
 		ReviewCount: 0,
 		Digest:      "sha256:c9b1b535fdd91a9855fb7f82348177e5f019329a58c53c47272962dd60f71fc9",
+		CreatedAt:   testutil.ParseTimestamp(t, "2020-03-04 20:05:35.338639", local),
+		Event:       sql.NullString{String: "blob_upload", Valid: true},
 	}
 	require.Equal(t, expectedB2, b2)
 
@@ -127,6 +140,8 @@ func TestGcBlobTaskStore_Next(t *testing.T) {
 		ReviewAfter: testutil.ParseTimestamp(t, "2020-03-05 20:05:35.338639", local),
 		ReviewCount: 3,
 		Digest:      "sha256:6b0937e234ce911b75630b744fb12836fe01bda5f7db203927edbb1390bc7e21",
+		CreatedAt:   testutil.ParseTimestamp(t, "2020-03-04 20:05:35.338639", local),
+		Event:       sql.NullString{String: "blob_upload", Valid: true},
 	}, b3)
 
 	// Calling Next again yields nothing and does not block, as the remaining unlocked record has a review_after in

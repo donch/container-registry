@@ -1,8 +1,10 @@
+//go:build integration
 // +build integration
 
 package datastore_test
 
 import (
+	"database/sql"
 	"math/rand"
 	"strconv"
 	"testing"
@@ -90,6 +92,8 @@ func TestGC_TrackBlobUploads(t *testing.T) {
 		ReviewAfter: b.CreatedAt.Add(24 * time.Hour),
 		ReviewCount: 0,
 		Digest:      b.Digest,
+		CreatedAt:   b.CreatedAt,
+		Event:       sql.NullString{String: "blob_upload", Valid: true},
 	}, rr[0])
 }
 
@@ -311,6 +315,8 @@ func TestGC_TrackManifestUploads(t *testing.T) {
 		ManifestID:   m.ID,
 		ReviewAfter:  m.CreatedAt.Add(24 * time.Hour),
 		ReviewCount:  0,
+		CreatedAt:    m.CreatedAt,
+		Event:        sql.NullString{String: "manifest_upload", Valid: true},
 	}, tt[0])
 }
 
@@ -378,6 +384,7 @@ func TestGC_TrackDeletedManifests(t *testing.T) {
 	require.Zero(t, count)
 
 	// delete manifest
+	deletedAt := time.Now()
 	ok, err := rs.DeleteManifest(suite.ctx, r, m.Digest)
 	require.NoError(t, err)
 	require.True(t, ok)
@@ -388,8 +395,11 @@ func TestGC_TrackDeletedManifests(t *testing.T) {
 	require.Equal(t, 1, len(tt))
 	require.Equal(t, 0, tt[0].ReviewCount)
 	require.Equal(t, b.Digest, tt[0].Digest)
+	require.Equal(t, sql.NullString{String: "manifest_delete", Valid: true}, tt[0].Event)
 	// ignore the few milliseconds between blob creation and queueing for review in response to the manifest delete
 	require.WithinDuration(t, tt[0].ReviewAfter, b.CreatedAt.Add(24*time.Hour), 200*time.Millisecond)
+	// ignore the few milliseconds between deleting the manifest and queueing task in response to it
+	require.WithinDuration(t, tt[0].CreatedAt, deletedAt, 10*time.Millisecond)
 }
 
 func TestGC_TrackDeletedManifests_PostponeReviewOnConflict(t *testing.T) {
@@ -522,6 +532,7 @@ func TestGC_TrackDeletedLayers(t *testing.T) {
 	require.Zero(t, count)
 
 	// dissociate layer blob
+	timestamp := time.Now()
 	err = ms.DissociateLayerBlob(suite.ctx, m, b)
 	require.NoError(t, err)
 
@@ -531,8 +542,11 @@ func TestGC_TrackDeletedLayers(t *testing.T) {
 	require.Equal(t, 1, len(tt))
 	require.Equal(t, 0, tt[0].ReviewCount)
 	require.Equal(t, b.Digest, tt[0].Digest)
+	require.Equal(t, sql.NullString{String: "layer_delete", Valid: true}, tt[0].Event)
 	// ignore the few milliseconds between blob creation and queueing for review in response to the layer dissociation
 	require.WithinDuration(t, tt[0].ReviewAfter, b.CreatedAt.Add(24*time.Hour), 200*time.Millisecond)
+	// ignore the few milliseconds between dissociating the layer and queueing task in response to it
+	require.WithinDuration(t, tt[0].CreatedAt, timestamp, 10*time.Millisecond)
 }
 
 func TestGC_TrackDeletedLayers_PostponeReviewOnConflict(t *testing.T) {
@@ -663,6 +677,7 @@ func TestGC_TrackDeletedManifestLists(t *testing.T) {
 	require.Zero(t, count)
 
 	// delete manifest list
+	timestamp := time.Now()
 	ok, err := rs.DeleteManifest(suite.ctx, r, ml.Digest)
 	require.NoError(t, err)
 	require.True(t, ok)
@@ -675,8 +690,11 @@ func TestGC_TrackDeletedManifestLists(t *testing.T) {
 	require.Equal(t, r.ID, rr[0].RepositoryID)
 	require.Equal(t, m.ID, rr[0].ManifestID)
 	require.Equal(t, 0, rr[0].ReviewCount)
+	require.Equal(t, sql.NullString{String: "manifest_list_delete", Valid: true}, rr[0].Event)
 	// ignore the few milliseconds between now and queueing for review in response to the manifest list delete
 	require.WithinDuration(t, rr[0].ReviewAfter, time.Now().Add(24*time.Hour), 100*time.Millisecond)
+	// ignore the few milliseconds between deleting the manifest list and queueing task in response to it
+	require.WithinDuration(t, rr[0].CreatedAt, timestamp, 10*time.Millisecond)
 }
 
 func TestGC_TrackDeletedManifestLists_PostponeReviewOnConflict(t *testing.T) {
@@ -812,6 +830,7 @@ func TestGC_TrackSwitchedTags(t *testing.T) {
 	require.NoError(t, err)
 
 	// switch tag to new manifest
+	timestamp := time.Now()
 	err = ts.CreateOrUpdate(suite.ctx, &models.Tag{
 		Name:         "latest",
 		NamespaceID:  r.NamespaceID,
@@ -827,8 +846,11 @@ func TestGC_TrackSwitchedTags(t *testing.T) {
 	require.Equal(t, r.ID, rr[0].RepositoryID)
 	require.Equal(t, m.ID, rr[0].ManifestID)
 	require.Equal(t, 0, rr[0].ReviewCount)
+	require.Equal(t, sql.NullString{String: "tag_switch", Valid: true}, rr[0].Event)
 	// ignore the few milliseconds between manifest creation and queueing for review in response to the tag deletion
 	require.WithinDuration(t, rr[0].ReviewAfter, m.CreatedAt.Add(24*time.Hour), 200*time.Millisecond)
+	// ignore the few milliseconds between switching the tag and queueing task in response to it
+	require.WithinDuration(t, rr[0].CreatedAt, timestamp, 10*time.Millisecond)
 }
 
 func TestGC_TrackSwitchedTags_PostponeReviewOnConflict(t *testing.T) {
@@ -984,6 +1006,7 @@ func TestGC_TrackDeletedTags(t *testing.T) {
 	require.Zero(t, count)
 
 	// delete tag
+	timestamp := time.Now()
 	ok, err := rs.DeleteTagByName(suite.ctx, r, "latest")
 	require.NoError(t, err)
 	require.True(t, ok)
@@ -995,8 +1018,11 @@ func TestGC_TrackDeletedTags(t *testing.T) {
 	require.Equal(t, r.ID, rr[0].RepositoryID)
 	require.Equal(t, m.ID, rr[0].ManifestID)
 	require.Equal(t, 0, rr[0].ReviewCount)
+	require.Equal(t, sql.NullString{String: "tag_delete", Valid: true}, rr[0].Event)
 	// ignore the few milliseconds between manifest creation and queueing for review in response to the tag deletion
 	require.WithinDuration(t, rr[0].ReviewAfter, m.CreatedAt.Add(24*time.Hour), 100*time.Millisecond)
+	// ignore the few milliseconds between deleting the tag and queueing task in response to it
+	require.WithinDuration(t, rr[0].CreatedAt, timestamp, 10*time.Millisecond)
 }
 
 func TestGC_TrackDeletedTags_MultipleTags(t *testing.T) {
@@ -1039,6 +1065,7 @@ func TestGC_TrackDeletedTags_MultipleTags(t *testing.T) {
 	require.Zero(t, count)
 
 	// delete tags
+	timestamp := time.Now()
 	for _, tag := range tags {
 		ok, err := rs.DeleteTagByName(suite.ctx, r, tag)
 		require.NoError(t, err)
@@ -1052,8 +1079,11 @@ func TestGC_TrackDeletedTags_MultipleTags(t *testing.T) {
 	require.Equal(t, r.ID, rr[0].RepositoryID)
 	require.Equal(t, m.ID, rr[0].ManifestID)
 	require.Equal(t, 0, rr[0].ReviewCount)
+	require.Equal(t, sql.NullString{String: "tag_delete", Valid: true}, rr[0].Event)
 	// ignore the few milliseconds between manifest creation and queueing for review in response to the tag deletion
 	require.WithinDuration(t, rr[0].ReviewAfter, m.CreatedAt.Add(24*time.Hour), 200*time.Millisecond)
+	// ignore the few milliseconds between deleting the tags and queueing task in response to it
+	require.WithinDuration(t, rr[0].CreatedAt, timestamp, 10*time.Millisecond)
 }
 
 func TestGC_TrackDeletedTags_ManifestDeleteCascade(t *testing.T) {

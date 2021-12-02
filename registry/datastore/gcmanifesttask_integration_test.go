@@ -1,3 +1,4 @@
+//go:build integration
 // +build integration
 
 package datastore_test
@@ -41,6 +42,8 @@ func TestGCManifestTaskStore_FindAll(t *testing.T) {
 			ManifestID:   7,
 			ReviewAfter:  testutil.ParseTimestamp(t, "2020-04-03 18:45:04.470711", local),
 			ReviewCount:  2,
+			CreatedAt:    testutil.ParseTimestamp(t, "2020-04-02 18:45:04.470711", local),
+			Event:        sql.NullString{String: "manifest_upload", Valid: true},
 		},
 		{
 			NamespaceID:  1,
@@ -48,6 +51,8 @@ func TestGCManifestTaskStore_FindAll(t *testing.T) {
 			ManifestID:   9,
 			ReviewAfter:  testutil.ParseTimestamp(t, "9999-12-31 23:59:59.999999", local),
 			ReviewCount:  0,
+			CreatedAt:    testutil.ParseTimestamp(t, "9999-12-30 23:59:59.999999", local),
+			Event:        sql.NullString{String: "manifest_delete", Valid: true},
 		},
 		{
 			NamespaceID:  1,
@@ -55,6 +60,8 @@ func TestGCManifestTaskStore_FindAll(t *testing.T) {
 			ManifestID:   4,
 			ReviewAfter:  testutil.ParseTimestamp(t, "2020-06-11 09:11:23.655121", local),
 			ReviewCount:  0,
+			CreatedAt:    testutil.ParseTimestamp(t, "2020-06-10 09:11:23.655121", local),
+			Event:        sql.NullString{String: "manifest_list_delete", Valid: true},
 		},
 		{
 			NamespaceID:  1,
@@ -62,6 +69,8 @@ func TestGCManifestTaskStore_FindAll(t *testing.T) {
 			ManifestID:   1,
 			ReviewAfter:  testutil.ParseTimestamp(t, "2020-03-03 17:50:26.461745", local),
 			ReviewCount:  0,
+			CreatedAt:    testutil.ParseTimestamp(t, "2020-03-02 17:50:26.461745", local),
+			Event:        sql.NullString{String: "tag_switch", Valid: true},
 		},
 	}
 
@@ -100,6 +109,8 @@ func TestGCManifestTaskStore_FindAndLock(t *testing.T) {
 		ManifestID:   7,
 		ReviewAfter:  testutil.ParseTimestamp(t, "2020-04-03 18:45:04.470711", local),
 		ReviewCount:  2,
+		CreatedAt:    testutil.ParseTimestamp(t, "2020-04-02 18:45:04.470711", local),
+		Event:        sql.NullString{String: "manifest_upload", Valid: true},
 	}
 
 	require.Equal(t, expected, r)
@@ -174,6 +185,8 @@ func TestGCManifestTaskStore_FindAndLockBefore(t *testing.T) {
 		ManifestID:   7,
 		ReviewAfter:  testutil.ParseTimestamp(t, "2020-04-03 18:45:04.470711", local),
 		ReviewCount:  2,
+		CreatedAt:    testutil.ParseTimestamp(t, "2020-04-02 18:45:04.470711", local),
+		Event:        sql.NullString{String: "manifest_upload", Valid: true},
 	}
 
 	require.Equal(t, expected, r)
@@ -259,6 +272,8 @@ func TestGCManifestTaskStore_FindAndLockNBefore(t *testing.T) {
 			ManifestID:   4,
 			ReviewAfter:  testutil.ParseTimestamp(t, "2020-06-11 09:11:23.655121", local),
 			ReviewCount:  0,
+			CreatedAt:    testutil.ParseTimestamp(t, "2020-06-10 09:11:23.655121", local),
+			Event:        sql.NullString{String: "manifest_list_delete", Valid: true},
 		},
 		{
 			NamespaceID:  1,
@@ -266,6 +281,8 @@ func TestGCManifestTaskStore_FindAndLockNBefore(t *testing.T) {
 			ManifestID:   7,
 			ReviewAfter:  testutil.ParseTimestamp(t, "2020-04-03 18:45:04.470711", local),
 			ReviewCount:  2,
+			CreatedAt:    testutil.ParseTimestamp(t, "2020-04-02 18:45:04.470711", local),
+			Event:        sql.NullString{String: "manifest_upload", Valid: true},
 		},
 	}
 
@@ -351,7 +368,7 @@ func nextGCManifestTask(t *testing.T) (datastore.Transactor, *models.GCManifestT
 	return tx, m
 }
 
-func TestGcManifestTaskStore_Next(t *testing.T) {
+func TestGCManifestTaskStore_Next(t *testing.T) {
 	// see testdata/fixtures/gc_manifest_review_queue.sql
 	reloadGCManifestTaskFixtures(t)
 
@@ -366,6 +383,8 @@ func TestGcManifestTaskStore_Next(t *testing.T) {
 		ManifestID:   1,
 		ReviewAfter:  testutil.ParseTimestamp(t, "2020-03-03 17:50:26.461745", local),
 		ReviewCount:  0,
+		CreatedAt:    testutil.ParseTimestamp(t, "2020-03-02 17:50:26.461745", local),
+		Event:        sql.NullString{String: "tag_switch", Valid: true},
 	}, m1)
 
 	// The 2nd call should yield the unlocked record with the 2nd oldest review_after. In case of a draw (multiple
@@ -379,6 +398,8 @@ func TestGcManifestTaskStore_Next(t *testing.T) {
 		ManifestID:   7,
 		ReviewAfter:  testutil.ParseTimestamp(t, "2020-04-03 18:45:04.470711", local),
 		ReviewCount:  2,
+		CreatedAt:    testutil.ParseTimestamp(t, "2020-04-02 18:45:04.470711", local),
+		Event:        sql.NullString{String: "manifest_upload", Valid: true},
 	}
 	require.Equal(t, expectedM2, m2)
 
@@ -392,6 +413,8 @@ func TestGcManifestTaskStore_Next(t *testing.T) {
 		ManifestID:   4,
 		ReviewAfter:  testutil.ParseTimestamp(t, "2020-06-11 09:11:23.655121", local),
 		ReviewCount:  0,
+		CreatedAt:    testutil.ParseTimestamp(t, "2020-06-10 09:11:23.655121", local),
+		Event:        sql.NullString{String: "manifest_list_delete", Valid: true},
 	}
 	require.Equal(t, expectedM3, m3)
 

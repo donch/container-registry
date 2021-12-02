@@ -116,6 +116,8 @@ func (w *BlobWorker) processTask(ctx context.Context) (bool, error) {
 		"review_after": t.ReviewAfter.UTC(),
 		"review_count": t.ReviewCount,
 		"digest":       t.Digest,
+		"created_at":   t.CreatedAt.UTC(),
+		"event":        t.Event.String,
 	}).Info("processing task")
 
 	dangling, err := bts.IsDangling(ctx, t)

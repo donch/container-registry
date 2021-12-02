@@ -39,7 +39,7 @@ func scanFullGCBlobTasks(rows *sql.Rows) ([]*models.GCBlobTask, error) {
 		var dgst Digest
 		r := new(models.GCBlobTask)
 
-		err := rows.Scan(&r.ReviewAfter, &r.ReviewCount, &dgst)
+		err := rows.Scan(&r.ReviewAfter, &r.ReviewCount, &dgst, &r.CreatedAt, &r.Event)
 		if err != nil {
 			return nil, fmt.Errorf("scanning GC blob task: %w", err)
 		}
@@ -63,7 +63,7 @@ func scanFullGCBlobTask(row *sql.Row) (*models.GCBlobTask, error) {
 	b := new(models.GCBlobTask)
 	var dgst Digest
 
-	err := row.Scan(&b.ReviewAfter, &b.ReviewCount, &dgst)
+	err := row.Scan(&b.ReviewAfter, &b.ReviewCount, &dgst, &b.CreatedAt, &b.Event)
 	if err != nil {
 		return nil, fmt.Errorf("scanning GC blob task: %w", err)
 	}
@@ -84,7 +84,9 @@ func (s *gcBlobTaskStore) FindAll(ctx context.Context) ([]*models.GCBlobTask, er
 	q := `SELECT
 			review_after,
 			review_count,
-			encode(digest, 'hex') as digest
+			encode(digest, 'hex') as digest,
+			created_at,
+			event
 		FROM
 			gc_blob_review_queue`
 	rows, err := s.db.QueryContext(ctx, q)
@@ -120,7 +122,9 @@ func (s *gcBlobTaskStore) Next(ctx context.Context) (*models.GCBlobTask, error) 
 	q := `SELECT
 			review_after,
 			review_count,
-			encode(digest, 'hex') AS digest
+			encode(digest, 'hex') AS digest,
+			created_at,
+			event
 		FROM
 			gc_blob_review_queue
 		WHERE
