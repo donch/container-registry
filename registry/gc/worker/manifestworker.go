@@ -96,6 +96,8 @@ func (w *ManifestWorker) processTask(ctx context.Context) (bool, error) {
 		"review_count":  t.ReviewCount,
 		"repository_id": t.RepositoryID,
 		"manifest_id":   t.ManifestID,
+		"created_at":    t.CreatedAt.UTC(),
+		"event":         t.Event.String,
 	}).Info("processing task")
 
 	dangling, err := mts.IsDangling(ctx, t)

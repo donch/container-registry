@@ -42,7 +42,7 @@ func scanFullGCManifestTasks(rows *sql.Rows) ([]*models.GCManifestTask, error) {
 
 	for rows.Next() {
 		r := new(models.GCManifestTask)
-		err := rows.Scan(&r.NamespaceID, &r.RepositoryID, &r.ManifestID, &r.ReviewAfter, &r.ReviewCount)
+		err := rows.Scan(&r.NamespaceID, &r.RepositoryID, &r.ManifestID, &r.ReviewAfter, &r.ReviewCount, &r.CreatedAt, &r.Event)
 		if err != nil {
 			return nil, fmt.Errorf("scanning GC manifest task: %w", err)
 		}
@@ -58,7 +58,7 @@ func scanFullGCManifestTasks(rows *sql.Rows) ([]*models.GCManifestTask, error) {
 func scanFullGCManifestTask(row *sql.Row) (*models.GCManifestTask, error) {
 	r := new(models.GCManifestTask)
 
-	if err := row.Scan(&r.NamespaceID, &r.RepositoryID, &r.ManifestID, &r.ReviewAfter, &r.ReviewCount); err != nil {
+	if err := row.Scan(&r.NamespaceID, &r.RepositoryID, &r.ManifestID, &r.ReviewAfter, &r.ReviewCount, &r.CreatedAt, &r.Event); err != nil {
 		if err != sql.ErrNoRows {
 			return nil, fmt.Errorf("scanning GC manifest task: %w", err)
 		}
@@ -76,7 +76,9 @@ func (s *gcManifestTaskStore) FindAll(ctx context.Context) ([]*models.GCManifest
 			repository_id,
 			manifest_id,
 			review_after,
-			review_count
+			review_count,
+			created_at,
+			event
 		FROM
 			gc_manifest_review_queue`
 	rows, err := s.db.QueryContext(ctx, q)
@@ -96,7 +98,9 @@ func (s *gcManifestTaskStore) FindAndLock(ctx context.Context, namespaceID, repo
 			repository_id,
 			manifest_id,
 			review_after,
-			review_count
+			review_count,
+			created_at,
+			event
 		FROM
 			gc_manifest_review_queue
 		WHERE
@@ -117,7 +121,9 @@ func (s *gcManifestTaskStore) FindAndLockBefore(ctx context.Context, namespaceID
 			repository_id,
 			manifest_id,
 			review_after,
-			review_count
+			review_count,
+			created_at,
+			event
 		FROM
 			gc_manifest_review_queue
 		WHERE
@@ -139,7 +145,9 @@ func (s *gcManifestTaskStore) FindAndLockNBefore(ctx context.Context, namespaceI
 			repository_id,
 			manifest_id,
 			review_after,
-			review_count
+			review_count,
+			created_at,
+			event
 		FROM
 			gc_manifest_review_queue
 		WHERE
@@ -192,7 +200,9 @@ func (s *gcManifestTaskStore) Next(ctx context.Context) (*models.GCManifestTask,
 			repository_id,
 			manifest_id,
 			review_after,
-			review_count
+			review_count,
+			created_at,
+			event
 		FROM
 			gc_manifest_review_queue
 		WHERE

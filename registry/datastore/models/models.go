@@ -91,6 +91,8 @@ type GCBlobTask struct {
 	ReviewCount int
 	Digest      digest.Digest
 	CreatedAt   time.Time
+	// TODO: replace sql.NullString with string once we're able to add the NOT NULL constraint to the `event` column
+	Event sql.NullString
 }
 
 // GCConfigLink represents a row in the gc_blobs_configurations table.
@@ -119,6 +121,8 @@ type GCManifestTask struct {
 	ReviewAfter  time.Time
 	ReviewCount  int
 	CreatedAt    time.Time
+	// TODO: replace sql.NullString with string once we're able to add the NOT NULL constraint to the `event` column
+	Event sql.NullString
 }
 
 // GCReviewAfterDefault represents a row in the gc_review_after_defaults table.

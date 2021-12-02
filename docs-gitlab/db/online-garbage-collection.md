@@ -584,7 +584,11 @@ The process of reviewing and possibly deleting a manifest or a manifest list (it
    SELECT
        top_level_namespace_id,
        repository_id,
-       manifest_id
+       manifest_id,
+       review_after,
+       review_count,
+       created_at,
+       event
    FROM
        gc_manifest_review_queue
    WHERE
