@@ -41,6 +41,7 @@ type RepositoryReader interface {
 	Blobs(ctx context.Context, r *models.Repository) (models.Blobs, error)
 	FindBlob(ctx context.Context, r *models.Repository, d digest.Digest) (*models.Blob, error)
 	ExistsBlob(ctx context.Context, r *models.Repository, d digest.Digest) (bool, error)
+	Size(ctx context.Context, r *models.Repository) (int64, error)
 }
 
 // RepositoryWriter is the interface that defines write operations for a repository store.
@@ -842,6 +843,55 @@ func (s *repositoryStore) FindTagByName(ctx context.Context, r *models.Repositor
 	row := s.db.QueryRowContext(ctx, q, r.NamespaceID, r.ID, name)
 
 	return scanFullTag(row)
+}
+
+// Size returns the deduplicated size of a repository. This is the sum of the size of all unique layers referenced by
+// at least one tagged (directly or indirectly) manifest. No error is returned if the repository does not exist. It is
+// the caller's responsibility to ensure it exists before calling this method and proceed accordingly if that matters.
+func (s *repositoryStore) Size(ctx context.Context, r *models.Repository) (int64, error) {
+	defer metrics.InstrumentQuery("repository_size")()
+
+	q := `SELECT
+			coalesce(sum(q.size), 0)
+		FROM ( WITH RECURSIVE cte AS (
+				SELECT
+					m.id AS manifest_id
+				FROM
+					manifests AS m
+				WHERE
+					m.top_level_namespace_id = $1
+					AND m.repository_id = $2
+					AND EXISTS (
+						SELECT
+						FROM
+							tags AS t
+						WHERE
+							t.top_level_namespace_id = m.top_level_namespace_id
+							AND t.repository_id = m.repository_id
+							AND t.manifest_id = m.id)
+					UNION
+					SELECT
+						mr.child_id AS manifest_id
+					FROM
+						manifest_references AS mr
+						JOIN cte ON mr.parent_id = cte.manifest_id
+					WHERE
+						mr.top_level_namespace_id = $1
+						AND mr.repository_id = $2)
+					SELECT DISTINCT ON (l.digest)
+						l.size
+					FROM
+						layers AS l
+						JOIN cte ON l.top_level_namespace_id = $1
+							AND l.repository_id = $2
+							AND l.manifest_id = cte.manifest_id) AS q`
+
+	var size int64
+	if err := s.db.QueryRowContext(ctx, q, r.NamespaceID, r.ID).Scan(&size); err != nil {
+		return 0, fmt.Errorf("calculating repository size: %w", err)
+	}
+
+	return size, nil
 }
 
 // CreateOrFind attempts to create a repository. If the repository already exists (same path) that record is loaded from

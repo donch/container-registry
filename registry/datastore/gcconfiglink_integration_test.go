@@ -1,3 +1,4 @@
+//go:build integration
 // +build integration
 
 package datastore_test
@@ -44,6 +45,13 @@ func TestGCConfigLinkStore_FindAll(t *testing.T) {
 	// see testdata/fixtures/gc_blobs_configurations.sql
 	expected := []*models.GCConfigLink{
 		{
+			ID:           9,
+			NamespaceID:  3,
+			RepositoryID: 10,
+			ManifestID:   14,
+			Digest:       "sha256:829ae805ecbcdd4165484a69f5f65c477da69c9f181887f7953022cba209525e",
+		},
+		{
 			ID:           2,
 			NamespaceID:  1,
 			RepositoryID: 3,
@@ -65,6 +73,13 @@ func TestGCConfigLinkStore_FindAll(t *testing.T) {
 			Digest:       "sha256:9ead3a93fc9c9dd8f35221b1f22b155a513815b7b00425d6645b34d98e83b073",
 		},
 		{
+			ID:           8,
+			NamespaceID:  3,
+			RepositoryID: 10,
+			ManifestID:   13,
+			Digest:       "sha256:b051081eac10ae5607e7846677924d7ac3824954248d0247e0d24dd5063fb4c0",
+		},
+		{
 			ID:           1,
 			NamespaceID:  1,
 			RepositoryID: 3,
@@ -84,6 +99,20 @@ func TestGCConfigLinkStore_FindAll(t *testing.T) {
 			RepositoryID: 7,
 			ManifestID:   10,
 			Digest:       "sha256:ea8a54fd13889d3649d0a4e45735116474b8a650815a2cda4940f652158579b9",
+		},
+		{
+			ID:           10,
+			NamespaceID:  3,
+			RepositoryID: 10,
+			ManifestID:   15,
+			Digest:       "sha256:0a450fb93c7bd4ee53d05ba63842d6c2cf73089198cbaccc115d470e6ae2ffc9",
+		},
+		{
+			ID:           11,
+			NamespaceID:  3,
+			RepositoryID: 10,
+			ManifestID:   17,
+			Digest:       "sha256:3ded4e17612c66f216041fe6f15002d9406543192095d689f14e8063b1a503df",
 		},
 		{
 			ID:           3,
@@ -114,5 +143,5 @@ func TestGcConfigLinkStore_Count(t *testing.T) {
 	require.NoError(t, err)
 
 	// see testdata/fixtures/gc_blobs_configurations.sql
-	require.Equal(t, 7, count)
+	require.Equal(t, 11, count)
 }
