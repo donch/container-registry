@@ -1,3 +1,4 @@
+//go:build integration
 // +build integration
 
 package datastore_test
@@ -139,6 +140,38 @@ func TestTagStore_FindAll(t *testing.T) {
 			ManifestID:   7,
 			CreatedAt:    testutil.ParseTimestamp(t, "2020-04-15 09:47:26.461413", local),
 		},
+		{
+			ID:           9,
+			NamespaceID:  3,
+			Name:         "a",
+			RepositoryID: 10,
+			ManifestID:   12,
+			CreatedAt:    testutil.ParseTimestamp(t, "2021-11-24 11:36:05.210908", local),
+		},
+		{
+			ID:           10,
+			NamespaceID:  3,
+			Name:         "b",
+			RepositoryID: 10,
+			ManifestID:   13,
+			CreatedAt:    testutil.ParseTimestamp(t, "2021-11-24 11:38:57.313230", local),
+		},
+		{
+			ID:           11,
+			NamespaceID:  3,
+			Name:         "c",
+			RepositoryID: 10,
+			ManifestID:   16,
+			CreatedAt:    testutil.ParseTimestamp(t, "2021-11-24 11:49:45.008435", local),
+		},
+		{
+			ID:           12,
+			NamespaceID:  3,
+			Name:         "d",
+			RepositoryID: 10,
+			ManifestID:   18,
+			CreatedAt:    testutil.ParseTimestamp(t, "2021-11-24 11:59:13.421427", local),
+		},
 	}
 	require.Equal(t, expected, tt)
 }
@@ -161,7 +194,7 @@ func TestTagStore_Count(t *testing.T) {
 	require.NoError(t, err)
 
 	// see testdata/fixtures/tags.sql
-	require.Equal(t, 8, count)
+	require.Equal(t, 12, count)
 }
 
 func TestTagStore_Repository(t *testing.T) {

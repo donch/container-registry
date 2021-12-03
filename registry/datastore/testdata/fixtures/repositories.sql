@@ -5,4 +5,7 @@ VALUES (1, 1, 'gitlab-org', 'gitlab-org', NULL, '2020-03-02 17:47:39.849864+00')
        (4, 1, 'frontend', 'gitlab-org/gitlab-test/frontend', 2, '2020-03-02 17:43:39.476421+00'),
        (5, 2, 'a-test-group', 'a-test-group', NULL, '2020-06-08 16:01:39.476421+00'),
        (6, 2, 'foo', 'a-test-group/foo', 5, '2020-06-08 16:01:39.476421+00'),
-       (7, 2, 'bar', 'a-test-group/bar', 5, '2020-06-08 16:01:39.476421+00');
+       (7, 2, 'bar', 'a-test-group/bar', 5, '2020-06-08 16:01:39.476421+00'),
+       (8, 3, 'usage-group', 'usage-group', NULL, '2021-11-24 11:36:04.692846+00'),
+       (9, 3, 'sub-group-1', 'usage-group/sub-group-1', 8, '2021-11-24 11:36:04.692846+00'),
+       (10, 3, 'repository-1', 'usage-group/sub-group-1/repository-1', 9, '2021-11-24 11:36:04.692846+00');
