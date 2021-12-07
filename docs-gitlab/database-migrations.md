@@ -41,6 +41,38 @@ END;
 $$;
 ```
 
+##### Insert Rows
+
+When inserting rows on tables we should take care to ensure idempotency. This means
+that trying to insert a row that is already there should not result in an error.
+
+The simplest approach is an `INSERT ... ON CONFLICT DO NOTHING` query, such as:
+
+```sql
+INSERT INTO media_types (media_type)
+    VALUES ('my.media.type.1'), ('my.media.type.N')
+ON CONFLICT
+    DO NOTHING;
+```
+
+However, if the target tables have a `smallint` as primary key, which is the case
+for `media_types`, we should avoid unnecessary increments to the primary key
+sequence, which will happen for every insert where the `ON CONFLICT` clause is
+triggered, i.e., the row(s) already exist. Therefore, we should use the following
+strategy for these situations: 
+
+```sql
+INSERT INTO media_types (media_type)
+    VALUES ('my.media.type.1'), ('my.media.type.N')
+EXCEPT
+SELECT
+    media_type
+FROM
+    media_types;
+```
+
+Please note that this is not appropriate for large and/or partitioned tables, as it triggers a scan on the whole table to eliminate rows it might insert.
+
 ## Development
 
 ### Create Database
