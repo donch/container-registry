@@ -136,13 +136,13 @@ func (a *Agent) Start(ctx context.Context) error {
 			l.Info("running worker")
 
 			report := metrics.WorkerRun(a.worker.Name())
-			found, err := a.worker.Run(wCtx)
-			if err != nil {
-				l.WithError(err).Error("failed run")
-			} else if found || a.noIdleBackoff {
+			res := a.worker.Run(wCtx)
+			if res.Err != nil {
+				l.WithError(res.Err).Error("failed run")
+			} else if res.Found || a.noIdleBackoff {
 				b.Reset()
 			}
-			report(!found, err)
+			report(!res.Found, res.Dangling, res.Err)
 			l.WithFields(log.Fields{"duration_s": systemClock.Since(start).Seconds()}).Info("run complete")
 
 			sleep := b.NextBackOff()

@@ -8,6 +8,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	worker "github.com/docker/distribution/registry/gc/worker"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -49,12 +50,11 @@ func (mr *MockWorkerMockRecorder) Name() *gomock.Call {
 }
 
 // Run mocks base method.
-func (m *MockWorker) Run(arg0 context.Context) (bool, error) {
+func (m *MockWorker) Run(arg0 context.Context) worker.RunResult {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Run", arg0)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(worker.RunResult)
+	return ret0
 }
 
 // Run indicates an expected call of Run.
