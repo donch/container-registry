@@ -127,9 +127,10 @@ func TestBlobWorker_processTask(t *testing.T) {
 		txMock.EXPECT().Rollback().Return(sql.ErrTxDone).Times(1),
 	)
 
-	found, err := w.processTask(context.Background())
-	require.NoError(t, err)
-	require.True(t, found)
+	res := w.processTask(context.Background())
+	require.NoError(t, res.Err)
+	require.True(t, res.Found)
+	require.True(t, res.Dangling)
 }
 
 func TestBlobWorker_processTask_BeginTxError(t *testing.T) {
@@ -143,9 +144,10 @@ func TestBlobWorker_processTask_BeginTxError(t *testing.T) {
 	dbCtx := testutil.IsContextWithDeadline{Deadline: clockMock.Now().Add(defaultTxTimeout)}
 	dbMock.EXPECT().BeginTx(dbCtx, nil).Return(nil, fakeErrorA).Times(1)
 
-	found, err := w.processTask(context.Background())
-	require.EqualError(t, err, fmt.Errorf("creating database transaction: %w", fakeErrorA).Error())
-	require.False(t, found)
+	res := w.processTask(context.Background())
+	require.EqualError(t, res.Err, fmt.Errorf("creating database transaction: %w", fakeErrorA).Error())
+	require.False(t, res.Found)
+	require.False(t, res.Dangling)
 }
 
 func TestBlobWorker_processTask_NextError(t *testing.T) {
@@ -166,9 +168,10 @@ func TestBlobWorker_processTask_NextError(t *testing.T) {
 		txMock.EXPECT().Rollback().Return(nil).Times(1),
 	)
 
-	found, err := w.processTask(context.Background())
-	require.EqualError(t, err, fakeErrorA.Error())
-	require.False(t, found)
+	res := w.processTask(context.Background())
+	require.EqualError(t, res.Err, fakeErrorA.Error())
+	require.False(t, res.Found)
+	require.False(t, res.Dangling)
 }
 
 func TestBlobWorker_processTask_None(t *testing.T) {
@@ -190,9 +193,10 @@ func TestBlobWorker_processTask_None(t *testing.T) {
 		txMock.EXPECT().Rollback().Return(sql.ErrTxDone).Times(1),
 	)
 
-	found, err := w.processTask(context.Background())
-	require.NoError(t, err)
-	require.False(t, found)
+	res := w.processTask(context.Background())
+	require.NoError(t, res.Err)
+	require.False(t, res.Found)
+	require.False(t, res.Dangling)
 }
 
 func TestBlobWorker_processTask_None_CommitError(t *testing.T) {
@@ -214,9 +218,10 @@ func TestBlobWorker_processTask_None_CommitError(t *testing.T) {
 		txMock.EXPECT().Rollback().Return(nil).Times(1),
 	)
 
-	found, err := w.processTask(context.Background())
-	require.EqualError(t, err, fmt.Errorf("committing database transaction: %w", fakeErrorA).Error())
-	require.False(t, found)
+	res := w.processTask(context.Background())
+	require.EqualError(t, res.Err, fmt.Errorf("committing database transaction: %w", fakeErrorA).Error())
+	require.False(t, res.Found)
+	require.False(t, res.Dangling)
 }
 
 func TestBlobWorker_processTask_IsDanglingError(t *testing.T) {
@@ -241,9 +246,10 @@ func TestBlobWorker_processTask_IsDanglingError(t *testing.T) {
 		txMock.EXPECT().Rollback().Return(nil).Times(1),
 	)
 
-	found, err := w.processTask(context.Background())
-	require.EqualError(t, err, sql.ErrConnDone.Error())
-	require.True(t, found)
+	res := w.processTask(context.Background())
+	require.EqualError(t, res.Err, sql.ErrConnDone.Error())
+	require.True(t, res.Found)
+	require.False(t, res.Dangling)
 }
 
 func TestBlobWorker_processTask_IsDanglingErrorAndPostponeError(t *testing.T) {
@@ -267,15 +273,16 @@ func TestBlobWorker_processTask_IsDanglingErrorAndPostponeError(t *testing.T) {
 		txMock.EXPECT().Rollback().Return(nil).Times(1),
 	)
 
-	found, err := w.processTask(context.Background())
+	res := w.processTask(context.Background())
 	expectedErr := multierror.Error{
 		Errors: []error{
 			fakeErrorA,
 			fakeErrorB,
 		},
 	}
-	require.EqualError(t, err, expectedErr.Error())
-	require.True(t, found)
+	require.EqualError(t, res.Err, expectedErr.Error())
+	require.True(t, res.Found)
+	require.False(t, res.Dangling)
 }
 
 func TestBlobWorker_processTask_IsDanglingErrorAndPostponeCommitError(t *testing.T) {
@@ -300,15 +307,16 @@ func TestBlobWorker_processTask_IsDanglingErrorAndPostponeCommitError(t *testing
 		txMock.EXPECT().Rollback().Return(sql.ErrConnDone).Times(1),
 	)
 
-	found, err := w.processTask(context.Background())
+	res := w.processTask(context.Background())
 	expectedErr := multierror.Error{
 		Errors: []error{
 			fakeErrorA,
 			fmt.Errorf("committing database transaction: %s", fakeErrorB),
 		},
 	}
-	require.EqualError(t, err, expectedErr.Error())
-	require.True(t, found)
+	require.EqualError(t, res.Err, expectedErr.Error())
+	require.True(t, res.Found)
+	require.False(t, res.Dangling)
 }
 
 func TestBlobWorker_processTask_IsDanglingDeadlineExceededError(t *testing.T) {
@@ -331,9 +339,10 @@ func TestBlobWorker_processTask_IsDanglingDeadlineExceededError(t *testing.T) {
 		txMock.EXPECT().Rollback().Return(nil).Times(1),
 	)
 
-	found, err := w.processTask(context.Background())
-	require.EqualError(t, err, context.DeadlineExceeded.Error())
-	require.True(t, found)
+	res := w.processTask(context.Background())
+	require.EqualError(t, res.Err, context.DeadlineExceeded.Error())
+	require.True(t, res.Found)
+	require.False(t, res.Dangling)
 }
 
 func TestBlobWorker_processTask_StoreDeleteNotFoundError(t *testing.T) {
@@ -362,9 +371,10 @@ func TestBlobWorker_processTask_StoreDeleteNotFoundError(t *testing.T) {
 		txMock.EXPECT().Rollback().Return(sql.ErrTxDone).Times(1),
 	)
 
-	found, err := w.processTask(context.Background())
-	require.NoError(t, err)
-	require.True(t, found)
+	res := w.processTask(context.Background())
+	require.NoError(t, res.Err)
+	require.True(t, res.Found)
+	require.True(t, res.Dangling)
 }
 
 func TestBlobWorker_processTask_StoreDeleteDeadlineExceededError(t *testing.T) {
@@ -391,9 +401,10 @@ func TestBlobWorker_processTask_StoreDeleteDeadlineExceededError(t *testing.T) {
 		txMock.EXPECT().Rollback().Return(sql.ErrTxDone).Times(1),
 	)
 
-	found, err := w.processTask(context.Background())
-	require.EqualError(t, err, context.DeadlineExceeded.Error())
-	require.True(t, found)
+	res := w.processTask(context.Background())
+	require.EqualError(t, res.Err, context.DeadlineExceeded.Error())
+	require.True(t, res.Found)
+	require.True(t, res.Dangling)
 }
 
 func TestBlobWorker_processTask_StoreDeleteUnknownError(t *testing.T) {
@@ -423,9 +434,10 @@ func TestBlobWorker_processTask_StoreDeleteUnknownError(t *testing.T) {
 		txMock.EXPECT().Rollback().Return(sql.ErrTxDone).Times(1),
 	)
 
-	found, err := w.processTask(context.Background())
-	require.EqualError(t, err, fakeErrorA.Error())
-	require.True(t, found)
+	res := w.processTask(context.Background())
+	require.EqualError(t, res.Err, fakeErrorA.Error())
+	require.True(t, res.Found)
+	require.True(t, res.Dangling)
 }
 
 func TestBlobWorker_processTask_StoreDeleteUnknownErrorAndPostponeError(t *testing.T) {
@@ -454,15 +466,16 @@ func TestBlobWorker_processTask_StoreDeleteUnknownErrorAndPostponeError(t *testi
 		txMock.EXPECT().Rollback().Return(nil).Times(1),
 	)
 
-	found, err := w.processTask(context.Background())
+	res := w.processTask(context.Background())
 	expectedErr := multierror.Error{
 		Errors: []error{
 			fakeErrorA,
 			fakeErrorB,
 		},
 	}
-	require.EqualError(t, err, expectedErr.Error())
-	require.True(t, found)
+	require.EqualError(t, res.Err, expectedErr.Error())
+	require.True(t, res.Found)
+	require.True(t, res.Dangling)
 }
 
 func TestBlobWorker_processTask_VacuumNotFoundError(t *testing.T) {
@@ -491,9 +504,10 @@ func TestBlobWorker_processTask_VacuumNotFoundError(t *testing.T) {
 		txMock.EXPECT().Rollback().Return(sql.ErrTxDone).Times(1),
 	)
 
-	found, err := w.processTask(context.Background())
-	require.NoError(t, err)
-	require.True(t, found)
+	res := w.processTask(context.Background())
+	require.NoError(t, res.Err)
+	require.True(t, res.Found)
+	require.True(t, res.Dangling)
 }
 
 func TestBlobWorker_processTask_VacuumUnknownError(t *testing.T) {
@@ -521,9 +535,10 @@ func TestBlobWorker_processTask_VacuumUnknownError(t *testing.T) {
 		txMock.EXPECT().Rollback().Return(sql.ErrTxDone).Times(1),
 	)
 
-	found, err := w.processTask(context.Background())
-	require.EqualError(t, err, fmt.Errorf("deleting blob from storage: %w", fakeErrorA).Error())
-	require.True(t, found)
+	res := w.processTask(context.Background())
+	require.EqualError(t, res.Err, fmt.Errorf("deleting blob from storage: %w", fakeErrorA).Error())
+	require.True(t, res.Found)
+	require.True(t, res.Dangling)
 }
 
 func TestBlobWorker_processTask_FindByDigestError(t *testing.T) {
@@ -552,15 +567,16 @@ func TestBlobWorker_processTask_FindByDigestError(t *testing.T) {
 		txMock.EXPECT().Rollback().Return(nil).Times(1),
 	)
 
-	found, err := w.processTask(context.Background())
+	res := w.processTask(context.Background())
 	expectedErr := multierror.Error{
 		Errors: []error{
 			fakeErrorA,
 			fakeErrorB,
 		},
 	}
-	require.EqualError(t, err, expectedErr.Error())
-	require.True(t, found)
+	require.EqualError(t, res.Err, expectedErr.Error())
+	require.True(t, res.Found)
+	require.True(t, res.Dangling)
 }
 
 func TestBlobWorker_processTask_FindByDigestNotFound(t *testing.T) {
@@ -589,9 +605,10 @@ func TestBlobWorker_processTask_FindByDigestNotFound(t *testing.T) {
 		txMock.EXPECT().Rollback().Return(sql.ErrTxDone).Times(1),
 	)
 
-	found, err := w.processTask(context.Background())
-	require.NoError(t, err)
-	require.True(t, found)
+	res := w.processTask(context.Background())
+	require.NoError(t, res.Err)
+	require.True(t, res.Found)
+	require.True(t, res.Dangling)
 }
 
 func TestBlobWorker_processTask_VacuumUnknownErrorAndPostponeError(t *testing.T) {
@@ -618,15 +635,16 @@ func TestBlobWorker_processTask_VacuumUnknownErrorAndPostponeError(t *testing.T)
 		txMock.EXPECT().Rollback().Return(sql.ErrTxDone).Times(1),
 	)
 
-	found, err := w.processTask(context.Background())
+	res := w.processTask(context.Background())
 	expectedErr := multierror.Error{
 		Errors: []error{
 			fmt.Errorf("deleting blob from storage: %w", fakeErrorA),
 			fakeErrorB,
 		},
 	}
-	require.EqualError(t, err, expectedErr.Error())
-	require.True(t, found)
+	require.EqualError(t, res.Err, expectedErr.Error())
+	require.True(t, res.Found)
+	require.True(t, res.Dangling)
 }
 
 func TestBlobWorker_processTask_IsDanglingNo(t *testing.T) {
@@ -652,9 +670,10 @@ func TestBlobWorker_processTask_IsDanglingNo(t *testing.T) {
 		txMock.EXPECT().Rollback().Return(sql.ErrTxDone).Times(1),
 	)
 
-	found, err := w.processTask(context.Background())
-	require.NoError(t, err)
-	require.True(t, found)
+	res := w.processTask(context.Background())
+	require.NoError(t, res.Err)
+	require.True(t, res.Found)
+	require.False(t, res.Dangling)
 }
 
 func TestBlobWorker_processTask_IsDanglingNo_DeleteTaskError(t *testing.T) {
@@ -678,9 +697,10 @@ func TestBlobWorker_processTask_IsDanglingNo_DeleteTaskError(t *testing.T) {
 		txMock.EXPECT().Rollback().Return(sql.ErrTxDone).Times(1),
 	)
 
-	found, err := w.processTask(context.Background())
-	require.EqualError(t, err, fakeErrorA.Error())
-	require.True(t, found)
+	res := w.processTask(context.Background())
+	require.EqualError(t, res.Err, fakeErrorA.Error())
+	require.True(t, res.Found)
+	require.False(t, res.Dangling)
 }
 
 func TestBlobWorker_processTask_IsDanglingNo_CommitError(t *testing.T) {
@@ -706,9 +726,10 @@ func TestBlobWorker_processTask_IsDanglingNo_CommitError(t *testing.T) {
 		txMock.EXPECT().Rollback().Return(sql.ErrConnDone).Times(1),
 	)
 
-	found, err := w.processTask(context.Background())
-	require.EqualError(t, err, fmt.Errorf("committing database transaction: %s", fakeErrorA).Error())
-	require.True(t, found)
+	res := w.processTask(context.Background())
+	require.EqualError(t, res.Err, fmt.Errorf("committing database transaction: %s", fakeErrorA).Error())
+	require.True(t, res.Found)
+	require.False(t, res.Dangling)
 }
 
 func TestBlobWorker_processTask_RollbackOnExitUnknownError(t *testing.T) {
@@ -730,9 +751,10 @@ func TestBlobWorker_processTask_RollbackOnExitUnknownError(t *testing.T) {
 		txMock.EXPECT().Rollback().Return(sql.ErrConnDone).Times(1),
 	)
 
-	found, err := w.processTask(context.Background())
-	require.EqualError(t, err, fakeErrorA.Error())
-	require.False(t, found)
+	res := w.processTask(context.Background())
+	require.EqualError(t, res.Err, fakeErrorA.Error())
+	require.False(t, res.Found)
+	require.False(t, res.Dangling)
 }
 
 func TestBlobWorker_Run(t *testing.T) {
@@ -755,9 +777,10 @@ func TestBlobWorker_Run(t *testing.T) {
 		txMock.EXPECT().Rollback().Return(sql.ErrTxDone).Times(1),
 	)
 
-	found, err := w.Run(context.Background())
-	require.NoError(t, err)
-	require.False(t, found)
+	res := w.Run(context.Background())
+	require.NoError(t, res.Err)
+	require.False(t, res.Found)
+	require.False(t, res.Dangling)
 }
 
 func TestBlobWorker_Run_Error(t *testing.T) {
@@ -774,7 +797,8 @@ func TestBlobWorker_Run_Error(t *testing.T) {
 
 	dbMock.EXPECT().BeginTx(dbCtx, nil).Return(nil, fakeErrorA).Times(1)
 
-	found, err := w.Run(context.Background())
-	require.EqualError(t, err, fmt.Errorf("processing task: creating database transaction: %w", fakeErrorA).Error())
-	require.False(t, found)
+	res := w.Run(context.Background())
+	require.EqualError(t, res.Err, fmt.Errorf("processing task: creating database transaction: %w", fakeErrorA).Error())
+	require.False(t, res.Found)
+	require.False(t, res.Dangling)
 }

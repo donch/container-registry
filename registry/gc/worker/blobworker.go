@@ -83,35 +83,43 @@ func NewBlobWorker(db datastore.Handler, storageDeleter driver.StorageDeleter, o
 }
 
 // Run implements Worker.
-func (w *BlobWorker) Run(ctx context.Context) (bool, error) {
+func (w *BlobWorker) Run(ctx context.Context) RunResult {
 	return w.run(ctx, w)
 }
 
-func (w *BlobWorker) processTask(ctx context.Context) (bool, error) {
+func (w *BlobWorker) processTask(ctx context.Context) RunResult {
 	l := log.GetLogger(log.WithContext(ctx))
 
 	// don't let the database transaction run for longer than w.txTimeout
 	ctx, cancel := context.WithDeadline(ctx, systemClock.Now().Add(w.txTimeout))
 	defer cancel()
 
+	var res RunResult
 	tx, err := w.db.BeginTx(ctx, nil)
 	if err != nil {
-		return false, fmt.Errorf("creating database transaction: %w", err)
+		res.Err = fmt.Errorf("creating database transaction: %w", err)
+		return res
 	}
 	defer w.rollbackOnExit(ctx, tx)
 
 	bts := blobTaskStoreConstructor(tx)
 	t, err := bts.Next(ctx)
 	if err != nil {
-		return false, err
+		res.Err = err
+		return res
 	}
 	if t == nil {
 		l.Info("no task available")
 		if err := tx.Commit(); err != nil {
-			return false, fmt.Errorf("committing database transaction: %w", err)
+			res.Err = fmt.Errorf("committing database transaction: %w", err)
+			return res
 		}
-		return false, nil
+		return res
 	}
+
+	res.Found = true
+	res.Event = t.Event.String
+
 	l.WithFields(log.Fields{
 		"review_after": t.ReviewAfter.UTC(),
 		"review_count": t.ReviewCount,
@@ -132,13 +140,16 @@ func (w *BlobWorker) processTask(ctx context.Context) (bool, error) {
 				err = multierror.Append(err, innerErr)
 			}
 		}
-		return true, err
+		res.Err = err
+		return res
 	}
 
+	res.Dangling = dangling
 	if dangling {
 		l.Info("the blob is dangling")
 		if err := w.deleteBlob(ctx, tx, t); err != nil {
-			return true, err
+			res.Err = err
+			return res
 		}
 	} else {
 		l.Info("the blob is not dangling")
@@ -146,13 +157,15 @@ func (w *BlobWorker) processTask(ctx context.Context) (bool, error) {
 
 	l.Info("deleting task")
 	if err := bts.Delete(ctx, t); err != nil {
-		return true, err
+		res.Err = err
+		return res
 	}
 	if err := tx.Commit(); err != nil {
-		return true, fmt.Errorf("committing database transaction: %w", err)
+		res.Err = fmt.Errorf("committing database transaction: %w", err)
+		return res
 	}
 
-	return true, nil
+	return res
 }
 
 func (w *BlobWorker) deleteBlob(ctx context.Context, tx datastore.Transactor, t *models.GCBlobTask) error {

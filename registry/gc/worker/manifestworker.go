@@ -60,36 +60,43 @@ func NewManifestWorker(db datastore.Handler, opts ...ManifestWorkerOption) *Mani
 }
 
 // Run implements Worker.
-func (w *ManifestWorker) Run(ctx context.Context) (bool, error) {
+func (w *ManifestWorker) Run(ctx context.Context) RunResult {
 	ctx = log.WithLogger(ctx, w.logger)
 	return w.run(ctx, w)
 }
 
-func (w *ManifestWorker) processTask(ctx context.Context) (bool, error) {
+func (w *ManifestWorker) processTask(ctx context.Context) RunResult {
 	l := log.GetLogger(log.WithContext(ctx))
 
 	// don't let the database transaction run for longer than w.txTimeout
 	ctx, cancel := context.WithDeadline(ctx, systemClock.Now().Add(w.txTimeout))
 	defer cancel()
 
+	var res RunResult
 	tx, err := w.db.BeginTx(ctx, nil)
 	if err != nil {
-		return false, fmt.Errorf("creating database transaction: %w", err)
+		res.Err = fmt.Errorf("creating database transaction: %w", err)
+		return res
 	}
 	defer w.rollbackOnExit(ctx, tx)
 
 	mts := manifestTaskStoreConstructor(tx)
 	t, err := mts.Next(ctx)
 	if err != nil {
-		return false, err
+		res.Err = err
+		return res
 	}
 	if t == nil {
 		l.Info("no task available")
 		if err := tx.Commit(); err != nil {
-			return false, fmt.Errorf("committing database transaction: %w", err)
+			res.Err = fmt.Errorf("committing database transaction: %w", err)
+			return res
 		}
-		return false, nil
+		return res
 	}
+
+	res.Found = true
+	res.Event = t.Event.String
 
 	l.WithFields(log.Fields{
 		"review_after":  t.ReviewAfter.UTC(),
@@ -102,27 +109,32 @@ func (w *ManifestWorker) processTask(ctx context.Context) (bool, error) {
 
 	dangling, err := mts.IsDangling(ctx, t)
 	if err != nil {
-		return true, w.handleDBError(ctx, t, err)
+		res.Err = w.handleDBError(ctx, t, err)
+		return res
 	}
 
+	res.Dangling = dangling
 	if dangling {
 		l.Info("the manifest is dangling, deleting")
 		// deleting the manifest cascades to the review queue, so we don't need to delete the task directly here
 		if err := w.deleteManifest(ctx, tx, t); err != nil {
-			return true, w.handleDBError(ctx, t, err)
+			res.Err = w.handleDBError(ctx, t, err)
+			return res
 		}
 	} else {
 		l.Info("the manifest is not dangling, deleting task")
 		if err := mts.Delete(ctx, t); err != nil {
-			return true, w.handleDBError(ctx, t, err)
+			res.Err = w.handleDBError(ctx, t, err)
+			return res
 		}
 	}
 
 	if err := tx.Commit(); err != nil {
-		return true, fmt.Errorf("committing database transaction: %w", err)
+		res.Err = fmt.Errorf("committing database transaction: %w", err)
+		return res
 	}
 
-	return true, nil
+	return res
 }
 
 func (w *ManifestWorker) deleteManifest(ctx context.Context, tx datastore.Transactor, t *models.GCManifestTask) error {

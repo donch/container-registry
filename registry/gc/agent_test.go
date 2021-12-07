@@ -236,7 +236,7 @@ func TestAgent_Start_NoTaskFound(t *testing.T) {
 		clockMock.EXPECT().Sleep(gomock.Any()).Times(1),
 		clockMock.EXPECT().Now().Return(startTime).Times(1),
 		workerMock.EXPECT().Name().Times(1),
-		workerMock.EXPECT().Run(wCtx).Return(false, nil).Times(1),
+		workerMock.EXPECT().Run(wCtx).Return(worker.RunResult{}).Times(1),
 		clockMock.EXPECT().Since(startTime).Return(100*time.Millisecond).Times(1),
 		backoffMock.EXPECT().NextBackOff().Return(backOff).Times(1),
 		workerMock.EXPECT().Name().Times(1),
@@ -274,7 +274,7 @@ func TestAgent_Start_NoTaskFoundWithoutIdleBackoff(t *testing.T) {
 		clockMock.EXPECT().Sleep(gomock.Any()).Times(1),
 		clockMock.EXPECT().Now().Return(startTime).Times(1),
 		workerMock.EXPECT().Name().Times(1),
-		workerMock.EXPECT().Run(wCtx).Return(false, nil).Times(1),
+		workerMock.EXPECT().Run(wCtx).Return(worker.RunResult{}).Times(1),
 		backoffMock.EXPECT().Reset().Times(1), // ensure backoff reset
 		clockMock.EXPECT().Since(startTime).Return(100*time.Millisecond).Times(1),
 		backoffMock.EXPECT().NextBackOff().Return(backOff).Times(1),
@@ -313,7 +313,7 @@ func TestAgent_Start_RunFound(t *testing.T) {
 		clockMock.EXPECT().Sleep(gomock.Any()).Times(1),
 		clockMock.EXPECT().Now().Return(startTime).Times(1),
 		workerMock.EXPECT().Name().Times(1),
-		workerMock.EXPECT().Run(wCtx).Return(true, nil).Times(1),
+		workerMock.EXPECT().Run(wCtx).Return(worker.RunResult{Found: true}).Times(1),
 		backoffMock.EXPECT().Reset().Times(1), // ensure backoff reset
 		clockMock.EXPECT().Since(startTime).Return(100*time.Millisecond).Times(1),
 		backoffMock.EXPECT().NextBackOff().Return(backOff).Times(1),
@@ -353,7 +353,7 @@ func TestAgent_Start_RunError(t *testing.T) {
 		clockMock.EXPECT().Sleep(gomock.Any()).Times(1),
 		clockMock.EXPECT().Now().Return(startTime).Times(1),
 		workerMock.EXPECT().Name().Times(1),
-		workerMock.EXPECT().Run(wCtx).Return(false, errors.New("fake error")).Times(1),
+		workerMock.EXPECT().Run(wCtx).Return(worker.RunResult{Err: errors.New("fake error")}).Times(1),
 		clockMock.EXPECT().Since(startTime).Return(100*time.Millisecond).Times(1),
 		backoffMock.EXPECT().NextBackOff().Return(backOff).Times(1),
 		workerMock.EXPECT().Name().Times(1),
@@ -392,7 +392,7 @@ func TestAgent_Start_RunLoopSurvivesError(t *testing.T) {
 		clockMock.EXPECT().Sleep(gomock.Any()).Times(1),
 		clockMock.EXPECT().Now().Return(startTime).Times(1),
 		workerMock.EXPECT().Name().Times(1),
-		workerMock.EXPECT().Run(wCtx).Return(false, errors.New("fake error")).Times(1),
+		workerMock.EXPECT().Run(wCtx).Return(worker.RunResult{Err: errors.New("fake error")}).Times(1),
 		clockMock.EXPECT().Since(startTime).Return(100*time.Millisecond).Times(1),
 		backoffMock.EXPECT().NextBackOff().Return(backOff).Times(1),
 		workerMock.EXPECT().Name().Times(1),
@@ -400,7 +400,7 @@ func TestAgent_Start_RunLoopSurvivesError(t *testing.T) {
 		// 2nd loop iteration
 		clockMock.EXPECT().Now().Return(startTime).Times(1),
 		workerMock.EXPECT().Name().Times(1),
-		workerMock.EXPECT().Run(wCtx).Return(true, nil).Times(1),
+		workerMock.EXPECT().Run(wCtx).Return(worker.RunResult{Found: true}).Times(1),
 		backoffMock.EXPECT().Reset().Times(1), // ensure backoff reset
 		clockMock.EXPECT().Since(startTime).Return(100*time.Millisecond).Times(1),
 		backoffMock.EXPECT().NextBackOff().Return(backOff).Times(1),

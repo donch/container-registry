@@ -30,9 +30,8 @@ const (
 type Worker interface {
 	// Name returns the worker name for observability purposes.
 	Name() string
-	// Run executes the worker once, processing the next available GC task. A bool is returned to indicate whether
-	// there was a task available or not, regardless if processing it succeeded or not.
-	Run(context.Context) (bool, error)
+	// Run executes the worker once, processing the next available GC task.
+	Run(context.Context) RunResult
 }
 
 // for test purposes (mocking)
@@ -61,20 +60,32 @@ func (w *baseWorker) applyDefaults() {
 	}
 }
 
-type processor interface {
-	processTask(context.Context) (bool, error)
+// RunResult represents the result of a worker run.
+type RunResult struct {
+	// Found indicates whether there was a task available or not, regardless if processing it succeeded or not.
+	Found bool
+	// Dangling indicates whether the reviewed artifact was dangling.
+	Dangling bool
+	// Event indicates the event that last led to the task creation.
+	Event string
+	// Err indicates if there was an error during the run.
+	Err error
 }
 
-func (w *baseWorker) run(ctx context.Context, p processor) (bool, error) {
+type processor interface {
+	processTask(context.Context) RunResult
+}
+
+func (w *baseWorker) run(ctx context.Context, p processor) RunResult {
 	ctx = injectCorrelationID(ctx, w.logger)
 
-	found, err := p.processTask(ctx)
-	if err != nil {
-		err = fmt.Errorf("processing task: %w", err)
-		w.logAndReportErr(ctx, err)
+	res := p.processTask(ctx)
+	if res.Err != nil {
+		res.Err = fmt.Errorf("processing task: %w", res.Err)
+		w.logAndReportErr(ctx, res.Err)
 	}
 
-	return found, err
+	return res
 }
 
 func (w *baseWorker) logAndReportErr(ctx context.Context, err error) {
