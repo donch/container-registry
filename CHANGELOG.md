@@ -1,3 +1,19 @@
+# [3.18.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.17.0-gitlab...v3.18.0-gitlab) (2021-12-09)
+
+
+### Bug Fixes
+
+* **datastore:** do not panic if database credentials are wrong ([cfc51e7](https://gitlab.com/gitlab-org/container-registry/commit/cfc51e79846bfd03580f0b42a6c25e33b70b9478))
+
+
+### Features
+
+* **datastore:** calculate deduplicated repository size ([#486](https://gitlab.com/gitlab-org/container-registry/issues/486)) ([86d68c1](https://gitlab.com/gitlab-org/container-registry/commit/86d68c1a4d6c8fe0fec3ad8b41db7af656d1ffba))
+* **datastore:** enable PostgreSQL pageinspect extension ([74f6521](https://gitlab.com/gitlab-org/container-registry/commit/74f65217b10e33ed3a43ddd972b5bf23083b5405))
+* **datastore:** extend support for Helm Charts media types ([ff2fd80](https://gitlab.com/gitlab-org/container-registry/commit/ff2fd80e12d7a92b5fbdbd1ff184b2cc9feac02f))
+* **gc:** add dangling and event labels to online GC run metrics ([738cf24](https://gitlab.com/gitlab-org/container-registry/commit/738cf2474aa2299613566853dc00e630bafbdb1c))
+* **gc:** log creation timestamp and event of GC tasks ([e0133c3](https://gitlab.com/gitlab-org/container-registry/commit/e0133c3b3c28aa774fa43b30e33726f7e1b55327))
+
 # [3.17.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.16.0-gitlab...v3.17.0-gitlab) (2021-11-22)
 
 
