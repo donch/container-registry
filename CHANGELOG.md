@@ -1,3 +1,10 @@
+## [3.18.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.18.0-gitlab...v3.18.1-gitlab) (2021-12-10)
+
+
+### Bug Fixes
+
+* revert enable PostgreSQL pageinspect extension ([2c2825c](https://gitlab.com/gitlab-org/container-registry/commit/2c2825cacef5f631f72aedbee0f53318a6c846c5))
+
 # [3.18.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.17.0-gitlab...v3.18.0-gitlab) (2021-12-09)
 
 
