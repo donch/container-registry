@@ -118,14 +118,14 @@ func (w *BlobWorker) processTask(ctx context.Context) RunResult {
 	}
 
 	res.Found = true
-	res.Event = t.Event.String
+	res.Event = t.Event
 
 	l.WithFields(log.Fields{
 		"review_after": t.ReviewAfter.UTC(),
 		"review_count": t.ReviewCount,
 		"digest":       t.Digest,
 		"created_at":   t.CreatedAt.UTC(),
-		"event":        t.Event.String,
+		"event":        t.Event,
 	}).Info("processing task")
 
 	dangling, err := bts.IsDangling(ctx, t)

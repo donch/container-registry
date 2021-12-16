@@ -96,7 +96,7 @@ func (w *ManifestWorker) processTask(ctx context.Context) RunResult {
 	}
 
 	res.Found = true
-	res.Event = t.Event.String
+	res.Event = t.Event
 
 	l.WithFields(log.Fields{
 		"review_after":  t.ReviewAfter.UTC(),
@@ -104,7 +104,7 @@ func (w *ManifestWorker) processTask(ctx context.Context) RunResult {
 		"repository_id": t.RepositoryID,
 		"manifest_id":   t.ManifestID,
 		"created_at":    t.CreatedAt.UTC(),
-		"event":         t.Event.String,
+		"event":         t.Event,
 	}).Info("processing task")
 
 	dangling, err := mts.IsDangling(ctx, t)
