@@ -142,7 +142,7 @@ func (a *Agent) Start(ctx context.Context) error {
 			} else if res.Found || a.noIdleBackoff {
 				b.Reset()
 			}
-			report(!res.Found, res.Dangling, res.Err)
+			report(!res.Found, res.Dangling, res.Err, res.Event)
 			l.WithFields(log.Fields{"duration_s": systemClock.Since(start).Seconds()}).Info("run complete")
 
 			sleep := b.NextBackOff()

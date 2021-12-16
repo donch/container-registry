@@ -98,6 +98,7 @@ func fakeBlobTask() *models.GCBlobTask {
 		Digest:      "sha256:c6f988f4874bb0add23a778f753c65efe992244e148a1d2ec2a8b664fb66bbd1",
 		ReviewAfter: time.Now().Add(-10 * time.Minute),
 		ReviewCount: 1,
+		Event:       "blob_upload",
 	}
 }
 
@@ -131,6 +132,7 @@ func TestBlobWorker_processTask(t *testing.T) {
 	require.NoError(t, res.Err)
 	require.True(t, res.Found)
 	require.True(t, res.Dangling)
+	require.Equal(t, bt.Event, res.Event)
 }
 
 func TestBlobWorker_processTask_BeginTxError(t *testing.T) {
@@ -148,6 +150,7 @@ func TestBlobWorker_processTask_BeginTxError(t *testing.T) {
 	require.EqualError(t, res.Err, fmt.Errorf("creating database transaction: %w", fakeErrorA).Error())
 	require.False(t, res.Found)
 	require.False(t, res.Dangling)
+	require.Empty(t, res.Event)
 }
 
 func TestBlobWorker_processTask_NextError(t *testing.T) {
@@ -172,6 +175,7 @@ func TestBlobWorker_processTask_NextError(t *testing.T) {
 	require.EqualError(t, res.Err, fakeErrorA.Error())
 	require.False(t, res.Found)
 	require.False(t, res.Dangling)
+	require.Empty(t, res.Event)
 }
 
 func TestBlobWorker_processTask_None(t *testing.T) {
@@ -197,6 +201,7 @@ func TestBlobWorker_processTask_None(t *testing.T) {
 	require.NoError(t, res.Err)
 	require.False(t, res.Found)
 	require.False(t, res.Dangling)
+	require.Empty(t, res.Event)
 }
 
 func TestBlobWorker_processTask_None_CommitError(t *testing.T) {
@@ -222,6 +227,7 @@ func TestBlobWorker_processTask_None_CommitError(t *testing.T) {
 	require.EqualError(t, res.Err, fmt.Errorf("committing database transaction: %w", fakeErrorA).Error())
 	require.False(t, res.Found)
 	require.False(t, res.Dangling)
+	require.Empty(t, res.Event)
 }
 
 func TestBlobWorker_processTask_IsDanglingError(t *testing.T) {
@@ -250,6 +256,7 @@ func TestBlobWorker_processTask_IsDanglingError(t *testing.T) {
 	require.EqualError(t, res.Err, sql.ErrConnDone.Error())
 	require.True(t, res.Found)
 	require.False(t, res.Dangling)
+	require.Equal(t, bt.Event, res.Event)
 }
 
 func TestBlobWorker_processTask_IsDanglingErrorAndPostponeError(t *testing.T) {
@@ -283,6 +290,7 @@ func TestBlobWorker_processTask_IsDanglingErrorAndPostponeError(t *testing.T) {
 	require.EqualError(t, res.Err, expectedErr.Error())
 	require.True(t, res.Found)
 	require.False(t, res.Dangling)
+	require.Equal(t, bt.Event, res.Event)
 }
 
 func TestBlobWorker_processTask_IsDanglingErrorAndPostponeCommitError(t *testing.T) {
@@ -317,6 +325,7 @@ func TestBlobWorker_processTask_IsDanglingErrorAndPostponeCommitError(t *testing
 	require.EqualError(t, res.Err, expectedErr.Error())
 	require.True(t, res.Found)
 	require.False(t, res.Dangling)
+	require.Equal(t, bt.Event, res.Event)
 }
 
 func TestBlobWorker_processTask_IsDanglingDeadlineExceededError(t *testing.T) {
@@ -343,6 +352,7 @@ func TestBlobWorker_processTask_IsDanglingDeadlineExceededError(t *testing.T) {
 	require.EqualError(t, res.Err, context.DeadlineExceeded.Error())
 	require.True(t, res.Found)
 	require.False(t, res.Dangling)
+	require.Equal(t, bt.Event, res.Event)
 }
 
 func TestBlobWorker_processTask_StoreDeleteNotFoundError(t *testing.T) {
@@ -375,6 +385,7 @@ func TestBlobWorker_processTask_StoreDeleteNotFoundError(t *testing.T) {
 	require.NoError(t, res.Err)
 	require.True(t, res.Found)
 	require.True(t, res.Dangling)
+	require.Equal(t, bt.Event, res.Event)
 }
 
 func TestBlobWorker_processTask_StoreDeleteDeadlineExceededError(t *testing.T) {
@@ -405,6 +416,7 @@ func TestBlobWorker_processTask_StoreDeleteDeadlineExceededError(t *testing.T) {
 	require.EqualError(t, res.Err, context.DeadlineExceeded.Error())
 	require.True(t, res.Found)
 	require.True(t, res.Dangling)
+	require.Equal(t, bt.Event, res.Event)
 }
 
 func TestBlobWorker_processTask_StoreDeleteUnknownError(t *testing.T) {
@@ -438,6 +450,7 @@ func TestBlobWorker_processTask_StoreDeleteUnknownError(t *testing.T) {
 	require.EqualError(t, res.Err, fakeErrorA.Error())
 	require.True(t, res.Found)
 	require.True(t, res.Dangling)
+	require.Equal(t, bt.Event, res.Event)
 }
 
 func TestBlobWorker_processTask_StoreDeleteUnknownErrorAndPostponeError(t *testing.T) {
@@ -476,6 +489,7 @@ func TestBlobWorker_processTask_StoreDeleteUnknownErrorAndPostponeError(t *testi
 	require.EqualError(t, res.Err, expectedErr.Error())
 	require.True(t, res.Found)
 	require.True(t, res.Dangling)
+	require.Equal(t, bt.Event, res.Event)
 }
 
 func TestBlobWorker_processTask_VacuumNotFoundError(t *testing.T) {
@@ -508,6 +522,7 @@ func TestBlobWorker_processTask_VacuumNotFoundError(t *testing.T) {
 	require.NoError(t, res.Err)
 	require.True(t, res.Found)
 	require.True(t, res.Dangling)
+	require.Equal(t, bt.Event, res.Event)
 }
 
 func TestBlobWorker_processTask_VacuumUnknownError(t *testing.T) {
@@ -539,6 +554,7 @@ func TestBlobWorker_processTask_VacuumUnknownError(t *testing.T) {
 	require.EqualError(t, res.Err, fmt.Errorf("deleting blob from storage: %w", fakeErrorA).Error())
 	require.True(t, res.Found)
 	require.True(t, res.Dangling)
+	require.Equal(t, bt.Event, res.Event)
 }
 
 func TestBlobWorker_processTask_FindByDigestError(t *testing.T) {
@@ -577,6 +593,7 @@ func TestBlobWorker_processTask_FindByDigestError(t *testing.T) {
 	require.EqualError(t, res.Err, expectedErr.Error())
 	require.True(t, res.Found)
 	require.True(t, res.Dangling)
+	require.Equal(t, bt.Event, res.Event)
 }
 
 func TestBlobWorker_processTask_FindByDigestNotFound(t *testing.T) {
@@ -609,6 +626,7 @@ func TestBlobWorker_processTask_FindByDigestNotFound(t *testing.T) {
 	require.NoError(t, res.Err)
 	require.True(t, res.Found)
 	require.True(t, res.Dangling)
+	require.Equal(t, bt.Event, res.Event)
 }
 
 func TestBlobWorker_processTask_VacuumUnknownErrorAndPostponeError(t *testing.T) {
@@ -645,6 +663,7 @@ func TestBlobWorker_processTask_VacuumUnknownErrorAndPostponeError(t *testing.T)
 	require.EqualError(t, res.Err, expectedErr.Error())
 	require.True(t, res.Found)
 	require.True(t, res.Dangling)
+	require.Equal(t, bt.Event, res.Event)
 }
 
 func TestBlobWorker_processTask_IsDanglingNo(t *testing.T) {
@@ -674,6 +693,7 @@ func TestBlobWorker_processTask_IsDanglingNo(t *testing.T) {
 	require.NoError(t, res.Err)
 	require.True(t, res.Found)
 	require.False(t, res.Dangling)
+	require.Equal(t, bt.Event, res.Event)
 }
 
 func TestBlobWorker_processTask_IsDanglingNo_DeleteTaskError(t *testing.T) {
@@ -701,6 +721,7 @@ func TestBlobWorker_processTask_IsDanglingNo_DeleteTaskError(t *testing.T) {
 	require.EqualError(t, res.Err, fakeErrorA.Error())
 	require.True(t, res.Found)
 	require.False(t, res.Dangling)
+	require.Equal(t, bt.Event, res.Event)
 }
 
 func TestBlobWorker_processTask_IsDanglingNo_CommitError(t *testing.T) {
@@ -730,6 +751,7 @@ func TestBlobWorker_processTask_IsDanglingNo_CommitError(t *testing.T) {
 	require.EqualError(t, res.Err, fmt.Errorf("committing database transaction: %s", fakeErrorA).Error())
 	require.True(t, res.Found)
 	require.False(t, res.Dangling)
+	require.Equal(t, bt.Event, res.Event)
 }
 
 func TestBlobWorker_processTask_RollbackOnExitUnknownError(t *testing.T) {
@@ -755,6 +777,7 @@ func TestBlobWorker_processTask_RollbackOnExitUnknownError(t *testing.T) {
 	require.EqualError(t, res.Err, fakeErrorA.Error())
 	require.False(t, res.Found)
 	require.False(t, res.Dangling)
+	require.Empty(t, res.Event)
 }
 
 func TestBlobWorker_Run(t *testing.T) {
@@ -781,6 +804,7 @@ func TestBlobWorker_Run(t *testing.T) {
 	require.NoError(t, res.Err)
 	require.False(t, res.Found)
 	require.False(t, res.Dangling)
+	require.Empty(t, res.Event)
 }
 
 func TestBlobWorker_Run_Error(t *testing.T) {
@@ -801,4 +825,5 @@ func TestBlobWorker_Run_Error(t *testing.T) {
 	require.EqualError(t, res.Err, fmt.Errorf("processing task: creating database transaction: %w", fakeErrorA).Error())
 	require.False(t, res.Found)
 	require.False(t, res.Dangling)
+	require.Empty(t, res.Event)
 }
