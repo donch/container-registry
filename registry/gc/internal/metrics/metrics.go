@@ -30,6 +30,7 @@ const (
 	backendLabel   = "backend"
 	mediaTypeLabel = "media_type"
 	danglingLabel  = "dangling"
+	eventLabel     = "event"
 
 	blobArtifact     = "blob"
 	manifestArtifact = "manifest"
@@ -65,7 +66,7 @@ func init() {
 			Help:      runDurationDesc,
 			Buckets:   prometheus.DefBuckets,
 		},
-		[]string{workerLabel, noopLabel, errorLabel, danglingLabel},
+		[]string{workerLabel, noopLabel, errorLabel, danglingLabel, eventLabel},
 	)
 
 	runCounter = prometheus.NewCounterVec(
@@ -75,7 +76,7 @@ func init() {
 			Name:      runTotalName,
 			Help:      runTotalDesc,
 		},
-		[]string{workerLabel, noopLabel, errorLabel, danglingLabel},
+		[]string{workerLabel, noopLabel, errorLabel, danglingLabel, eventLabel},
 	)
 
 	deleteDurationHist = prometheus.NewHistogramVec(
@@ -140,15 +141,15 @@ func init() {
 	prometheus.MustRegister(sleepDurationHist)
 }
 
-func WorkerRun(name string) func(noop, dangling bool, err error) {
+func WorkerRun(name string) func(noop, dangling bool, err error, event string) {
 	start := time.Now()
-	return func(noop, dangling bool, err error) {
+	return func(noop, dangling bool, err error, event string) {
 		failed := strconv.FormatBool(err != nil)
 		np := strconv.FormatBool(noop)
 		d := strconv.FormatBool(dangling)
 
-		runCounter.WithLabelValues(name, np, failed, d).Inc()
-		runDurationHist.WithLabelValues(name, np, failed, d).Observe(timeSince(start).Seconds())
+		runCounter.WithLabelValues(name, np, failed, d, event).Inc()
+		runDurationHist.WithLabelValues(name, np, failed, d, event).Observe(timeSince(start).Seconds())
 	}
 }
 

@@ -79,6 +79,7 @@ func fakeManifestTask() *models.GCManifestTask {
 		ManifestID:   2,
 		ReviewAfter:  time.Now().Add(-10 * time.Minute),
 		ReviewCount:  0,
+		Event:        "tag_switch",
 	}
 }
 
@@ -108,6 +109,7 @@ func TestManifestWorker_processTask(t *testing.T) {
 	require.NoError(t, res.Err)
 	require.True(t, res.Found)
 	require.True(t, res.Dangling)
+	require.Equal(t, mt.Event, res.Event)
 }
 
 func TestManifestWorker_processTask_BeginTxError(t *testing.T) {
@@ -124,6 +126,7 @@ func TestManifestWorker_processTask_BeginTxError(t *testing.T) {
 	require.EqualError(t, res.Err, fmt.Errorf("creating database transaction: %w", fakeErrorA).Error())
 	require.False(t, res.Found)
 	require.False(t, res.Dangling)
+	require.Empty(t, res.Event)
 }
 
 func TestManifestWorker_processTask_NextError(t *testing.T) {
@@ -148,6 +151,7 @@ func TestManifestWorker_processTask_NextError(t *testing.T) {
 	require.EqualError(t, res.Err, fakeErrorA.Error())
 	require.False(t, res.Found)
 	require.False(t, res.Dangling)
+	require.Empty(t, res.Event)
 }
 
 func TestManifestWorker_processTask_None(t *testing.T) {
@@ -173,6 +177,7 @@ func TestManifestWorker_processTask_None(t *testing.T) {
 	require.NoError(t, res.Err)
 	require.False(t, res.Found)
 	require.False(t, res.Dangling)
+	require.Empty(t, res.Event)
 }
 
 func TestManifestWorker_processTask_None_CommitError(t *testing.T) {
@@ -198,6 +203,7 @@ func TestManifestWorker_processTask_None_CommitError(t *testing.T) {
 	require.EqualError(t, res.Err, fmt.Errorf("committing database transaction: %w", fakeErrorA).Error())
 	require.False(t, res.Found)
 	require.False(t, res.Dangling)
+	require.Empty(t, res.Event)
 }
 
 func TestManifestWorker_processTask_IsDanglingUnknownError(t *testing.T) {
@@ -229,6 +235,7 @@ func TestManifestWorker_processTask_IsDanglingUnknownError(t *testing.T) {
 	require.EqualError(t, res.Err, fakeErrorA.Error())
 	require.True(t, res.Found)
 	require.False(t, res.Dangling)
+	require.Equal(t, mt.Event, res.Event)
 }
 
 func TestManifestWorker_processTask_IsDanglingPostponeError(t *testing.T) {
@@ -265,6 +272,7 @@ func TestManifestWorker_processTask_IsDanglingPostponeError(t *testing.T) {
 	require.EqualError(t, res.Err, expectedErr.Error())
 	require.True(t, res.Found)
 	require.False(t, res.Dangling)
+	require.Equal(t, mt.Event, res.Event)
 }
 
 func TestManifestWorker_processTask_IsDanglingContextError(t *testing.T) {
@@ -295,6 +303,7 @@ func TestManifestWorker_processTask_IsDanglingContextError(t *testing.T) {
 		require.EqualError(t, err, res.Err.Error())
 		require.True(t, res.Found)
 		require.False(t, res.Dangling)
+		require.Equal(t, mt.Event, res.Event)
 
 		ctrl.Finish()
 	}
@@ -327,6 +336,7 @@ func TestManifestWorker_processTask_StoreDeleteNotFoundError(t *testing.T) {
 	require.NoError(t, res.Err)
 	require.True(t, res.Found)
 	require.True(t, res.Dangling)
+	require.Equal(t, mt.Event, res.Event)
 }
 
 func TestManifestWorker_processTask_StoreDeleteDeadlineExceededError(t *testing.T) {
@@ -354,6 +364,7 @@ func TestManifestWorker_processTask_StoreDeleteDeadlineExceededError(t *testing.
 	require.EqualError(t, res.Err, context.DeadlineExceeded.Error())
 	require.True(t, res.Found)
 	require.True(t, res.Dangling)
+	require.Equal(t, mt.Event, res.Event)
 }
 
 func TestManifestWorker_processTask_StoreDeleteUnknownError(t *testing.T) {
@@ -387,6 +398,7 @@ func TestManifestWorker_processTask_StoreDeleteUnknownError(t *testing.T) {
 	require.EqualError(t, res.Err, fakeErrorA.Error())
 	require.True(t, res.Found)
 	require.True(t, res.Dangling)
+	require.Equal(t, mt.Event, res.Event)
 }
 
 func TestManifestWorker_processTask_IsDanglingNo(t *testing.T) {
@@ -414,6 +426,7 @@ func TestManifestWorker_processTask_IsDanglingNo(t *testing.T) {
 	require.NoError(t, res.Err)
 	require.True(t, res.Found)
 	require.False(t, res.Dangling)
+	require.Equal(t, mt.Event, res.Event)
 }
 
 func TestManifestWorker_processTask_IsDanglingNo_DeleteTaskError(t *testing.T) {
@@ -446,6 +459,7 @@ func TestManifestWorker_processTask_IsDanglingNo_DeleteTaskError(t *testing.T) {
 	require.EqualError(t, res.Err, fakeErrorA.Error())
 	require.True(t, res.Found)
 	require.False(t, res.Dangling)
+	require.Equal(t, mt.Event, res.Event)
 }
 
 func TestManifestWorker_processTask_IsDanglingNo_CommitError(t *testing.T) {
@@ -473,6 +487,7 @@ func TestManifestWorker_processTask_IsDanglingNo_CommitError(t *testing.T) {
 	require.EqualError(t, res.Err, fmt.Errorf("committing database transaction: %w", fakeErrorA).Error())
 	require.True(t, res.Found)
 	require.False(t, res.Dangling)
+	require.Equal(t, mt.Event, res.Event)
 }
 
 func TestManifestWorker_processTask_RollbackOnExitUnknownError(t *testing.T) {
@@ -496,6 +511,7 @@ func TestManifestWorker_processTask_RollbackOnExitUnknownError(t *testing.T) {
 	require.EqualError(t, res.Err, fakeErrorA.Error())
 	require.False(t, res.Found)
 	require.False(t, res.Dangling)
+	require.Empty(t, res.Event)
 }
 
 func TestManifestWorker_Run(t *testing.T) {
@@ -520,6 +536,7 @@ func TestManifestWorker_Run(t *testing.T) {
 	require.NoError(t, res.Err)
 	require.False(t, res.Found)
 	require.False(t, res.Dangling)
+	require.Empty(t, res.Event)
 }
 
 func TestManifestWorker_Run_Error(t *testing.T) {
@@ -538,4 +555,5 @@ func TestManifestWorker_Run_Error(t *testing.T) {
 	require.EqualError(t, res.Err, fmt.Errorf("processing task: creating database transaction: %w", fakeErrorA).Error())
 	require.False(t, res.Found)
 	require.False(t, res.Dangling)
+	require.Empty(t, res.Event)
 }
