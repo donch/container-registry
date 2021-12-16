@@ -6861,7 +6861,8 @@ CREATE TABLE public.gc_blob_review_queue (
     digest bytea NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     event text,
-    CONSTRAINT check_gc_blob_review_queue_event_length CHECK ((char_length(event) <= 255))
+    CONSTRAINT check_gc_blob_review_queue_event_length CHECK ((char_length(event) <= 255)),
+    CONSTRAINT check_gc_blob_review_queue_event_not_null CHECK ((event IS NOT NULL))
 );
 
 ALTER TABLE public.gc_blobs_configurations
@@ -6888,7 +6889,8 @@ CREATE TABLE public.gc_manifest_review_queue (
     review_count integer DEFAULT 0 NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     event text,
-    CONSTRAINT check_gc_manifest_review_queue_event_length CHECK ((char_length(event) <= 255))
+    CONSTRAINT check_gc_manifest_review_queue_event_length CHECK ((char_length(event) <= 255)),
+    CONSTRAINT check_gc_manifest_review_queue_event_not_null CHECK ((event IS NOT NULL))
 );
 
 CREATE TABLE public.gc_review_after_defaults (
