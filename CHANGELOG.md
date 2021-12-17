@@ -1,3 +1,11 @@
+# [3.19.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.18.1-gitlab...v3.19.0-gitlab) (2021-12-17)
+
+
+### Features
+
+* **datastore:** add not null constraint to event column on GC queues ([e489c0d](https://gitlab.com/gitlab-org/container-registry/commit/e489c0d1a324ed1aa891faa9e3e340765b93ff16))
+* **gc:** add event label to online GC run metrics ([552b83f](https://gitlab.com/gitlab-org/container-registry/commit/552b83f5efd35db56f706e02941840b225deae0d))
+
 ## [3.18.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.18.0-gitlab...v3.18.1-gitlab) (2021-12-10)
 
 
