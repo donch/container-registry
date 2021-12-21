@@ -126,7 +126,96 @@ curl --header "Authorization: Bearer <token>" "https://registry.gitlab.com/gitla
 }
 ```
 
+## Import Repository
+
+Move a single repository from filesystem metadata to the database.
+
+Imports are processed asynchronously, the registry will send a notification via
+an HTTP request once the import has finished.
+
+Incoming writes to this repository during the import process will follow the old
+code path, and will cause the import process to be cancelled.
+
+### Request
+
+```shell
+PUT /gitlab/v1/import/<path>
+```
+
+| Attribute     | Type    | Required | Default   | Description                                                  |
+| ------------- | ------- | -------- | --------- | ------------------------------------------------------------ |
+| `path`        | String  | Yes      |           | The full path of the target repository. Equivalent to the `name` parameter in the `/v2/` API, described in the [OCI Distribution Spec](https://github.com/opencontainers/distribution-spec/blob/main/spec.md). The same pattern validation applies. |
+| `pre`    | Bool    | No       |  `false`  | Only import manifests and their associated blobs, without importing tags. Once the pre import is complete, performing an import should take far less time, reducing the amount of time required during which writes will cancel the import. |
+
+#### Example
+
+```shell
+curl --header "Authorization: Bearer <token>" "https://registry.gitlab.com/gitlab/v1/import/gitlab-org/build/cng/gitlab-container-registry?pre=true"
+```
+
+### Response
+#### Header
+
+| Status Code               | Reason                                                       |
+| ------------------------- | ------------------------------------------------------------ |
+| `200 OK`                  | The repository was already present on the database and does not need to be imported. This repository may have been previously migrated or native to the database. |
+| `202 Accepted`            | The import or pre import was successfully started. |
+| `401 Unauthorized`        | The client should take action based on the contents of the `WWW-Authenticate` header and try the endpoint again. |
+| `404 Not Found`           | The repository was not found. |
+| `409 Conflict`            | The repository is already being imported or pre imported. |
+| `424 Failed Dependency`   | The repository failed to pre import. This error only affects the import request when `pre=false`, when `pre=true` the pre import will be retried.|
+| `425 Too Early`           | The Repository is currently being pre imported. |
+| `429 Too Many Requests`   | The registry is already running the maximum configured import jobs. |
+
+
+### Import Notification
+
+#### Request
+##### Body
+
+| Key          | Value                                                                  | Type   |
+| ------------ | ---------------------------------------------------------------------- | ------ |
+| `name`       | The repository name. This is the last segment of the repository path.  | String |
+| `path`       | The repository path.                                                   | String |
+| `status`     | The status of the completed import.                                    | String |
+| `detail`     | A detailed explanation of the status.
+
+##### Possible Statuses
+
+| Value | Meaning |
+| ----- | ------- |
+| `success`  | The import completed successfully. |
+| `timedout` | The import exceeded the configured time limit. |
+| `canceled` | The import was canceled. |
+| `error`    | The import failed due to an error. |
+
+##### Examples
+
+###### Success
+```json
+{
+  "name": "gitlab-container-registry",
+  "path": "gitlab-org/build/cng/gitlab-container-registry",
+  "status": "success",
+  "detail": "import completed successfully"
+}
+```
+
+###### Error
+```json
+{
+  "name": "gitlab-container-registry",
+  "path": "gitlab-org/build/cng/gitlab-container-registry",
+  "status": "error",
+  "detail": "importing tags: reading tags: write tcp 172.0.0.1:1234->172.0.0.1:4321: write: broken pipe"
+}
+```
+
 ## Changes
+
+### 2021-12-17
+
+- Added import repository operation.
 
 ### 2021-11-26
 
