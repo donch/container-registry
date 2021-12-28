@@ -342,17 +342,12 @@ func newDBManifestGetter(imh *manifestHandler, req *http.Request) (*dbManifestGe
 func (g *dbManifestGetter) GetByTag(ctx context.Context, tagName string) (distribution.Manifest, digest.Digest, error) {
 	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": g.repoPath, "tag": tagName})
 	l.Debug("getting manifest by tag from database")
-	start := time.Now()
+
 	dbRepo, err := g.FindByPath(ctx, g.repoPath)
 	if err != nil {
 		return nil, "", err
 	}
-	l.WithFields(log.Fields{
-		"duration_s": time.Since(start),
-		"path":       g.repoPath,
-		"found":      dbRepo != nil,
-		"caller":     "handlers.dbManifestGetter.GetByTag",
-	}).Info("finding repository by path")
+
 	if dbRepo == nil {
 		l.Warn("repository not found in database")
 		return nil, "", distribution.ErrTagUnknown{Tag: tagName}
@@ -388,17 +383,12 @@ func (g *dbManifestGetter) GetByDigest(ctx context.Context, dgst digest.Digest) 
 	if etagMatch(g.req, dgst.String()) {
 		return nil, errETagMatches
 	}
-	start := time.Now()
+
 	dbRepo, err := g.FindByPath(ctx, g.repoPath)
 	if err != nil {
 		return nil, err
 	}
-	l.WithFields(log.Fields{
-		"duration_s": time.Since(start),
-		"path":       g.repoPath,
-		"found":      dbRepo != nil,
-		"caller":     "handlers.dbManifestGetter.GetByDigest",
-	}).Info("finding repository by path")
+
 	if dbRepo == nil {
 		l.Warn("repository not found in database")
 		return nil, distribution.ErrManifestUnknownRevision{
@@ -821,17 +811,11 @@ func dbTagManifest(ctx context.Context, db datastore.Handler, cache datastore.Re
 	l.Debug("tagging manifest")
 
 	repositoryStore := datastore.NewRepositoryStore(db, datastore.WithRepositoryCache(cache))
-	start := time.Now()
 	dbRepo, err := repositoryStore.FindByPath(ctx, path)
 	if err != nil {
 		return err
 	}
-	l.WithFields(log.Fields{
-		"duration_s": time.Since(start),
-		"path":       path,
-		"found":      dbRepo != nil,
-		"caller":     "handlers.dbManifestGetter.GetByDigest",
-	}).Info("finding repository by path")
+
 	// TODO: If we return the manifest ID from the putDatabase methods, we can
 	// avoid looking up the manifest by digest.
 	dbManifest, err := repositoryStore.FindManifestByDigest(ctx, dbRepo, dgst)
@@ -996,18 +980,10 @@ func dbPutManifestV2(imh *manifestHandler, mfst distribution.ManifestV2, payload
 
 // dbFindRepositoryBlob finds a blob which is linked to the repository.
 func dbFindRepositoryBlob(ctx context.Context, rStore datastore.RepositoryStore, desc distribution.Descriptor, repoPath string) (*models.Blob, error) {
-	l := log.GetLogger(log.WithContext(ctx))
-	start := time.Now()
 	r, err := rStore.FindByPath(ctx, repoPath)
 	if err != nil {
 		return nil, err
 	}
-	l.WithFields(log.Fields{
-		"duration_s": time.Since(start),
-		"path":       repoPath,
-		"found":      r != nil,
-		"caller":     "handlers.dbFindRepositoryBlob",
-	}).Info("finding repository by path")
 	if r == nil {
 		return nil, errors.New("source repository not found in database")
 	}
@@ -1285,17 +1261,10 @@ func dbDeleteManifest(ctx context.Context, db datastore.Handler, cache datastore
 	l.Debug("deleting manifest from repository in database")
 
 	rStore := datastore.NewRepositoryStore(db, datastore.WithRepositoryCache(cache))
-	start := time.Now()
 	r, err := rStore.FindByPath(ctx, repoPath)
 	if err != nil {
 		return err
 	}
-	l.WithFields(log.Fields{
-		"duration_s": time.Since(start),
-		"path":       repoPath,
-		"found":      r != nil,
-		"caller":     "handlers.dbDeleteManifest",
-	}).Info("finding repository by path")
 	if r == nil {
 		return fmt.Errorf("repository not found in database: %w", err)
 	}

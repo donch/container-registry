@@ -43,17 +43,10 @@ func dbGetTags(ctx context.Context, db datastore.Queryer, repoPath string, n int
 	l.Debug("finding tags in database")
 
 	rStore := datastore.NewRepositoryStore(db)
-	start := time.Now()
 	r, err := rStore.FindByPath(ctx, repoPath)
 	if err != nil {
 		return nil, false, err
 	}
-	l.WithFields(log.Fields{
-		"duration_s": time.Since(start),
-		"path":       repoPath,
-		"found":      r != nil,
-		"caller":     "handlers.dbGetTags",
-	}).Info("finding repository by path")
 	if r == nil {
 		l.Warn("repository not found in database")
 		return nil, false, v2.ErrorCodeNameUnknown.WithDetail(map[string]string{"name": repoPath})
@@ -176,17 +169,10 @@ func dbDeleteTag(ctx context.Context, db datastore.Handler, repoPath string, tag
 	l.Debug("deleting tag from repository in database")
 
 	rStore := datastore.NewRepositoryStore(db)
-	start := time.Now()
 	r, err := rStore.FindByPath(ctx, repoPath)
 	if err != nil {
 		return err
 	}
-	l.WithFields(log.Fields{
-		"duration_s": time.Since(start),
-		"path":       repoPath,
-		"found":      r != nil,
-		"caller":     "handlers.dbDeleteTag",
-	}).Info("finding repository by path")
 	if r == nil {
 		return distribution.ErrRepositoryUnknown{Name: repoPath}
 	}
