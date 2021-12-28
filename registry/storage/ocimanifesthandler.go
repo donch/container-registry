@@ -13,11 +13,12 @@ import (
 
 //ocischemaManifestHandler is a ManifestHandler that covers ocischema manifests.
 type ocischemaManifestHandler struct {
-	repository       distribution.Repository
-	blobStore        distribution.BlobStore
-	ctx              context.Context
-	manifestURLs     validation.ManifestURLs
-	manifestRefLimit int
+	repository               distribution.Repository
+	blobStore                distribution.BlobStore
+	ctx                      context.Context
+	manifestURLs             validation.ManifestURLs
+	manifestRefLimit         int
+	manifestPayloadSizeLimit int
 }
 
 var _ ManifestHandler = &ocischemaManifestHandler{}
@@ -68,7 +69,7 @@ func (ms *ocischemaManifestHandler) verifyManifest(ctx context.Context, mnfst *o
 		return err
 	}
 
-	v := validation.NewOCIValidator(manifestService, ms.repository.Blobs(ctx), skipDependencyVerification, ms.manifestRefLimit, ms.manifestURLs)
+	v := validation.NewOCIValidator(manifestService, ms.repository.Blobs(ctx), skipDependencyVerification, ms.manifestRefLimit, ms.manifestPayloadSizeLimit, ms.manifestURLs)
 
 	return v.Validate(ctx, mnfst)
 }

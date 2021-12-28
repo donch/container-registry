@@ -26,7 +26,7 @@ func TestVerifyManifest_ManifestList(t *testing.T) {
 	dml, err := manifestlist.FromDescriptors(descriptors)
 	require.NoError(t, err)
 
-	v := manifestlistValidator(t, repo, false, 0)
+	v := manifestlistValidator(t, repo, false, 0, 0)
 
 	err = v.Validate(ctx, dml)
 	require.NoError(t, err)
@@ -46,13 +46,13 @@ func TestVerifyManifest_ManifestList_MissingManifest(t *testing.T) {
 	dml, err := manifestlist.FromDescriptors(descriptors)
 	require.NoError(t, err)
 
-	v := manifestlistValidator(t, repo, false, 0)
+	v := manifestlistValidator(t, repo, false, 0, 0)
 
 	err = v.Validate(ctx, dml)
 	require.EqualError(t, err, fmt.Sprintf("errors verifying manifest: unknown blob %s on manifest", digest.FromString("fake-digest")))
 
 	// Ensure that this error is not reported if SkipDependencyVerification is true
-	v = manifestlistValidator(t, repo, true, 0)
+	v = manifestlistValidator(t, repo, true, 0, 0)
 
 	err = v.Validate(ctx, dml)
 	require.NoError(t, err)
@@ -71,7 +71,7 @@ func TestVerifyManifest_ManifestList_InvalidSchemaVersion(t *testing.T) {
 
 	dml.ManifestList.Versioned.SchemaVersion = 9001
 
-	v := manifestlistValidator(t, repo, false, 0)
+	v := manifestlistValidator(t, repo, false, 0, 0)
 
 	err = v.Validate(ctx, dml)
 	require.EqualError(t, err, fmt.Sprintf("unrecognized manifest list schema version %d", dml.ManifestList.Versioned.SchemaVersion))
@@ -104,7 +104,7 @@ func TestVerifyManifest_ManifestList_BuildkitCacheManifest(t *testing.T) {
 	dml, err := manifestlist.FromDescriptors(descriptors)
 	require.NoError(t, err)
 
-	v := manifestlistValidator(t, repo, false, 0)
+	v := manifestlistValidator(t, repo, false, 0, 0)
 
 	err = v.Validate(ctx, dml)
 	require.NoError(t, err)
@@ -126,7 +126,7 @@ func TestVerifyManifest_ManifestList_ManifestListWithBlobReferences(t *testing.T
 	dml, err := manifestlist.FromDescriptors(descriptors)
 	require.NoError(t, err)
 
-	v := manifestlistValidator(t, repo, false, 0)
+	v := manifestlistValidator(t, repo, false, 0, 0)
 
 	err = v.Validate(ctx, dml)
 	vErr := &distribution.ErrManifestVerification{}
@@ -207,11 +207,86 @@ func TestVerifyManifest_ManifestList_ReferenceLimits(t *testing.T) {
 			dml, err := manifestlist.FromDescriptors(descriptors)
 			require.NoError(t, err)
 
-			v := manifestlistValidator(t, repo, tt.skipDependencyVerification, tt.refLimit)
+			v := manifestlistValidator(t, repo, tt.skipDependencyVerification, tt.refLimit, 0)
 
 			err = v.Validate(ctx, dml)
 			if tt.wantErr {
 				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestVerifyManifest_ManifestList_PayloadLimits(t *testing.T) {
+	ctx := context.Background()
+
+	registry := createRegistry(t)
+	repo := makeRepository(t, registry, "test")
+
+	var descriptors []manifestlist.ManifestDescriptor
+
+	dml, err := manifestlist.FromDescriptors(descriptors)
+	require.NoError(t, err)
+
+	_, payload, err := dml.Payload()
+	require.NoError(t, err)
+
+	baseManifestListSize := len(payload)
+
+	tests := map[string]struct {
+		payloadLimit               int
+		wantErr                    bool
+		skipDependencyVerification bool
+		expectedErr                error
+	}{
+		"no payload size limit": {
+			payloadLimit:               0,
+			wantErr:                    false,
+			skipDependencyVerification: false,
+		},
+		"payload size limit greater than manifest size": {
+			payloadLimit:               baseManifestListSize * 2,
+			wantErr:                    false,
+			skipDependencyVerification: false,
+		},
+		"payload size limit equal to manifest size": {
+			payloadLimit:               baseManifestListSize,
+			wantErr:                    false,
+			skipDependencyVerification: false,
+		},
+		"payload size limit less than manifest size": {
+			payloadLimit:               baseManifestListSize / 2,
+			wantErr:                    true,
+			skipDependencyVerification: false,
+			expectedErr: distribution.ErrManifestVerification{
+				distribution.ErrManifestPayloadSizeExceedsLimit{PayloadSize: baseManifestListSize, Limit: baseManifestListSize / 2},
+			},
+		},
+		"payload size limit less than manifest size skip verification": {
+			payloadLimit:               baseManifestListSize / 2,
+			wantErr:                    true,
+			skipDependencyVerification: true,
+			expectedErr: distribution.ErrManifestVerification{
+				distribution.ErrManifestPayloadSizeExceedsLimit{PayloadSize: baseManifestListSize, Limit: baseManifestListSize / 2},
+			},
+		},
+		"negative payload size limit": {
+			payloadLimit:               -baseManifestListSize,
+			wantErr:                    false,
+			skipDependencyVerification: false,
+		},
+	}
+
+	for tn, tt := range tests {
+		t.Run(tn, func(t *testing.T) {
+			v := manifestlistValidator(t, repo, tt.skipDependencyVerification, 0, tt.payloadLimit)
+
+			err = v.Validate(ctx, dml)
+			if tt.wantErr {
+				require.Error(t, err)
+				require.EqualError(t, err, tt.expectedErr.Error())
 			} else {
 				require.NoError(t, err)
 			}

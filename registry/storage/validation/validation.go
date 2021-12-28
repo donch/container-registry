@@ -3,9 +3,9 @@ package validation
 import (
 	"context"
 	"errors"
-	"regexp"
-
+	"fmt"
 	"net/url"
+	"regexp"
 
 	"github.com/docker/distribution"
 	digest "github.com/opencontainers/go-digest"
@@ -21,6 +21,7 @@ type baseValidator struct {
 	manifestExister            ManifestExister
 	blobStatter                distribution.BlobStatter
 	refLimit                   int
+	payloadLimit               int
 	skipDependencyVerification bool
 }
 
@@ -33,6 +34,24 @@ func (v *baseValidator) exceedsRefLimit(mnfst distribution.Manifest) error {
 
 	if refLen > v.refLimit {
 		return distribution.ErrManifestReferencesExceedLimit{References: refLen, Limit: v.refLimit}
+	}
+
+	return nil
+}
+
+func (v *baseValidator) exceedsPayloadSizeLimit(mnfst distribution.Manifest) error {
+	if v.payloadLimit <= 0 {
+		return nil
+	}
+	_, b, err := mnfst.Payload()
+	if err != nil {
+		return fmt.Errorf("cannot get manifest payload: %w", err)
+	}
+
+	payloadLen := len(b)
+
+	if payloadLen > v.payloadLimit {
+		return distribution.ErrManifestPayloadSizeExceedsLimit{PayloadSize: payloadLen, Limit: v.payloadLimit}
 	}
 
 	return nil

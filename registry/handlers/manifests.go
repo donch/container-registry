@@ -781,6 +781,8 @@ func (imh *manifestHandler) appendPutError(err error) {
 				imh.Errors = append(imh.Errors, v2.ErrorCodeManifestUnverified)
 			case distribution.ErrManifestReferencesExceedLimit:
 				imh.Errors = append(imh.Errors, v2.ErrorCodeManifestReferenceLimit.WithDetail(err))
+			case distribution.ErrManifestPayloadSizeExceedsLimit:
+				imh.Errors = append(imh.Errors, v2.ErrorCodeManifestPayloadSizeLimit.WithDetail(err.Error()))
 			default:
 				if errors.Is(verificationError, digest.ErrDigestInvalidFormat) {
 					imh.Errors = append(imh.Errors, v2.ErrorCodeDigestInvalid)
@@ -888,6 +890,7 @@ func dbPutManifestOCI(imh *manifestHandler, manifest *ocischema.DeserializedMani
 		&datastore.RepositoryBlobService{RepositoryReader: repoReader, RepositoryPath: repoPath},
 		imh.App.isCache,
 		imh.App.manifestRefLimit,
+		imh.App.manifestPayloadSizeLimit,
 		imh.App.manifestURLs,
 	)
 
@@ -907,6 +910,7 @@ func dbPutManifestSchema2(imh *manifestHandler, manifest *schema2.DeserializedMa
 		&datastore.RepositoryBlobService{RepositoryReader: repoReader, RepositoryPath: repoPath},
 		imh.App.isCache,
 		imh.App.manifestRefLimit,
+		imh.App.manifestPayloadSizeLimit,
 		imh.App.manifestURLs,
 	)
 
@@ -1068,6 +1072,7 @@ func dbPutManifestList(imh *manifestHandler, manifestList *manifestlist.Deserial
 		&datastore.RepositoryBlobService{RepositoryReader: rStore, RepositoryPath: repoPath},
 		imh.App.isCache,
 		imh.App.manifestRefLimit,
+		imh.App.manifestPayloadSizeLimit,
 	)
 
 	if err := v.Validate(imh, manifestList); err != nil {
@@ -1251,6 +1256,7 @@ func dbPutBuildkitIndex(imh *manifestHandler, ml *manifestlist.DeserializedManif
 		&datastore.RepositoryBlobService{RepositoryReader: repoReader, RepositoryPath: repoPath},
 		imh.App.isCache,
 		imh.App.manifestRefLimit,
+		imh.App.manifestPayloadSizeLimit,
 		imh.App.manifestURLs,
 	)
 

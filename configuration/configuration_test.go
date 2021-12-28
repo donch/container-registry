@@ -1541,3 +1541,30 @@ func copyConfig(config Configuration) *Configuration {
 
 	return configCopy
 }
+
+func TestParseValidation_Manifests_PayloadSizeLimit(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+validation:
+  manifests:
+        payloadsizelimit: %s
+`
+	tt := []parameterTest{
+		{
+			name:  "sample",
+			value: "10",
+			want:  10,
+		},
+		{
+			name: "default",
+			want: 0,
+		},
+	}
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, got.Validation.Manifests.PayloadSizeLimit)
+	}
+
+	testParameter(t, yml, "REGISTRY_VALIDATION_MANIFESTS_PAYLOADSIZELIMIT", tt, validator)
+}

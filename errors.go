@@ -137,3 +137,15 @@ type ErrManifestReferencesExceedLimit struct {
 func (err ErrManifestReferencesExceedLimit) Error() string {
 	return fmt.Sprintf("%d manifest references exceed reference limit of %d", err.References, err.Limit)
 }
+
+// ErrManifestPayloadSizeExceedsLimit is returned when a manifest is bigger than the configured payload
+// size limit.
+type ErrManifestPayloadSizeExceedsLimit struct {
+	PayloadSize int
+	Limit       int
+}
+
+// Error implements the error interface for ErrManifestPayloadSizeExceedsLimit
+func (err ErrManifestPayloadSizeExceedsLimit) Error() string {
+	return fmt.Sprintf("manifest payload size of %d exceeds limit of %d", err.PayloadSize, err.Limit)
+}
