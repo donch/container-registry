@@ -16,13 +16,14 @@ type ManifestListValidator struct {
 }
 
 // NewManifestListValidator returns a new ManifestListValidator.
-func NewManifestListValidator(exister ManifestExister, bs distribution.BlobStatter, skipDependencyVerification bool, refLimit int) *ManifestListValidator {
+func NewManifestListValidator(exister ManifestExister, bs distribution.BlobStatter, skipDependencyVerification bool, refLimit, payloadLimit int) *ManifestListValidator {
 	return &ManifestListValidator{
 		baseValidator: baseValidator{
 			manifestExister:            exister,
 			blobStatter:                bs,
 			skipDependencyVerification: skipDependencyVerification,
 			refLimit:                   refLimit,
+			payloadLimit:               payloadLimit,
 		},
 	}
 }
@@ -35,6 +36,11 @@ func (v *ManifestListValidator) Validate(ctx context.Context, mnfst *manifestlis
 
 	if mnfst.SchemaVersion != 2 {
 		return fmt.Errorf("unrecognized manifest list schema version %d", mnfst.SchemaVersion)
+	}
+
+	if err := v.exceedsPayloadSizeLimit(mnfst); err != nil {
+		errs = append(errs, err)
+		return errs
 	}
 
 	if err := v.exceedsRefLimit(mnfst); err != nil {

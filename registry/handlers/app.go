@@ -103,7 +103,8 @@ type App struct {
 
 	manifestURLs validation.ManifestURLs
 
-	manifestRefLimit int
+	manifestRefLimit         int
+	manifestPayloadSizeLimit int
 }
 
 // NewApp takes a configuration and returns a configured app, ready to serve
@@ -316,6 +317,9 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 
 		app.manifestRefLimit = config.Validation.Manifests.ReferenceLimit
 		options = append(options, storage.ManifestReferenceLimit(app.manifestRefLimit))
+
+		app.manifestPayloadSizeLimit = config.Validation.Manifests.PayloadSizeLimit
+		options = append(options, storage.ManifestPayloadSizeLimit(app.manifestPayloadSizeLimit))
 	}
 
 	// Connect to the metadata database, if enabled.

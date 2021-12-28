@@ -233,6 +233,8 @@ type Configuration struct {
 		Manifests struct {
 			// ReferenceLimit is the maximum number of blobs or manifests that manifests may reference. Set to zero to disable.
 			ReferenceLimit int `yaml:"referencelimit,omitempty"`
+			// PayloadSizeLimit is the maximum data size in bytes of manifest payloads. Set to zero to disable.
+			PayloadSizeLimit int `yaml:"payloadsizelimit,omitempty"`
 			// URLs configures validation for URLs in pushed manifests.
 			URLs struct {
 				// Allow specifies regular expressions (https://godoc.org/regexp/syntax)

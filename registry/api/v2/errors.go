@@ -113,6 +113,16 @@ var (
 		HTTPStatusCode: http.StatusBadRequest,
 	})
 
+	// ErrorCodeManifestPayloadSizeLimit is returned when a manifest payload is
+	// bigger than the configured limit.
+	ErrorCodeManifestPayloadSizeLimit = errcode.Register(errGroup, errcode.ErrorDescriptor{
+		Value:   "MANIFEST_SIZE_LIMIT",
+		Message: "payload size limit exceeded",
+		Description: `This error may be returned when a manifest payload size is bigger than
+		the configured limit allows.`,
+		HTTPStatusCode: http.StatusBadRequest,
+	})
+
 	// ErrorCodeBlobUnknown is returned when a blob is unknown to the
 	// registry. This can happen when the manifest references a nonexistent
 	// layer or the result is not found by a blob fetch.

@@ -31,6 +31,7 @@ type registry struct {
 	blobDescriptorServiceFactory distribution.BlobDescriptorServiceFactory
 	manifestURLs                 validation.ManifestURLs
 	manifestsRefLimit            int
+	manifestsPayloadSizeLimit    int
 	driver                       storagedriver.StorageDriver
 	db                           *datastore.DB
 	redirectExceptions           []*regexp.Regexp
@@ -121,6 +122,15 @@ func ManifestURLsDenyRegexp(r *regexp.Regexp) RegistryOption {
 func ManifestReferenceLimit(n int) RegistryOption {
 	return func(registry *registry) error {
 		registry.manifestsRefLimit = n
+		return nil
+	}
+}
+
+// ManifestPayloadSizeLimit is a functional option for NewRegistry. It sets the
+// maximum payload size of a manifest or manifest list.
+func ManifestPayloadSizeLimit(n int) RegistryOption {
+	return func(registry *registry) error {
+		registry.manifestsPayloadSizeLimit = n
 		return nil
 	}
 }
@@ -326,24 +336,27 @@ func (repo *repository) Manifests(ctx context.Context, options ...distribution.M
 		blobStore:      blobStore,
 		schema1Handler: v1Handler,
 		schema2Handler: &schema2ManifestHandler{
-			ctx:              ctx,
-			repository:       repo,
-			blobStore:        blobStore,
-			manifestURLs:     repo.registry.manifestURLs,
-			manifestRefLimit: repo.registry.manifestsRefLimit,
+			ctx:                      ctx,
+			repository:               repo,
+			blobStore:                blobStore,
+			manifestURLs:             repo.registry.manifestURLs,
+			manifestRefLimit:         repo.registry.manifestsRefLimit,
+			manifestPayloadSizeLimit: repo.registry.manifestsPayloadSizeLimit,
 		},
 		manifestListHandler: &manifestListHandler{
-			ctx:              ctx,
-			repository:       repo,
-			blobStore:        blobStore,
-			manifestRefLimit: repo.registry.manifestsRefLimit,
+			ctx:                      ctx,
+			repository:               repo,
+			blobStore:                blobStore,
+			manifestRefLimit:         repo.registry.manifestsRefLimit,
+			manifestPayloadSizeLimit: repo.registry.manifestsPayloadSizeLimit,
 		},
 		ocischemaHandler: &ocischemaManifestHandler{
-			ctx:              ctx,
-			repository:       repo,
-			blobStore:        blobStore,
-			manifestURLs:     repo.registry.manifestURLs,
-			manifestRefLimit: repo.registry.manifestsRefLimit,
+			ctx:                      ctx,
+			repository:               repo,
+			blobStore:                blobStore,
+			manifestURLs:             repo.registry.manifestURLs,
+			manifestRefLimit:         repo.registry.manifestsRefLimit,
+			manifestPayloadSizeLimit: repo.registry.manifestsPayloadSizeLimit,
 		},
 	}
 

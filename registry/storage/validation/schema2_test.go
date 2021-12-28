@@ -123,6 +123,7 @@ func TestVerifyManifest_Schema2_ForeignLayer(t *testing.T) {
 			repo.Blobs(ctx),
 			false,
 			0,
+			0,
 			validation.ManifestURLs{
 				Allow: regexp.MustCompile("^https?://foo"),
 				Deny:  regexp.MustCompile("^https?://foo/nope"),
@@ -156,7 +157,7 @@ func TestVerifyManifest_Schema2_InvalidSchemaVersion(t *testing.T) {
 	dm, err := schema2.FromStruct(m)
 	require.NoError(t, err)
 
-	v := validation.NewSchema2Validator(manifestService, repo.Blobs(ctx), false, 0, validation.ManifestURLs{})
+	v := validation.NewSchema2Validator(manifestService, repo.Blobs(ctx), false, 0, 0, validation.ManifestURLs{})
 	err = v.Validate(ctx, dm)
 	require.EqualError(t, err, fmt.Sprintf("unrecognized manifest schema version %d", m.Versioned.SchemaVersion))
 }
@@ -176,7 +177,7 @@ func TestVerifyManifest_Schema2_SkipDependencyVerification(t *testing.T) {
 	dm, err := schema2.FromStruct(m)
 	require.NoError(t, err)
 
-	v := validation.NewSchema2Validator(manifestService, repo.Blobs(ctx), true, 0, validation.ManifestURLs{})
+	v := validation.NewSchema2Validator(manifestService, repo.Blobs(ctx), true, 0, 0, validation.ManifestURLs{})
 
 	err = v.Validate(ctx, dm)
 	require.NoError(t, err)
@@ -220,7 +221,7 @@ func TestVerifyManifest_Schema2_ManifestLayer(t *testing.T) {
 	dm, err := schema2.FromStruct(m)
 	require.NoError(t, err)
 
-	v := validation.NewSchema2Validator(manifestService, repo.Blobs(ctx), false, 0, validation.ManifestURLs{})
+	v := validation.NewSchema2Validator(manifestService, repo.Blobs(ctx), false, 0, 0, validation.ManifestURLs{})
 
 	err = v.Validate(ctx, dm)
 	require.NoErrorf(t, err, fmt.Sprintf("digest: %s", dgst))
@@ -252,7 +253,7 @@ func TestVerifyManifest_Schema2_MultipleErrors(t *testing.T) {
 	dm, err := schema2.FromStruct(m)
 	require.NoError(t, err)
 
-	v := validation.NewSchema2Validator(manifestService, repo.Blobs(ctx), false, 0, validation.ManifestURLs{})
+	v := validation.NewSchema2Validator(manifestService, repo.Blobs(ctx), false, 0, 0, validation.ManifestURLs{})
 
 	err = v.Validate(ctx, dm)
 	require.Error(t, err)
@@ -340,11 +341,89 @@ func TestVerifyManifest_Schema2_ReferenceLimits(t *testing.T) {
 			dm, err := schema2.FromStruct(m)
 			require.NoError(t, err)
 
-			v := validation.NewSchema2Validator(manifestService, repo.Blobs(ctx), tt.skipDependencyVerification, tt.refLimit, validation.ManifestURLs{})
+			v := validation.NewSchema2Validator(manifestService, repo.Blobs(ctx), tt.skipDependencyVerification, tt.refLimit, 0, validation.ManifestURLs{})
 
 			err = v.Validate(ctx, dm)
 			if tt.wantErr {
 				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestVerifyManifest_Schema2_PayloadLimits(t *testing.T) {
+	ctx := context.Background()
+
+	registry := createRegistry(t)
+	repo := makeRepository(t, registry, "test")
+
+	manifestService, err := testutil.MakeManifestService(repo)
+	require.NoError(t, err)
+
+	m := makeSchema2ManifestTemplate(t, repo)
+
+	dm, err := schema2.FromStruct(m)
+	require.NoError(t, err)
+
+	_, payload, err := dm.Payload()
+	require.NoError(t, err)
+
+	baseSchema2ManifestSize := len(payload)
+
+	tests := map[string]struct {
+		payloadLimit               int
+		wantErr                    bool
+		skipDependencyVerification bool
+		expectedErr                error
+	}{
+		"no payload size limit": {
+			payloadLimit:               0,
+			wantErr:                    false,
+			skipDependencyVerification: false,
+		},
+		"payload size limit greater than manifest size": {
+			payloadLimit:               baseSchema2ManifestSize * 2,
+			wantErr:                    false,
+			skipDependencyVerification: false,
+		},
+		"payload size limit equal to manifest size": {
+			payloadLimit:               baseSchema2ManifestSize,
+			wantErr:                    false,
+			skipDependencyVerification: false,
+		},
+		"payload size limit less than manifest size": {
+			payloadLimit:               baseSchema2ManifestSize / 2,
+			wantErr:                    true,
+			skipDependencyVerification: false,
+			expectedErr: distribution.ErrManifestVerification{
+				distribution.ErrManifestPayloadSizeExceedsLimit{PayloadSize: baseSchema2ManifestSize, Limit: baseSchema2ManifestSize / 2},
+			},
+		},
+		"payload size limit less than manifest size skip verification": {
+			payloadLimit:               baseSchema2ManifestSize / 2,
+			wantErr:                    true,
+			skipDependencyVerification: true,
+			expectedErr: distribution.ErrManifestVerification{
+				distribution.ErrManifestPayloadSizeExceedsLimit{PayloadSize: baseSchema2ManifestSize, Limit: baseSchema2ManifestSize / 2},
+			},
+		},
+		"negative payload size limit": {
+			payloadLimit:               -baseSchema2ManifestSize,
+			wantErr:                    false,
+			skipDependencyVerification: false,
+		},
+	}
+
+	for tn, tt := range tests {
+		t.Run(tn, func(t *testing.T) {
+			v := validation.NewSchema2Validator(manifestService, repo.Blobs(ctx), tt.skipDependencyVerification, 0, tt.payloadLimit, validation.ManifestURLs{})
+
+			err = v.Validate(ctx, dm)
+			if tt.wantErr {
+				require.Error(t, err)
+				require.EqualError(t, err, tt.expectedErr.Error())
 			} else {
 				require.NoError(t, err)
 			}

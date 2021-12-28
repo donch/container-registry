@@ -13,10 +13,11 @@ import (
 
 // manifestListHandler is a ManifestHandler that covers schema2 manifest lists.
 type manifestListHandler struct {
-	repository       distribution.Repository
-	blobStore        distribution.BlobStore
-	ctx              context.Context
-	manifestRefLimit int
+	repository               distribution.Repository
+	blobStore                distribution.BlobStore
+	ctx                      context.Context
+	manifestRefLimit         int
+	manifestPayloadSizeLimit int
 }
 
 var _ ManifestHandler = &manifestListHandler{}
@@ -70,7 +71,7 @@ func (ms *manifestListHandler) verifyManifest(ctx context.Context, mnfst *manife
 
 	blobService := ms.repository.Blobs(ctx)
 
-	v := validation.NewManifestListValidator(manifestService, blobService, skipDependencyVerification, ms.manifestRefLimit)
+	v := validation.NewManifestListValidator(manifestService, blobService, skipDependencyVerification, ms.manifestRefLimit, ms.manifestPayloadSizeLimit)
 
 	return v.Validate(ctx, mnfst)
 }

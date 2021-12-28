@@ -319,6 +319,7 @@ proxy:
 validation:
   manifests:
     referencelimit: 150
+    payloadsizelimit: 64000
     urls:
       allow:
         - ^https?://([^/]+\.)*example\.com/
@@ -1266,6 +1267,7 @@ username (such as `batman`) and the password for that username.
 validation:
   manifests:
     referencelimit: 150
+    payloadsizelimit: 64000
     urls:
       allow:
         - ^https?://([^/]+\.)*example\.com/
@@ -1287,6 +1289,11 @@ Use the `manifests` subsection to configure validation of manifests. If
 
 Limit the number of manifest references (layers, configurations, other manifests)
 to the set number. `0` (default) disables limiting the number of references.
+
+#### `payloadsizelimit`
+
+Limit the size in bytes of a manifest payload. `0` (default) disables limiting
+the manifest payload size.
 
 #### `urls`
 
