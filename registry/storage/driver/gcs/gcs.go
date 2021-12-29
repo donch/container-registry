@@ -1152,3 +1152,12 @@ func (d *driver) pathToDirKey(path string) string {
 func (d *driver) keyToPath(key string) string {
 	return "/" + strings.Trim(strings.TrimPrefix(key, d.rootDirectory), "/")
 }
+
+// GCSBucketKey returns the GCS bucket key for the given storage driver path.
+func (d *Wrapper) GCSBucketKey(path string) string {
+	// This is currently used exclusively by the Google Cloud CDN middleware. During an online migration we have to
+	// maintain two separate storage drivers, each with a different root directory. Because of that we have no other
+	// option than hand over the object full path construction to the underlying GCS driver, instead of manually
+	// concatenating the CDN endpoint with the object path.
+	return d.StorageDriver.(*base.Regulator).StorageDriver.(*driver).pathToKey(path)
+}

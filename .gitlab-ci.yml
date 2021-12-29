@@ -185,6 +185,15 @@ coverage:
   script:
     - make coverage
 
+.middleware:storage: &middleware-storage
+  extends: .go-version-matrix
+  stage: test
+  needs: []
+
+middleware:storage-googlecdn:
+  <<: *middleware-storage
+  script: go test -v -coverprofile=coverage.out -tags=include_gcs github.com/docker/distribution/registry/storage/driver/middleware/googlecdn
+
 .storage-driver-test: &storage-driver-test
   extends: .go-version-matrix
   stage: integration
