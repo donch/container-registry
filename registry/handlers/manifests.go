@@ -905,6 +905,9 @@ func dbPutManifestSchema2(imh *manifestHandler, manifest *schema2.DeserializedMa
 	return dbPutManifestV2(imh, manifest, payload, false)
 }
 
+// safety limit to decide when to retrieve and cache configuration payloads on database based on their size in bytes
+const dbConfigSizeLimit = 256000 // 256KB
+
 func dbPutManifestV2(imh *manifestHandler, mfst distribution.ManifestV2, payload []byte, nonConformant bool) error {
 	repoPath := imh.Repository.Named().Name()
 
@@ -931,13 +934,22 @@ func dbPutManifestV2(imh *manifestHandler, mfst distribution.ManifestV2, payload
 	if dbManifest == nil {
 		l.Debug("manifest not found in database")
 
-		// Since filesystem writes may be optional, We cannot be sure that the
-		// repository scoped filesystem blob service will have a link to the
-		// configuration blob; however, since we check for repository scoped access
-		// via the database above, we may retrieve the blob directly common storage.
-		cfgPayload, err := imh.blobProvider.Get(imh, dbCfgBlob.Digest)
-		if err != nil {
-			return err
+		cfg := &models.Configuration{
+			MediaType: mfst.Config().MediaType,
+			Digest:    dbCfgBlob.Digest,
+		}
+
+		// skip retrieval and caching of config payload if its size is over the limit
+		if dbCfgBlob.Size <= dbConfigSizeLimit {
+			// Since filesystem writes may be optional, We cannot be sure that the
+			// repository scoped filesystem blob service will have a link to the
+			// configuration blob; however, since we check for repository scoped access
+			// via the database above, we may retrieve the blob directly common storage.
+			cfgPayload, err := imh.blobProvider.Get(imh, dbCfgBlob.Digest)
+			if err != nil {
+				return err
+			}
+			cfg.Payload = cfgPayload
 		}
 
 		m := &models.Manifest{
@@ -948,11 +960,7 @@ func dbPutManifestV2(imh *manifestHandler, mfst distribution.ManifestV2, payload
 			MediaType:     mfst.Version().MediaType,
 			Digest:        imh.Digest,
 			Payload:       payload,
-			Configuration: &models.Configuration{
-				MediaType: mfst.Config().MediaType,
-				Digest:    dbCfgBlob.Digest,
-				Payload:   cfgPayload,
-			},
+			Configuration: cfg,
 			NonConformant: nonConformant,
 		}
 
