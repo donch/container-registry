@@ -321,6 +321,14 @@ func TestImporter_Import_DryRun(t *testing.T) {
 	validateImport(t, suite.db)
 }
 
+func TestImporter_Import_UnlinkedLayers(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "unlinked-layers")
+	require.NoError(t, imp.Import(suite.ctx, "a-unlinked-layers"))
+	validateImport(t, suite.db)
+}
+
 func TestImporter_Import_AbortsIfDatabaseIsNotEmpty(t *testing.T) {
 	driver := newFilesystemStorageDriver(t)
 	registry := newRegistry(t, driver)
