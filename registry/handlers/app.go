@@ -191,6 +191,12 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 	if err != nil {
 		panic(err)
 	}
+	if app.Config.Migration.Enabled {
+		app.migrationDriver, err = applyStorageMiddleware(app.migrationDriver, config.Middleware["storage"])
+		if err != nil {
+			panic(err)
+		}
+	}
 
 	app.configureSecret(config)
 	app.configureEvents(config)

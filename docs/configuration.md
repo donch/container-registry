@@ -785,6 +785,22 @@ middleware:
         iprangesurl: https://ip-ranges.amazonaws.com/ip-ranges.json
 ```
 
+This is an example configuration of the `googlecdn` storage middleware:
+
+```yaml
+middleware:
+  storage:
+    - name: googlecdn
+      options:
+        baseurl: https://my.googlecdn.domain.com/
+        privatekey: /path/to/key
+        keyname: googlecdnkeyname
+        duration: 20s
+        ipfilteredby: gcp
+        updatefrequency: 12h
+        iprangesurl: https://www.gstatic.com/ipranges/goog.json
+```
+
 Each middleware entry has `name` and `options` entries. The `name` must
 correspond to the name under which the middleware registers itself. The
 `options` field is a map that details custom configuration required to
@@ -793,8 +809,9 @@ it supports any interesting structures desired, leaving it up to the middleware
 initialization function to best determine how to handle the specific
 interpretation of the options.
 
-### `cloudfront`
+### `storage`
 
+#### `cloudfront`
 
 | Parameter | Required | Description                                           |
 |-----------|----------|-------------------------------------------------------|
@@ -811,7 +828,24 @@ Then value of ipfilteredby:
 `aws`: IP from AWS goes to S3 directly
 `awsregion`: IP from certain AWS regions goes to S3 directly, use together with `awsregion`
 
-### `redirect`
+#### `googlecdn`
+
+Middleware to redirect blob download requests to [Google Cloud CDN](https://cloud.google.com/cdn) using
+[pre-signed URLs](https://cloud.google.com/cdn/docs/using-signed-urls).
+
+This option can only be used when `storage.redirect.disable` is `false`.
+
+| Parameter          | Required | Description                                                                                                                                                                                                                                                                                                            |
+|--------------------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `baseurl`          | yes      | The `SCHEME://HOST[/PATH]` where the Google CDN load balancer is listening.                                                                                                                                                                                                                                            |
+| `privatekey`       | yes      | The full path to the private key file used for signing URLs.                                                                                                                                                                                                                                                           |
+| `keyname`          | yes      | The name of the key used for signing URLs.                                                                                                                                                                                                                                                                             |
+| `duration`         | no       | An integer and unit for the expiration delay of pre-signed URLs. Valid time units are `ns`, `us` (or `µs`), `ms`, `s`, `m`, or `h`. For example, `3000s` is valid, but `3000 s` is not. If you do not specify a `duration` or you specify an integer without a time unit, the duration defaults to `20m` (20 minutes). |
+| `ipfilteredby`     | no       | If redirections to Cloud CDN should be skipped (redirecting to GCS instead) based on an IP filter. Can be one of `none` (no filtering) or `gcp` (all known GCP IP ranges). Defaults to `none`.                                                                                                                         |
+| `updatefrequency` | no       | The frequency to update the GCP IP ranges list. Only applies if `ipfilteredby` is not `none`. Defaults to `12h` (12 hours).                                                                                                                                                                                            |
+| `iprangesurl`      | no       | The URL contains the GCP IP ranges information. Only applies if `ipfilteredby` is not `none`. Defaults to `https://www.gstatic.com/ipranges/goog.json`.                                                                                                                                                                |
+
+#### `redirect`
 
 You can use the `redirect` storage middleware to specify a custom URL to a
 location of a proxy for the layer stored by the S3 storage driver.
