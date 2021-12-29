@@ -137,10 +137,11 @@ func (imp *Importer) importLayer(ctx context.Context, dbRepo *models.Repository,
 	return nil
 }
 
-func (imp *Importer) importLayers(ctx context.Context, dbRepo *models.Repository, dbManifest *models.Manifest, fsLayers []distribution.Descriptor) error {
+func (imp *Importer) importLayers(ctx context.Context, dbRepo *models.Repository, fsRepo distribution.Repository, dbManifest *models.Manifest, fsLayers []distribution.Descriptor) error {
 	total := len(fsLayers)
 	for i, fsLayer := range fsLayers {
 		l := log.GetLogger().WithFields(log.Fields{
+			"repository": fsRepo.Named().Name(),
 			"digest":     fsLayer.Digest,
 			"media_type": fsLayer.MediaType,
 			"size":       fsLayer.Size,
@@ -149,12 +150,19 @@ func (imp *Importer) importLayers(ctx context.Context, dbRepo *models.Repository
 		})
 		l.Info("importing layer")
 
-		err := imp.importLayer(ctx, dbRepo, dbManifest, &models.Blob{
+		if _, err := fsRepo.Blobs(ctx).Stat(ctx, fsLayer.Digest); err != nil {
+			if errors.Is(err, distribution.ErrBlobUnknown) {
+				l.Warn("blob is not linked to repository, skipping blob import")
+				continue
+			}
+			return fmt.Errorf("checking for access to blob with digest %s on repository %s: %v", fsLayer.Digest, fsRepo.Named().Name(), err)
+		}
+
+		if err := imp.importLayer(ctx, dbRepo, dbManifest, &models.Blob{
 			MediaType: fsLayer.MediaType,
 			Digest:    fsLayer.Digest,
 			Size:      fsLayer.Size,
-		})
-		if err != nil {
+		}); err != nil {
 			l.WithError(err).Error("importing layer")
 			continue
 		}
@@ -233,7 +241,7 @@ func (imp *Importer) importManifestV2(ctx context.Context, fsRepo distribution.R
 	}
 
 	// import manifest layers
-	if err := imp.importLayers(ctx, dbRepo, dbManifest, m.Layers()); err != nil {
+	if err := imp.importLayers(ctx, dbRepo, fsRepo, dbManifest, m.Layers()); err != nil {
 		return nil, fmt.Errorf("error importing layers: %w", err)
 	}
 
