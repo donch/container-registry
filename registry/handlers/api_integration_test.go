@@ -103,6 +103,14 @@ func withEligibilityMockAuth(enabled, eligible bool) configOpt {
 	}
 }
 
+func withSillyAuth(config *configuration.Configuration) {
+	if config.Auth == nil {
+		config.Auth = make(map[string]configuration.Parameters)
+	}
+
+	config.Auth["silly"] = configuration.Parameters{"realm": "test-realm", "service": "test-service"}
+}
+
 func withFSDriver(path string) configOpt {
 	return func(config *configuration.Configuration) {
 		config.Storage["filesystem"] = configuration.Parameters{"rootdirectory": path}
@@ -162,40 +170,6 @@ type tagsAPIResponse struct {
 
 // digestSha256EmptyTar is the canonical sha256 digest of empty data
 const digestSha256EmptyTar = "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-
-// TestCheckAPI hits the base endpoint (/v2/) ensures we return the specified
-// 200 OK response.
-func TestCheckAPI(t *testing.T) {
-	env := newTestEnv(t)
-	defer env.Shutdown()
-	baseURL, err := env.builder.BuildBaseURL()
-	if err != nil {
-		t.Fatalf("unexpected error building base url: %v", err)
-	}
-
-	resp, err := http.Get(baseURL)
-	if err != nil {
-		t.Fatalf("unexpected error issuing request: %v", err)
-	}
-	defer resp.Body.Close()
-
-	checkResponse(t, "issuing api base check", resp, http.StatusOK)
-	checkHeaders(t, resp, http.Header{
-		"Content-Type":                       []string{"application/json"},
-		"Content-Length":                     []string{"2"},
-		"Gitlab-Container-Registry-Version":  []string{strings.TrimPrefix(version.Version, "v")},
-		"Gitlab-Container-Registry-Features": []string{version.ExtFeatures},
-	})
-
-	p, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatalf("unexpected error reading response body: %v", err)
-	}
-
-	if string(p) != "{}" {
-		t.Fatalf("unexpected response body: %v", string(p))
-	}
-}
 
 type catalogAPIResponse struct {
 	Repositories []string `json:"repositories"`
@@ -1628,6 +1602,8 @@ func testManifestWithStorageError(t *testing.T, env *testEnv, imageName referenc
 // where the external behavior of the API is expected to be equivalent.
 func TestAPIConformance(t *testing.T) {
 	var testFuncs = []func(*testing.T, ...configOpt){
+		v2BaseURLAuth,
+
 		manifest_Put_Schema1_ByTag,
 		manifest_Put_Schema2_ByDigest,
 		manifest_Put_Schema2_ByDigest_ConfigNotAssociatedWithRepository,
@@ -3421,6 +3397,44 @@ func testMigrationPathRespHeader(t *testing.T, env *testEnv, repoRef reference.N
 
 	checkResponse(t, "", resp, http.StatusNotFound)
 	require.Equal(t, expectedValue, resp.Header.Get("Gitlab-Migration-Path"))
+}
+
+func v2BaseURLAuth(t *testing.T, opts ...configOpt) {
+	opts = append(opts, withSillyAuth)
+	env := newTestEnv(t, opts...)
+	defer env.Shutdown()
+
+	baseURL, err := env.builder.BuildBaseURL()
+	require.NoError(t, err)
+
+	// Get baseurl without auth secret, we should get an auth challenge back.
+	resp, err := http.Get(baseURL)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+	require.Equal(t, "Bearer realm=\"test-realm\",service=\"test-service\"", resp.Header.Get("WWW-Authenticate"))
+
+	// Get baseurl with Authorization header set, which is the only thing silly
+	// auth checks for.
+	req, err := http.NewRequest("GET", baseURL, nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "sillySecret")
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
+	require.Equal(t, "2", resp.Header.Get("Content-Length"))
+	require.Equal(t, strings.TrimPrefix(version.Version, "v"), resp.Header.Get("Gitlab-Container-Registry-Version"))
+	require.Equal(t, version.ExtFeatures, resp.Header.Get("Gitlab-Container-Registry-Features"))
+
+	p, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	require.Equal(t, "{}", string(p))
 }
 
 func manifest_Put_Schema1_ByTag(t *testing.T, opts ...configOpt) {
