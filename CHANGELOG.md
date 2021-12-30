@@ -1,3 +1,18 @@
+# [3.20.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.19.0-gitlab...v3.20.0-gitlab) (2021-12-30)
+
+
+### Bug Fixes
+
+* **datastore:** check for blob access before importing layer ([84cf639](https://gitlab.com/gitlab-org/container-registry/commit/84cf639925de58dc88a341db8cb3f400c5a2b21f))
+* **datastore:** skip caching of large configuration payloads ([748dbaa](https://gitlab.com/gitlab-org/container-registry/commit/748dbaa4a344bd83b5205f3e3c8666cb80626772))
+* remove temporary log entries for "finding repository by path" queries ([090e34c](https://gitlab.com/gitlab-org/container-registry/commit/090e34cde19994dd17e6f381eed2ab433140fe2c))
+
+
+### Features
+
+* add Google CDN support ([612e861](https://gitlab.com/gitlab-org/container-registry/commit/612e8619befeeccb43ae448cdfd8e454834e9224))
+* **handlers/configuration:** enable manifest payload size limit ([db18ba1](https://gitlab.com/gitlab-org/container-registry/commit/db18ba18115c452b09d3e5c70d46d32a40dde5e6))
+
 # [3.19.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.18.1-gitlab...v3.19.0-gitlab) (2021-12-17)
 
 
