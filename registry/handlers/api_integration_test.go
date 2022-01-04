@@ -34,6 +34,7 @@ import (
 	"github.com/docker/distribution/manifest/schema2"
 	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/api/errcode"
+	"github.com/docker/distribution/registry/api/urls"
 	v2 "github.com/docker/distribution/registry/api/v2"
 	_ "github.com/docker/distribution/registry/auth/eligibilitymock"
 	"github.com/docker/distribution/registry/datastore"
@@ -1602,7 +1603,7 @@ func testManifestWithStorageError(t *testing.T, env *testEnv, imageName referenc
 // where the external behavior of the API is expected to be equivalent.
 func TestAPIConformance(t *testing.T) {
 	var testFuncs = []func(*testing.T, ...configOpt){
-		v2BaseURLAuth,
+		baseURLAuth,
 
 		manifest_Put_Schema1_ByTag,
 		manifest_Put_Schema2_ByDigest,
@@ -3399,42 +3400,78 @@ func testMigrationPathRespHeader(t *testing.T, env *testEnv, repoRef reference.N
 	require.Equal(t, expectedValue, resp.Header.Get("Gitlab-Migration-Path"))
 }
 
-func v2BaseURLAuth(t *testing.T, opts ...configOpt) {
+func baseURLAuth(t *testing.T, opts ...configOpt) {
 	opts = append(opts, withSillyAuth)
 	env := newTestEnv(t, opts...)
 	defer env.Shutdown()
 
-	baseURL, err := env.builder.BuildBaseURL()
+	v2base, err := env.builder.BuildBaseURL()
 	require.NoError(t, err)
 
-	// Get baseurl without auth secret, we should get an auth challenge back.
-	resp, err := http.Get(baseURL)
-	require.NoError(t, err)
-	defer resp.Body.Close()
-
-	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
-	require.Equal(t, "Bearer realm=\"test-realm\",service=\"test-service\"", resp.Header.Get("WWW-Authenticate"))
-
-	// Get baseurl with Authorization header set, which is the only thing silly
-	// auth checks for.
-	req, err := http.NewRequest("GET", baseURL, nil)
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "sillySecret")
-
-	resp, err = http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	defer resp.Body.Close()
-
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-	require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
-	require.Equal(t, "2", resp.Header.Get("Content-Length"))
-	require.Equal(t, strings.TrimPrefix(version.Version, "v"), resp.Header.Get("Gitlab-Container-Registry-Version"))
-	require.Equal(t, version.ExtFeatures, resp.Header.Get("Gitlab-Container-Registry-Features"))
-
-	p, err := io.ReadAll(resp.Body)
+	gitLabV1Base, err := env.builder.BuildGitLabV1BaseURL()
 	require.NoError(t, err)
 
-	require.Equal(t, "{}", string(p))
+	var tests = []struct {
+		name                    string
+		url                     string
+		wantExtFeatures         bool
+		wantDistributionVersion bool
+	}{
+		{
+			name:                    "v2 base route",
+			url:                     v2base,
+			wantExtFeatures:         true,
+			wantDistributionVersion: true,
+		},
+		{
+			name: "GitLab v1 base route",
+			url:  gitLabV1Base,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// Get baseurl without auth secret, we should get an auth challenge back.
+			resp, err := http.Get(test.url)
+			require.NoError(t, err)
+			defer resp.Body.Close()
+
+			require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+			require.Equal(t, "Bearer realm=\"test-realm\",service=\"test-service\"", resp.Header.Get("WWW-Authenticate"))
+
+			// Get baseurl with Authorization header set, which is the only thing
+			// silly auth checks for.
+			req, err := http.NewRequest("GET", test.url, nil)
+			require.NoError(t, err)
+			req.Header.Set("Authorization", "sillySecret")
+
+			resp, err = http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			defer resp.Body.Close()
+
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
+			require.Equal(t, "2", resp.Header.Get("Content-Length"))
+			require.Equal(t, strings.TrimPrefix(version.Version, "v"), resp.Header.Get("Gitlab-Container-Registry-Version"))
+
+			if test.wantExtFeatures {
+				require.Equal(t, version.ExtFeatures, resp.Header.Get("Gitlab-Container-Registry-Features"))
+			} else {
+				require.Empty(t, resp.Header.Get("Gitlab-Container-Registry-Features"))
+			}
+
+			if test.wantDistributionVersion {
+				require.Equal(t, "registry/2.0", resp.Header.Get("Docker-Distribution-API-Version"))
+			} else {
+				require.Empty(t, resp.Header.Get("Docker-Distribution-API-Version"))
+			}
+
+			p, err := io.ReadAll(resp.Body)
+			require.NoError(t, err)
+
+			require.Equal(t, "{}", string(p))
+		})
+	}
 }
 
 func manifest_Put_Schema1_ByTag(t *testing.T, opts ...configOpt) {
@@ -6169,7 +6206,7 @@ type testEnv struct {
 	config  *configuration.Configuration
 	app     *registryhandlers.App
 	server  *httptest.Server
-	builder *v2.URLBuilder
+	builder *urls.Builder
 	db      *datastore.DB
 }
 
@@ -6236,11 +6273,8 @@ func newTestEnvWithConfig(t *testing.T, config *configuration.Configuration) *te
 		out = os.Stderr
 	}
 	server := httptest.NewServer(handlers.CombinedLoggingHandler(out, app))
-	builder, err := v2.NewURLBuilderFromString(server.URL+config.HTTP.Prefix, false)
-
-	if err != nil {
-		t.Fatalf("error creating url builder: %v", err)
-	}
+	builder, err := urls.NewBuilderFromString(server.URL+config.HTTP.Prefix, false)
+	require.NoError(t, err)
 
 	pk, err := libtrust.GenerateECP256PrivateKey()
 	if err != nil {
@@ -6372,7 +6406,7 @@ func startPushLayer(t *testing.T, env *testEnv, name reference.Named) (location 
 
 // doPushLayer pushes the layer content returning the url on success returning
 // the response. If you're only expecting a successful response, use pushLayer.
-func doPushLayer(t *testing.T, ub *v2.URLBuilder, name reference.Named, dgst digest.Digest, uploadURLBase string, body io.Reader) (*http.Response, error) {
+func doPushLayer(t *testing.T, ub *urls.Builder, name reference.Named, dgst digest.Digest, uploadURLBase string, body io.Reader) (*http.Response, error) {
 	u, err := url.Parse(uploadURLBase)
 	if err != nil {
 		t.Fatalf("unexpected error parsing pushLayer url: %v", err)
@@ -6395,7 +6429,7 @@ func doPushLayer(t *testing.T, ub *v2.URLBuilder, name reference.Named, dgst dig
 }
 
 // pushLayer pushes the layer content returning the url on success.
-func pushLayer(t *testing.T, ub *v2.URLBuilder, name reference.Named, dgst digest.Digest, uploadURLBase string, body io.Reader) string {
+func pushLayer(t *testing.T, ub *urls.Builder, name reference.Named, dgst digest.Digest, uploadURLBase string, body io.Reader) string {
 	digester := digest.Canonical.Digester()
 
 	resp, err := doPushLayer(t, ub, name, dgst, uploadURLBase, io.TeeReader(body, digester.Hash()))
@@ -6427,7 +6461,7 @@ func pushLayer(t *testing.T, ub *v2.URLBuilder, name reference.Named, dgst diges
 	return resp.Header.Get("Location")
 }
 
-func finishUpload(t *testing.T, ub *v2.URLBuilder, name reference.Named, uploadURLBase string, dgst digest.Digest) string {
+func finishUpload(t *testing.T, ub *urls.Builder, name reference.Named, uploadURLBase string, dgst digest.Digest) string {
 	resp, err := doPushLayer(t, ub, name, dgst, uploadURLBase, nil)
 	if err != nil {
 		t.Fatalf("unexpected error doing push layer request: %v", err)
@@ -6476,7 +6510,7 @@ func doPushChunk(t *testing.T, uploadURLBase string, body io.Reader) (*http.Resp
 	return resp, digester.Digest(), err
 }
 
-func pushChunk(t *testing.T, ub *v2.URLBuilder, name reference.Named, uploadURLBase string, body io.Reader, length int64) (string, digest.Digest) {
+func pushChunk(t *testing.T, ub *urls.Builder, name reference.Named, uploadURLBase string, body io.Reader, length int64) (string, digest.Digest) {
 	resp, dgst, err := doPushChunk(t, uploadURLBase, body)
 	if err != nil {
 		t.Fatalf("unexpected error doing push layer request: %v", err)

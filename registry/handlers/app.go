@@ -28,6 +28,8 @@ import (
 	"github.com/docker/distribution/notifications"
 	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/api/errcode"
+	v1 "github.com/docker/distribution/registry/api/gitlab/v1"
+	"github.com/docker/distribution/registry/api/urls"
 	v2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/docker/distribution/registry/auth"
 	"github.com/docker/distribution/registry/datastore"
@@ -73,12 +75,13 @@ type App struct {
 
 	Config *configuration.Configuration
 
-	router            *mux.Router                 // main application router, configured with dispatchers
-	driver            storagedriver.StorageDriver // driver maintains the app global storage driver instance.
-	db                *datastore.DB               // db is the global database handle used across the app.
-	registry          distribution.Namespace      // registry is the primary registry backend for the app instance.
-	migrationRegistry distribution.Namespace      // migrationRegistry is the secondary registry backend for migration
-	migrationDriver   storagedriver.StorageDriver // migrationDriver is the secondary storage driver for migration
+	distributionRouter *mux.Router                 // main application router, configured with dispatchers
+	gitlabRouter       *mux.Router                 // gitlab specific router
+	driver             storagedriver.StorageDriver // driver maintains the app global storage driver instance.
+	db                 *datastore.DB               // db is the global database handle used across the app.
+	registry           distribution.Namespace      // registry is the primary registry backend for the app instance.
+	migrationRegistry  distribution.Namespace      // migrationRegistry is the secondary registry backend for migration
+	migrationDriver    storagedriver.StorageDriver // migrationDriver is the secondary storage driver for migration
 
 	repoRemover      distribution.RepositoryRemover // repoRemover provides ability to delete repos
 	accessController auth.AccessController          // main access controller for application
@@ -112,23 +115,29 @@ type App struct {
 // handlers accordingly.
 func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 	app := &App{
-		Config:  config,
-		Context: ctx,
-		router:  v2.RouterWithPrefix(config.HTTP.Prefix),
-		isCache: config.Proxy.RemoteURL != "",
+		Config:             config,
+		Context:            ctx,
+		distributionRouter: v2.RouterWithPrefix(config.HTTP.Prefix),
+		gitlabRouter:       v1.Router(),
+		isCache:            config.Proxy.RemoteURL != "",
 	}
 
 	// Register the handler dispatchers.
-	app.register(v2.RouteNameBase, func(ctx *Context, r *http.Request) http.Handler {
-		return http.HandlerFunc(apiBase)
+	app.registerDistribution(v2.RouteNameBase, func(ctx *Context, r *http.Request) http.Handler {
+		return http.HandlerFunc(distributionAPIBase)
 	})
-	app.register(v2.RouteNameManifest, manifestDispatcher)
-	app.register(v2.RouteNameCatalog, catalogDispatcher)
-	app.register(v2.RouteNameTags, tagsDispatcher)
-	app.register(v2.RouteNameTag, tagDispatcher)
-	app.register(v2.RouteNameBlob, blobDispatcher)
-	app.register(v2.RouteNameBlobUpload, blobUploadDispatcher)
-	app.register(v2.RouteNameBlobUploadChunk, blobUploadDispatcher)
+	app.registerDistribution(v2.RouteNameManifest, manifestDispatcher)
+	app.registerDistribution(v2.RouteNameCatalog, catalogDispatcher)
+	app.registerDistribution(v2.RouteNameTags, tagsDispatcher)
+	app.registerDistribution(v2.RouteNameTag, tagDispatcher)
+	app.registerDistribution(v2.RouteNameBlob, blobDispatcher)
+	app.registerDistribution(v2.RouteNameBlobUpload, blobUploadDispatcher)
+	app.registerDistribution(v2.RouteNameBlobUploadChunk, blobUploadDispatcher)
+
+	// Register GitLab handlers dispatchers.
+	app.registerGitLab(v1.Base, func(ctx *Context, r *http.Request) http.Handler {
+		return http.HandlerFunc(gitlabAPIBase)
+	})
 
 	storageParams := config.Storage.Parameters()
 	if storageParams == nil {
@@ -837,7 +846,7 @@ var routeMetricsMiddleware = metricskit.NewHandlerFactory(
 // register a handler with the application, by route name. The handler will be
 // passed through the application filters and context will be constructed at
 // request time.
-func (app *App) register(routeName string, dispatch dispatchFunc) {
+func (app *App) registerDistribution(routeName string, dispatch dispatchFunc) {
 	handler := app.dispatcher(dispatch)
 
 	// Chain the handler with prometheus instrumented handler
@@ -854,7 +863,27 @@ func (app *App) register(routeName string, dispatch dispatchFunc) {
 	// replace it with manual routing and structure-based dispatch for better
 	// control over the request execution.
 
-	app.router.GetRoute(routeName).Handler(handler)
+	app.distributionRouter.GetRoute(routeName).Handler(handler)
+}
+
+func (app *App) registerGitLab(route v1.Route, dispatch dispatchFunc) {
+	handler := app.dispatcherGitLab(dispatch)
+
+	// Chain the handler with prometheus instrumented handler
+	if app.Config.HTTP.Debug.Prometheus.Enabled {
+		handler = routeMetricsMiddleware(
+			handler,
+			metricskit.WithLabelValues(map[string]string{"route": route.Name}),
+		)
+	}
+
+	// TODO(stevvooe): This odd dispatcher/route registration is by-product of
+	// some limitations in the gorilla/mux router. We are using it to keep
+	// routing consistent between the client and server, but we may want to
+	// replace it with manual routing and structure-based dispatch for better
+	// control over the request execution.
+
+	app.gitlabRouter.GetRoute(route.Name).Handler(handler)
 }
 
 // configureEvents prepares the event sink for action.
@@ -980,9 +1009,15 @@ func (app *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}()
 	}
 
-	// Set a header with the Docker Distribution API Version for all responses.
+	if v1.RouteRegex.MatchString(r.URL.Path) {
+		app.gitlabRouter.ServeHTTP(w, r)
+		return
+	}
+
+	// Set a header with the Docker Distribution API Version for distribution API responses.
 	w.Header().Add("Docker-Distribution-API-Version", "registry/2.0")
-	app.router.ServeHTTP(w, r)
+
+	app.distributionRouter.ServeHTTP(w, r)
 }
 
 // dispatchFunc takes a context and request and returns a constructed handler
@@ -1202,6 +1237,38 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 	})
 }
 
+func (app *App) dispatcherGitLab(dispatch dispatchFunc) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := &Context{
+			App:     app,
+			Context: dcontext.WithVars(r.Context(), r),
+		}
+
+		if err := app.authorized(w, r, ctx); err != nil {
+			dcontext.GetLogger(ctx).Warnf("error authorizing context: %v", err)
+			return
+		}
+
+		// Add username to request logging
+		ctx.Context = dcontext.WithLogger(ctx.Context, dcontext.GetLogger(ctx.Context, auth.UserNameKey))
+		// sync up context on the request.
+		r = r.WithContext(ctx)
+
+		dispatch(ctx, r).ServeHTTP(w, r)
+
+		// Automated error response handling here. Handlers may return their
+		// own errors if they need different behavior (such as range errors
+		// for layer upload).
+		if ctx.Errors.Len() > 0 {
+			if err := errcode.ServeJSON(w, ctx.Errors); err != nil {
+				dcontext.GetLogger(ctx).Errorf("error serving error json: %v (from %v)", err, ctx.Errors)
+			}
+
+			app.logError(ctx, r, ctx.Errors)
+		}
+	})
+}
+
 func (app *App) logError(ctx context.Context, r *http.Request, errors errcode.Errors) {
 	for _, e := range errors {
 		var code errcode.ErrorCode
@@ -1273,9 +1340,9 @@ func (app *App) context(w http.ResponseWriter, r *http.Request) *Context {
 		// A "host" item in the configuration takes precedence over
 		// X-Forwarded-Proto and X-Forwarded-Host headers, and the
 		// hostname in the request.
-		context.urlBuilder = v2.NewURLBuilder(&app.httpHost, false)
+		context.urlBuilder = urls.NewBuilder(&app.httpHost, false)
 	} else {
-		context.urlBuilder = v2.NewURLBuilderFromRequest(r, app.Config.HTTP.RelativeURLs)
+		context.urlBuilder = urls.NewBuilderFromRequest(r, app.Config.HTTP.RelativeURLs)
 	}
 
 	return context
@@ -1371,16 +1438,26 @@ func (app *App) nameRequired(r *http.Request) bool {
 	return routeName != v2.RouteNameBase && routeName != v2.RouteNameCatalog
 }
 
+// distributionAPIBase provides clients with extra information about extended
+// features the distribution API via the Gitlab-Container-Registry-Features header.
+func distributionAPIBase(w http.ResponseWriter, r *http.Request) {
+	// Provide clients with information about extended distribu
+	w.Header().Set("Gitlab-Container-Registry-Features", version.ExtFeatures)
+	apiBase(w, r)
+}
+
+func gitlabAPIBase(w http.ResponseWriter, r *http.Request) { apiBase(w, r) }
+
 // apiBase implements a simple yes-man for doing overall checks against the
 // api. This can support auth roundtrips to support docker login.
 func apiBase(w http.ResponseWriter, r *http.Request) {
 	const emptyJSON = "{}"
+
 	// Provide a simple /v2/ 200 OK response with empty json response.
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Content-Length", fmt.Sprint(len(emptyJSON)))
 
 	w.Header().Set("Gitlab-Container-Registry-Version", strings.TrimPrefix(version.Version, "v"))
-	w.Header().Set("Gitlab-Container-Registry-Features", version.ExtFeatures)
 
 	fmt.Fprint(w, emptyJSON)
 }

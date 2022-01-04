@@ -15,7 +15,7 @@ import (
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/reference"
-	v2 "github.com/docker/distribution/registry/api/v2"
+	"github.com/docker/distribution/registry/api/urls"
 	"github.com/docker/distribution/registry/client/transport"
 	"github.com/docker/distribution/registry/storage/cache"
 	"github.com/docker/distribution/registry/storage/cache/memory"
@@ -62,7 +62,7 @@ func checkHTTPRedirect(req *http.Request, via []*http.Request) error {
 
 // NewRegistry creates a registry namespace which can be used to get a listing of repositories
 func NewRegistry(baseURL string, transport http.RoundTripper) (Registry, error) {
-	ub, err := v2.NewURLBuilderFromString(baseURL, false)
+	ub, err := urls.NewBuilderFromString(baseURL, false)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +81,7 @@ func NewRegistry(baseURL string, transport http.RoundTripper) (Registry, error) 
 
 type registry struct {
 	client *http.Client
-	ub     *v2.URLBuilder
+	ub     *urls.Builder
 }
 
 // Repositories returns a lexigraphically sorted catalog given a base URL.  The 'entries' slice will be filled up to the size
@@ -131,7 +131,7 @@ func (r *registry) Repositories(ctx context.Context, entries []string, last stri
 
 // NewRepository creates a new Repository for the given repository name and base URL.
 func NewRepository(name reference.Named, baseURL string, transport http.RoundTripper) (distribution.Repository, error) {
-	ub, err := v2.NewURLBuilderFromString(baseURL, false)
+	ub, err := urls.NewBuilderFromString(baseURL, false)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +151,7 @@ func NewRepository(name reference.Named, baseURL string, transport http.RoundTri
 
 type repository struct {
 	client *http.Client
-	ub     *v2.URLBuilder
+	ub     *urls.Builder
 	name   reference.Named
 }
 
@@ -194,7 +194,7 @@ func (r *repository) Tags(ctx context.Context) distribution.TagService {
 // tags implements remote tagging operations.
 type tags struct {
 	client *http.Client
-	ub     *v2.URLBuilder
+	ub     *urls.Builder
 	name   reference.Named
 }
 
@@ -383,7 +383,7 @@ func (t *tags) Untag(ctx context.Context, tag string) error {
 
 type manifests struct {
 	name   reference.Named
-	ub     *v2.URLBuilder
+	ub     *urls.Builder
 	client *http.Client
 	etags  map[string]string
 }
@@ -633,7 +633,7 @@ func (ms *manifests) Delete(ctx context.Context, dgst digest.Digest) error {
 
 type blobs struct {
 	name   reference.Named
-	ub     *v2.URLBuilder
+	ub     *urls.Builder
 	client *http.Client
 
 	statter distribution.BlobDescriptorService
@@ -800,7 +800,7 @@ func (bs *blobs) Delete(ctx context.Context, dgst digest.Digest) error {
 
 type blobStatter struct {
 	name   reference.Named
-	ub     *v2.URLBuilder
+	ub     *urls.Builder
 	client *http.Client
 }
 
