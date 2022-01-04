@@ -1,4 +1,4 @@
-package v2
+package urls
 
 import (
 	"fmt"
@@ -7,46 +7,50 @@ import (
 	"strings"
 
 	"github.com/docker/distribution/reference"
+	v1 "github.com/docker/distribution/registry/api/gitlab/v1"
+	v2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/gorilla/mux"
 )
 
-// URLBuilder creates registry API urls from a single base endpoint. It can be
+// Builder creates registry API urls from a single base endpoint. It can be
 // used to create urls for use in a registry client or server.
 //
 // All urls will be created from the given base, including the api version.
 // For example, if a root of "/foo/" is provided, urls generated will be fall
 // under "/foo/v2/...". Most application will only provide a schema, host and
 // port, such as "https://localhost:5000/".
-type URLBuilder struct {
-	root     *url.URL // url root (ie http://localhost/)
-	router   *mux.Router
-	relative bool
+type Builder struct {
+	root               *url.URL // url root (ie http://localhost/)
+	distributionRouter *mux.Router
+	gitLabRouter       *mux.Router
+	relative           bool
 }
 
-// NewURLBuilder creates a URLBuilder with provided root url object.
-func NewURLBuilder(root *url.URL, relative bool) *URLBuilder {
-	return &URLBuilder{
-		root:     root,
-		router:   Router(),
-		relative: relative,
+// NewBuilder creates a Builder with provided root url object.
+func NewBuilder(root *url.URL, relative bool) *Builder {
+	return &Builder{
+		root:               root,
+		distributionRouter: v2.Router(),
+		gitLabRouter:       v1.Router(),
+		relative:           relative,
 	}
 }
 
-// NewURLBuilderFromString workes identically to NewURLBuilder except it takes
+// NewBuilderFromString workes identically to NewBuilder except it takes
 // a string argument for the root, returning an error if it is not a valid
 // url.
-func NewURLBuilderFromString(root string, relative bool) (*URLBuilder, error) {
+func NewBuilderFromString(root string, relative bool) (*Builder, error) {
 	u, err := url.Parse(root)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewURLBuilder(u, relative), nil
+	return NewBuilder(u, relative), nil
 }
 
-// NewURLBuilderFromRequest uses information from an *http.Request to
+// NewBuilderFromRequest uses information from an *http.Request to
 // construct the root url.
-func NewURLBuilderFromRequest(r *http.Request, relative bool) *URLBuilder {
+func NewBuilderFromRequest(r *http.Request, relative bool) *Builder {
 	var (
 		scheme = "http"
 		host   = r.Host
@@ -85,7 +89,7 @@ func NewURLBuilderFromRequest(r *http.Request, relative bool) *URLBuilder {
 		}
 	}
 
-	basePath := routeDescriptorsMap[RouteNameBase].Path
+	basePath := v2.RouteDescriptors[v2.RouteNameBase].Path
 
 	requestPath := r.URL.Path
 	index := strings.Index(requestPath, basePath)
@@ -100,12 +104,24 @@ func NewURLBuilderFromRequest(r *http.Request, relative bool) *URLBuilder {
 		u.Path = requestPath[0 : index+1]
 	}
 
-	return NewURLBuilder(u, relative)
+	return NewBuilder(u, relative)
 }
 
 // BuildBaseURL constructs a base url for the API, typically just "/v2/".
-func (ub *URLBuilder) BuildBaseURL() (string, error) {
-	route := ub.cloneRoute(RouteNameBase)
+func (ub *Builder) BuildBaseURL() (string, error) {
+	route := ub.cloneDistributionRoute(v2.RouteNameBase)
+
+	baseURL, err := route.URL()
+	if err != nil {
+		return "", err
+	}
+
+	return baseURL.String(), nil
+}
+
+// BuildGitLabV1BaseURL constructs a base url for the Gitlab v1 API.
+func (ub *Builder) BuildGitLabV1BaseURL() (string, error) {
+	route := ub.cloneGitLabRoute(v1.Base)
 
 	baseURL, err := route.URL()
 	if err != nil {
@@ -116,8 +132,8 @@ func (ub *URLBuilder) BuildBaseURL() (string, error) {
 }
 
 // BuildCatalogURL constructs a url get a catalog of repositories
-func (ub *URLBuilder) BuildCatalogURL(values ...url.Values) (string, error) {
-	route := ub.cloneRoute(RouteNameCatalog)
+func (ub *Builder) BuildCatalogURL(values ...url.Values) (string, error) {
+	route := ub.cloneDistributionRoute(v2.RouteNameCatalog)
 
 	catalogURL, err := route.URL()
 	if err != nil {
@@ -128,8 +144,8 @@ func (ub *URLBuilder) BuildCatalogURL(values ...url.Values) (string, error) {
 }
 
 // BuildTagsURL constructs a url to list the tags in the named repository.
-func (ub *URLBuilder) BuildTagsURL(name reference.Named, values ...url.Values) (string, error) {
-	route := ub.cloneRoute(RouteNameTags)
+func (ub *Builder) BuildTagsURL(name reference.Named, values ...url.Values) (string, error) {
+	route := ub.cloneDistributionRoute(v2.RouteNameTags)
 
 	tagsURL, err := route.URL("name", name.Name())
 	if err != nil {
@@ -140,8 +156,8 @@ func (ub *URLBuilder) BuildTagsURL(name reference.Named, values ...url.Values) (
 }
 
 // BuildTagURL constructs an url for a tag.
-func (ub *URLBuilder) BuildTagURL(ref reference.NamedTagged) (string, error) {
-	route := ub.cloneRoute(RouteNameTag)
+func (ub *Builder) BuildTagURL(ref reference.NamedTagged) (string, error) {
+	route := ub.cloneDistributionRoute(v2.RouteNameTag)
 
 	tagURL, err := route.URL("name", ref.Name(), "tag", ref.Tag())
 	if err != nil {
@@ -153,8 +169,8 @@ func (ub *URLBuilder) BuildTagURL(ref reference.NamedTagged) (string, error) {
 
 // BuildManifestURL constructs a url for the manifest identified by name and
 // reference. The argument reference may be either a tag or digest.
-func (ub *URLBuilder) BuildManifestURL(ref reference.Named) (string, error) {
-	route := ub.cloneRoute(RouteNameManifest)
+func (ub *Builder) BuildManifestURL(ref reference.Named) (string, error) {
+	route := ub.cloneDistributionRoute(v2.RouteNameManifest)
 
 	tagOrDigest := ""
 	switch v := ref.(type) {
@@ -175,8 +191,8 @@ func (ub *URLBuilder) BuildManifestURL(ref reference.Named) (string, error) {
 }
 
 // BuildBlobURL constructs the url for the blob identified by name and dgst.
-func (ub *URLBuilder) BuildBlobURL(ref reference.Canonical) (string, error) {
-	route := ub.cloneRoute(RouteNameBlob)
+func (ub *Builder) BuildBlobURL(ref reference.Canonical) (string, error) {
+	route := ub.cloneDistributionRoute(v2.RouteNameBlob)
 
 	layerURL, err := route.URL("name", ref.Name(), "digest", ref.Digest().String())
 	if err != nil {
@@ -188,8 +204,8 @@ func (ub *URLBuilder) BuildBlobURL(ref reference.Canonical) (string, error) {
 
 // BuildBlobUploadURL constructs a url to begin a blob upload in the
 // repository identified by name.
-func (ub *URLBuilder) BuildBlobUploadURL(name reference.Named, values ...url.Values) (string, error) {
-	route := ub.cloneRoute(RouteNameBlobUpload)
+func (ub *Builder) BuildBlobUploadURL(name reference.Named, values ...url.Values) (string, error) {
+	route := ub.cloneDistributionRoute(v2.RouteNameBlobUpload)
 
 	uploadURL, err := route.URL("name", name.Name())
 	if err != nil {
@@ -203,8 +219,8 @@ func (ub *URLBuilder) BuildBlobUploadURL(name reference.Named, values ...url.Val
 // including any url values. This should generally not be used by clients, as
 // this url is provided by server implementations during the blob upload
 // process.
-func (ub *URLBuilder) BuildBlobUploadChunkURL(name reference.Named, uuid string, values ...url.Values) (string, error) {
-	route := ub.cloneRoute(RouteNameBlobUploadChunk)
+func (ub *Builder) BuildBlobUploadChunkURL(name reference.Named, uuid string, values ...url.Values) (string, error) {
+	route := ub.cloneDistributionRoute(v2.RouteNameBlobUploadChunk)
 
 	uploadURL, err := route.URL("name", name.Name(), "uuid", uuid)
 	if err != nil {
@@ -214,13 +230,27 @@ func (ub *URLBuilder) BuildBlobUploadChunkURL(name reference.Named, uuid string,
 	return appendValuesURL(uploadURL, values...).String(), nil
 }
 
-// clondedRoute returns a clone of the named route from the router. Routes
-// must be cloned to avoid modifying them during url generation.
-func (ub *URLBuilder) cloneRoute(name string) clonedRoute {
+// cloneDistributionRoute returns a clone of the named route from the
+// distribution router. Routes must be cloned to avoid modifying them during
+// url generation.
+func (ub *Builder) cloneDistributionRoute(name string) clonedRoute {
 	route := new(mux.Route)
 	root := new(url.URL)
 
-	*route = *ub.router.GetRoute(name) // clone the route
+	*route = *ub.distributionRouter.GetRoute(name) // clone the route
+	*root = *ub.root
+
+	return clonedRoute{Route: route, root: root, relative: ub.relative}
+}
+
+// cloneGitLabRoute returns a clone of the named route from the
+// distribution router. Routes must be cloned to avoid modifying them during
+// url generation.
+func (ub *Builder) cloneGitLabRoute(r v1.Route) clonedRoute {
+	route := new(mux.Route)
+	root := new(url.URL)
+
+	*route = *ub.gitLabRouter.GetRoute(r.Name) // clone the route
 	*root = *ub.root
 
 	return clonedRoute{Route: route, root: root, relative: ub.relative}

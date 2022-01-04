@@ -6,7 +6,7 @@ import (
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/manifest/schema1"
 	"github.com/docker/distribution/reference"
-	v2 "github.com/docker/distribution/registry/api/v2"
+	"github.com/docker/distribution/registry/api/urls"
 	"github.com/docker/distribution/uuid"
 	"github.com/docker/libtrust"
 	"github.com/opencontainers/go-digest"
@@ -20,7 +20,7 @@ var (
 		Addr:       "remote.test",
 		InstanceID: uuid.Generate().String(),
 	}
-	ub = mustUB(v2.NewURLBuilderFromString("http://test.example.com/", false))
+	ub = mustUB(urls.NewBuilderFromString("http://test.example.com/", false))
 
 	actor = ActorRecord{
 		Name: "test",
@@ -255,7 +255,7 @@ func (tsf testSinkFn) Write(events ...Event) error {
 
 func (tsf testSinkFn) Close() error { return nil }
 
-func mustUB(ub *v2.URLBuilder, err error) *v2.URLBuilder {
+func mustUB(ub *urls.Builder, err error) *urls.Builder {
 	if err != nil {
 		panic(err)
 	}

@@ -1688,12 +1688,13 @@ var routeDescriptors = []RouteDescriptor{
 	},
 }
 
-var routeDescriptorsMap map[string]RouteDescriptor
+// RouteDescriptors allows accessing a v2 RouteDescriptor by name.
+var RouteDescriptors map[string]RouteDescriptor
 
 func init() {
-	routeDescriptorsMap = make(map[string]RouteDescriptor, len(routeDescriptors))
+	RouteDescriptors = make(map[string]RouteDescriptor, len(routeDescriptors))
 
 	for _, descriptor := range routeDescriptors {
-		routeDescriptorsMap[descriptor.Name] = descriptor
+		RouteDescriptors[descriptor.Name] = descriptor
 	}
 }

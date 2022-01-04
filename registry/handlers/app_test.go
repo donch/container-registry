@@ -14,6 +14,7 @@ import (
 
 	"github.com/docker/distribution/configuration"
 	"github.com/docker/distribution/registry/api/errcode"
+	"github.com/docker/distribution/registry/api/urls"
 	v2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/docker/distribution/registry/auth"
 	_ "github.com/docker/distribution/registry/auth/silly"
@@ -29,11 +30,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestAppDispatcher builds an application with a test dispatcher and ensures
-// that requests are properly dispatched and the handlers are constructed.
-// This only tests the dispatch mechanism. The underlying dispatchers must be
-// tested individually.
-func TestAppDispatcher(t *testing.T) {
+// TestAppDistribtionDispatcher builds an application with a test dispatcher and
+// ensures that requests are properly dispatched and the handlers are
+// constructed. This only tests the dispatch mechanism. The underlying
+// dispatchers must be tested individually.
+func TestAppDistribtionDispatcher(t *testing.T) {
 	driver := testdriver.New()
 	ctx := context.Background()
 	registry, err := storage.NewRegistry(ctx, driver, storage.BlobDescriptorCacheProvider(memorycache.NewInMemoryBlobDescriptorCacheProvider()), storage.EnableDelete, storage.EnableRedirect)
@@ -41,15 +42,15 @@ func TestAppDispatcher(t *testing.T) {
 		t.Fatalf("error creating registry: %v", err)
 	}
 	app := &App{
-		Config:   &configuration.Configuration{},
-		Context:  ctx,
-		router:   v2.Router(),
-		driver:   driver,
-		registry: registry,
+		Config:             &configuration.Configuration{},
+		Context:            ctx,
+		distributionRouter: v2.Router(),
+		driver:             driver,
+		registry:           registry,
 	}
 	server := httptest.NewServer(app)
 	defer server.Close()
-	router := v2.Router()
+	distributionRouter := v2.Router()
 
 	serverURL, err := url.Parse(server.URL)
 	if err != nil {
@@ -127,23 +128,15 @@ func TestAppDispatcher(t *testing.T) {
 			},
 		},
 	} {
-		app.register(testcase.endpoint, varCheckingDispatcher(unflatten(testcase.vars)))
-		route := router.GetRoute(testcase.endpoint).Host(serverURL.Host)
+		app.registerDistribution(testcase.endpoint, varCheckingDispatcher(unflatten(testcase.vars)))
+		route := distributionRouter.GetRoute(testcase.endpoint).Host(serverURL.Host)
 		u, err := route.URL(testcase.vars...)
-
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		resp, err := http.Get(u.String())
+		require.NoError(t, err)
 
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			t.Fatalf("unexpected status code: %v != %v", resp.StatusCode, http.StatusOK)
-		}
+		require.Equal(t, http.StatusOK, resp.StatusCode)
 	}
 }
 
@@ -175,7 +168,7 @@ func TestNewApp(t *testing.T) {
 
 	server := httptest.NewServer(app)
 	defer server.Close()
-	builder, err := v2.NewURLBuilderFromString(server.URL, false)
+	builder, err := urls.NewBuilderFromString(server.URL, false)
 	if err != nil {
 		t.Fatalf("error creating urlbuilder: %v", err)
 	}

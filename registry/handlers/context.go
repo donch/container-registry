@@ -8,7 +8,7 @@ import (
 	"github.com/docker/distribution"
 	dcontext "github.com/docker/distribution/context"
 	"github.com/docker/distribution/registry/api/errcode"
-	v2 "github.com/docker/distribution/registry/api/v2"
+	"github.com/docker/distribution/registry/api/urls"
 	"github.com/docker/distribution/registry/auth"
 	"github.com/docker/distribution/registry/datastore"
 	"github.com/opencontainers/go-digest"
@@ -34,7 +34,7 @@ type Context struct {
 	// handler *must not* start the response via http.ResponseWriter.
 	Errors errcode.Errors
 
-	urlBuilder *v2.URLBuilder
+	urlBuilder *urls.Builder
 
 	useDatabase     bool
 	writeFSMetadata bool
