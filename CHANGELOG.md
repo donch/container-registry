@@ -1,3 +1,16 @@
+# [3.21.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.20.0-gitlab...v3.21.0-gitlab) (2022-01-06)
+
+
+### Bug Fixes
+
+* correct typo cloudfront updatefrenquency ([dddf7aa](https://gitlab.com/gitlab-org/container-registry/commit/dddf7aa09e5a5ac4c6dfacff03a89c799e8df524))
+* handle missing foreign layers gracefully ([ddb578a](https://gitlab.com/gitlab-org/container-registry/commit/ddb578a1196276fc96686d23b32c1836ae3dce06))
+
+
+### Features
+
+* **handlers:** add gitlab v1 API base route ([6efb384](https://gitlab.com/gitlab-org/container-registry/commit/6efb384974f63a3aca6e6d5a22c0456965fc6e3e))
+
 # [3.20.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.19.0-gitlab...v3.20.0-gitlab) (2021-12-30)
 
 
