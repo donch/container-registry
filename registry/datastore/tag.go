@@ -164,6 +164,7 @@ func (s *tagStore) Manifest(ctx context.Context, t *models.Tag) (*models.Manifes
 			encode(m.configuration_blob_digest, 'hex') as configuration_blob_digest,
 			m.configuration_payload,
 			m.non_conformant,
+			m.non_distributable_layers,
 			m.created_at
 		FROM
 			manifests AS m

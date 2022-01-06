@@ -1,3 +1,4 @@
+//go:build integration
 // +build integration
 
 package handlers_test
@@ -78,6 +79,10 @@ func withReadOnly(config *configuration.Configuration) {
 	}
 
 	config.Storage["maintenance"]["readonly"] = map[interface{}]interface{}{"enabled": true}
+}
+
+func withoutManifestURLValidation(config *configuration.Configuration) {
+	config.Validation.Manifests.URLs.Allow = []string{".*"}
 }
 
 func disableMirrorFS(config *configuration.Configuration) {
@@ -1634,6 +1639,7 @@ func TestAPIConformance(t *testing.T) {
 		manifest_Delete_Schema2_MissingManifest,
 		manifest_Delete_Schema2_ClearsTags,
 		manifest_Delete_Schema2_DeleteDisabled,
+		manifest_Put_Schema2_WithNonDistributableLayers,
 
 		manifest_Put_OCI_ByDigest,
 		manifest_Put_OCI_ByTag,
@@ -1644,6 +1650,7 @@ func TestAPIConformance(t *testing.T) {
 		manifest_Put_OCIImageIndex_ByTag,
 		manifest_Get_OCIIndex_MatchingEtag,
 		manifest_Get_OCIIndex_NonMatchingEtag,
+		manifest_Put_OCI_WithNonDistributableLayers,
 
 		manifest_Get_ManifestList_FallbackToSchema2,
 
@@ -4396,6 +4403,117 @@ func manifest_Put_OCIImageIndex_ByDigest(t *testing.T, opts ...configOpt) {
 
 	// putRandomOCIImageIndex with putByDigest tests that the manifest put happened without issue.
 	seedRandomOCIImageIndex(t, env, repoPath, putByDigest)
+}
+
+func validateManifestPutWithNonDistributableLayers(t *testing.T, env *testEnv, repoRef reference.Named, m distribution.Manifest, mediaType string, foreignDigest digest.Digest) {
+	t.Helper()
+
+	// push manifest
+	u := buildManifestDigestURL(t, env, repoRef.Name(), m)
+	resp := putManifest(t, "putting manifest no error", u, mediaType, m)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	require.Equal(t, "nosniff", resp.Header.Get("X-Content-Type-Options"))
+	require.Equal(t, u, resp.Header.Get("Location"))
+
+	_, payload, err := m.Payload()
+	require.NoError(t, err)
+	dgst := digest.FromBytes(payload)
+	require.Equal(t, dgst.String(), resp.Header.Get("Docker-Content-Digest"))
+
+	// make sure that all referenced blobs except the non-distributable layer are known to the registry
+	for _, desc := range m.References() {
+		repoRef, err := reference.WithName(repoRef.Name())
+		require.NoError(t, err)
+		ref, err := reference.WithDigest(repoRef, desc.Digest)
+		require.NoError(t, err)
+		u, err := env.builder.BuildBlobURL(ref)
+		require.NoError(t, err)
+
+		res, err := http.Head(u)
+		require.NoError(t, err)
+
+		if desc.Digest == foreignDigest {
+			require.Equal(t, http.StatusNotFound, res.StatusCode)
+		} else {
+			require.Equal(t, http.StatusOK, res.StatusCode)
+		}
+	}
+}
+
+func manifest_Put_OCI_WithNonDistributableLayers(t *testing.T, opts ...configOpt) {
+	opts = append(opts, withoutManifestURLValidation)
+	env := newTestEnv(t, opts...)
+	defer env.Shutdown()
+
+	repoPath := "non-distributable"
+	repoRef, err := reference.WithName(repoPath)
+	require.NoError(t, err)
+
+	// seed random manifest and reuse its config and layers for the sake of simplicity
+	tmp := seedRandomOCIManifest(t, env, repoPath, putByDigest)
+
+	m := &ocischema.Manifest{
+		Versioned: manifest.Versioned{
+			SchemaVersion: 2,
+			MediaType:     v1.MediaTypeImageManifest,
+		},
+		Config: tmp.Config(),
+		Layers: tmp.Layers(),
+	}
+
+	// append a non-distributable layer
+	d := digest.Digest("sha256:22205a49d57a21afe7918d2b453e17a426654262efadcc4eee6796822bb22669")
+	m.Layers = append(m.Layers, distribution.Descriptor{
+		MediaType: v1.MediaTypeImageLayerNonDistributableGzip,
+		Size:      123456789,
+		Digest:    d,
+		URLs: []string{
+			fmt.Sprintf("https://registry.secret.com/%s", d.String()),
+			fmt.Sprintf("https://registry2.secret.com/%s", d.String()),
+		},
+	})
+
+	dm, err := ocischema.FromStruct(*m)
+	validateManifestPutWithNonDistributableLayers(t, env, repoRef, dm, v1.MediaTypeImageManifest, d)
+}
+
+func manifest_Put_Schema2_WithNonDistributableLayers(t *testing.T, opts ...configOpt) {
+	opts = append(opts, withoutManifestURLValidation)
+	env := newTestEnv(t, opts...)
+	defer env.Shutdown()
+
+	repoPath := "non-distributable"
+	repoRef, err := reference.WithName(repoPath)
+	require.NoError(t, err)
+
+	// seed random manifest and reuse its config and layers for the sake of simplicity
+	tmp := seedRandomSchema2Manifest(t, env, repoPath, putByDigest)
+
+	m := &schema2.Manifest{
+		Versioned: manifest.Versioned{
+			SchemaVersion: 2,
+			MediaType:     schema2.MediaTypeManifest,
+		},
+		Config: tmp.Config(),
+		Layers: tmp.Layers(),
+	}
+
+	// append a non-distributable layer
+	d := digest.Digest("sha256:22205a49d57a21afe7918d2b453e17a426654262efadcc4eee6796822bb22669")
+	m.Layers = append(m.Layers, distribution.Descriptor{
+		MediaType: schema2.MediaTypeForeignLayer,
+		Size:      123456789,
+		Digest:    d,
+		URLs: []string{
+			fmt.Sprintf("https://registry.secret.com/%s", d.String()),
+			fmt.Sprintf("https://registry2.secret.com/%s", d.String()),
+		},
+	})
+
+	dm, err := schema2.FromStruct(*m)
+	validateManifestPutWithNonDistributableLayers(t, env, repoRef, dm, schema2.MediaTypeManifest, d)
 }
 
 func TestManifestAPI_Put_OCIImageIndexByTagManifestsNotPresentInDatabase(t *testing.T) {

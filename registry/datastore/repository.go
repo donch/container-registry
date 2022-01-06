@@ -623,6 +623,7 @@ func (s *repositoryStore) Manifests(ctx context.Context, r *models.Repository) (
 			encode(m.configuration_blob_digest, 'hex') as configuration_blob_digest,
 			m.configuration_payload,
 			m.non_conformant,
+			m.non_distributable_layers,
 			m.created_at
 		FROM
 			manifests AS m
@@ -657,6 +658,7 @@ func (s *repositoryStore) FindManifestByDigest(ctx context.Context, r *models.Re
 			encode(m.configuration_blob_digest, 'hex') as configuration_blob_digest,
 			m.configuration_payload,
 			m.non_conformant,
+			m.non_distributable_layers,
 			m.created_at
 		FROM
 			manifests AS m
@@ -692,6 +694,7 @@ func (s *repositoryStore) FindManifestByTagName(ctx context.Context, r *models.R
 			encode(m.configuration_blob_digest, 'hex') as configuration_blob_digest,
 			m.configuration_payload,
 			m.non_conformant,
+			m.non_distributable_layers,
 			m.created_at
 		FROM
 			manifests AS m

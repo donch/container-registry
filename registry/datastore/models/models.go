@@ -45,7 +45,7 @@ type Configuration struct {
 	// Payload is the JSON payload of a manifest configuration. For operational safety reasons,
 	// a payload is only saved in this attribute if its size does not exceeds a predefined
 	// limit (see handlers.dbConfigSizeLimit).
-	Payload   Payload
+	Payload Payload
 }
 
 type Manifest struct {
@@ -59,7 +59,11 @@ type Manifest struct {
 	Payload       Payload
 	Configuration *Configuration
 	NonConformant bool
-	CreatedAt     time.Time
+	// NonDistributableLayers identifies whether a manifest references foreign/non-distributable layers. For now, we are
+	// not registering metadata about these layers, but we may wish to backfill that metadata in the future by parsing
+	// the manifest payload.
+	NonDistributableLayers bool
+	CreatedAt              time.Time
 }
 
 // Manifests is a slice of Manifest pointers.
