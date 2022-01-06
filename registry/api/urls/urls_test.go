@@ -133,7 +133,15 @@ func makeBuilderTestCases(builder *Builder) []urlBuilderTestCase {
 			description:  "test Gitlab v1 base url",
 			expectedPath: "/gitlab/v1/",
 			expectedErr:  nil,
-			build:        builder.BuildGitLabV1BaseURL,
+			build:        builder.BuildGitlabV1BaseURL,
+		},
+		{
+			description:  "test Gitlab v1 repository import url",
+			expectedPath: "/gitlab/v1/repositories/import/foo/bar/",
+			expectedErr:  nil,
+			build: func() (string, error) {
+				return builder.BuildGitlabV1RepositoryImportURL(fooBarRef)
+			},
 		},
 	}
 }
