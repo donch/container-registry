@@ -3408,7 +3408,7 @@ func baseURLAuth(t *testing.T, opts ...configOpt) {
 	v2base, err := env.builder.BuildBaseURL()
 	require.NoError(t, err)
 
-	gitLabV1Base, err := env.builder.BuildGitLabV1BaseURL()
+	gitLabV1Base, err := env.builder.BuildGitlabV1BaseURL()
 	require.NoError(t, err)
 
 	var tests = []struct {

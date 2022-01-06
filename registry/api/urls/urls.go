@@ -119,18 +119,6 @@ func (ub *Builder) BuildBaseURL() (string, error) {
 	return baseURL.String(), nil
 }
 
-// BuildGitLabV1BaseURL constructs a base url for the Gitlab v1 API.
-func (ub *Builder) BuildGitLabV1BaseURL() (string, error) {
-	route := ub.cloneGitLabRoute(v1.Base)
-
-	baseURL, err := route.URL()
-	if err != nil {
-		return "", err
-	}
-
-	return baseURL.String(), nil
-}
-
 // BuildCatalogURL constructs a url get a catalog of repositories
 func (ub *Builder) BuildCatalogURL(values ...url.Values) (string, error) {
 	route := ub.cloneDistributionRoute(v2.RouteNameCatalog)
@@ -228,6 +216,31 @@ func (ub *Builder) BuildBlobUploadChunkURL(name reference.Named, uuid string, va
 	}
 
 	return appendValuesURL(uploadURL, values...).String(), nil
+}
+
+// BuildGitLabV1BaseURL constructs a base URL for the Gitlab v1 API.
+func (ub *Builder) BuildGitlabV1BaseURL() (string, error) {
+	route := ub.cloneGitLabRoute(v1.Base)
+
+	baseURL, err := route.URL()
+	if err != nil {
+		return "", err
+	}
+
+	return baseURL.String(), nil
+}
+
+// BuildGitlabV1RepositoryImportURL constructs a URL for the Gitlab v1 API
+// repository import route by name.
+func (ub *Builder) BuildGitlabV1RepositoryImportURL(name reference.Named) (string, error) {
+	route := ub.cloneGitLabRoute(v1.RepositoryImport)
+
+	url, err := route.URL("name", name.Name())
+	if err != nil {
+		return "", err
+	}
+
+	return url.String(), nil
 }
 
 // cloneDistributionRoute returns a clone of the named route from the

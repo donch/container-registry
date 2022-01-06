@@ -7,17 +7,25 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/docker/distribution/reference"
 	"github.com/gorilla/mux"
 )
 
 // Route is the name and path pair of a GitLab v1 API route.
 type Route struct{ Name, Path string }
 
-// Base is the API route under which all other GitLab v1 API routes are found.
-var Base = Route{
-	Name: "base",
-	Path: "/gitlab/v1/",
-}
+var (
+	// Base is the API route under which all other GitLab v1 API routes are found.
+	Base = Route{
+		Name: "base",
+		Path: "/gitlab/v1/",
+	}
+	// RepositoryImport is the API route that triggers a repository import.
+	RepositoryImport = Route{
+		Name: "import-repository",
+		Path: Base.Path + "repositories/import/{name:" + reference.NameRegexp.String() + "}/",
+	}
+)
 
 // RouteRegex provides a regexp which can be used to determine if a string
 // is a GitLab v1 API route.
@@ -29,6 +37,7 @@ func Router() *mux.Router {
 	router.StrictSlash(true)
 
 	router.Path(Base.Path).Name(Base.Name)
+	router.Path(RepositoryImport.Path).Name(RepositoryImport.Name)
 
 	return router
 }
