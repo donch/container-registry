@@ -964,6 +964,10 @@ func dbPutManifestV2(imh *manifestHandler, mfst distribution.ManifestV2, payload
 			NonConformant: nonConformant,
 		}
 
+		// check if the manifest references non-distributable layers and mark it as such on the DB
+		ll := mfst.DistributableLayers()
+		m.NonDistributableLayers = len(ll) < len(mfst.Layers())
+
 		mStore := datastore.NewManifestStore(imh.App.db)
 		if err := mStore.Create(imh, m); err != nil {
 			return err
@@ -971,8 +975,8 @@ func dbPutManifestV2(imh *manifestHandler, mfst distribution.ManifestV2, payload
 
 		dbManifest = m
 
-		// find and associate manifest layer blobs
-		for _, reqLayer := range mfst.Layers() {
+		// find and associate distributable manifest layer blobs
+		for _, reqLayer := range mfst.DistributableLayers() {
 			dbBlob, err := dbFindRepositoryBlob(imh.Context, rStore, reqLayer, dbRepo.Path)
 			if err != nil {
 				return err

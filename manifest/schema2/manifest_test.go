@@ -178,3 +178,58 @@ func TestTotalSize(t *testing.T) {
 
 	require.Equal(t, refSize+int64(len(payload)), deserialized.TotalSize())
 }
+
+func TestDistributableLayers(t *testing.T) {
+	m := Manifest{
+		Versioned: manifest.Versioned{
+			SchemaVersion: 2,
+			MediaType:     MediaTypeManifest,
+		},
+		Config: distribution.Descriptor{
+			Digest:    "sha256:1a9ec845ee94c202b2d5da74a24f0ed2058318bfa9879fa541efaecba272e86b",
+			Size:      985,
+			MediaType: MediaTypeImageConfig,
+		},
+		Layers: []distribution.Descriptor{
+			{
+				Digest:    "sha256:15799a4d823625388b0529dec26be44f13b0a69bd5fe5401ec37888eff558fb0",
+				Size:      12345,
+				MediaType: MediaTypeLayer,
+			},
+			{
+				Digest:    "sha256:46e4d1d3fb114f8a35c0c38749f6b2e6710a31cd3cd11cbb060a9df50b1f24cc",
+				Size:      67890,
+				MediaType: MediaTypeForeignLayer,
+			},
+			{
+				Digest:    "sha256:b5f85c2d653c4a56e6b5036b81a8629db7f4b1be3949309770ed29dc1a1f3bb0",
+				Size:      91264,
+				MediaType: MediaTypeForeignLayer,
+			},
+			{
+				Digest:    "sha256:684137c60c5abd386c875e6dfc0a944110d0155817d5e3f1df6db6145e73dadb",
+				Size:      977463,
+				MediaType: "application/vnd.foo.image.layer.v0.tar+gzip",
+			},
+		},
+	}
+
+	dm, err := FromStruct(m)
+	require.NoError(t, err)
+
+	expectedLayers := []distribution.Descriptor{
+		{
+			Digest:    "sha256:15799a4d823625388b0529dec26be44f13b0a69bd5fe5401ec37888eff558fb0",
+			Size:      12345,
+			MediaType: MediaTypeLayer,
+		},
+		{
+			Digest:    "sha256:684137c60c5abd386c875e6dfc0a944110d0155817d5e3f1df6db6145e73dadb",
+			Size:      977463,
+			MediaType: "application/vnd.foo.image.layer.v0.tar+gzip",
+		},
+	}
+
+	dls := dm.DistributableLayers()
+	require.Equal(t, expectedLayers, dls)
+}

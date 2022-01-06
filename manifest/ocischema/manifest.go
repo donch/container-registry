@@ -137,6 +137,19 @@ func (m *DeserializedManifest) Version() manifest.Versioned {
 
 func (m *DeserializedManifest) Config() distribution.Descriptor   { return m.Target() }
 func (m *DeserializedManifest) Layers() []distribution.Descriptor { return m.Manifest.Layers }
+
+func (m *DeserializedManifest) DistributableLayers() []distribution.Descriptor {
+	var ll []distribution.Descriptor
+	for _, l := range m.Layers() {
+		switch l.MediaType {
+		case v1.MediaTypeImageLayerNonDistributable, v1.MediaTypeImageLayerNonDistributableGzip:
+			continue
+		}
+		ll = append(ll, l)
+	}
+	return ll
+}
+
 func (m *DeserializedManifest) TotalSize() int64 {
 	var layersSize int64
 	for _, layer := range m.Layers() {

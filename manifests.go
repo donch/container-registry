@@ -38,6 +38,9 @@ type ManifestV2 interface {
 	// TotalSize is the sum of the size of the manifest payload, layer and config
 	// blob sizes.
 	TotalSize() int64
+	// DistributableLayers is a slice of distributable image layers. This is a subset of Layers, excluding items with
+	// media types that are known to identify non-distributable layers.
+	DistributableLayers() []Descriptor
 }
 
 // ManifestBuilder creates a manifest allowing one to include dependencies.
