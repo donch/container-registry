@@ -134,9 +134,17 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 	app.registerDistribution(v2.RouteNameBlobUpload, blobUploadDispatcher)
 	app.registerDistribution(v2.RouteNameBlobUploadChunk, blobUploadDispatcher)
 
-	// Register GitLab handlers dispatchers.
-	app.registerGitLab(v1.Base, func(ctx *Context, r *http.Request) http.Handler {
+	// Register Gitlab handlers dispatchers.
+	app.registerGitlab(v1.Base, func(ctx *Context, r *http.Request) http.Handler {
 		return http.HandlerFunc(gitlabAPIBase)
+	})
+
+	// TODO: Placeholder handler so that repository import access scopes test work
+	// properly, will be replace by a real handler.
+	app.registerGitlab(v1.RepositoryImport, func(ctx *Context, r *http.Request) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintf(w, "{}")
+		})
 	})
 
 	storageParams := config.Storage.Parameters()
@@ -866,8 +874,8 @@ func (app *App) registerDistribution(routeName string, dispatch dispatchFunc) {
 	app.distributionRouter.GetRoute(routeName).Handler(handler)
 }
 
-func (app *App) registerGitLab(route v1.Route, dispatch dispatchFunc) {
-	handler := app.dispatcherGitLab(dispatch)
+func (app *App) registerGitlab(route v1.Route, dispatch dispatchFunc) {
+	handler := app.dispatcherGitlab(dispatch)
 
 	// Chain the handler with prometheus instrumented handler
 	if app.Config.HTTP.Debug.Prometheus.Enabled {
@@ -1237,7 +1245,7 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 	})
 }
 
-func (app *App) dispatcherGitLab(dispatch dispatchFunc) http.Handler {
+func (app *App) dispatcherGitlab(dispatch dispatchFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := &Context{
 			App:     app,
@@ -1363,6 +1371,8 @@ func (app *App) authorized(w http.ResponseWriter, r *http.Request, context *Cont
 
 	if repo != "" {
 		accessRecords = appendAccessRecords(accessRecords, r.Method, repo)
+		accessRecords = appendRepositoryImportAccessRecords(accessRecords, r, repo)
+
 		if fromRepo := r.FormValue("from"); fromRepo != "" {
 			// mounting a blob from one repository to another requires pull (GET)
 			// access to the source repository.
@@ -1513,6 +1523,23 @@ func appendCatalogAccessRecord(accessRecords []auth.Access, r *http.Request) []a
 				Action:   "*",
 			})
 	}
+	return accessRecords
+}
+
+func appendRepositoryImportAccessRecords(accessRecords []auth.Access, r *http.Request, repo string) []auth.Access {
+	route := mux.CurrentRoute(r)
+	routeName := route.GetName()
+
+	if routeName == v1.RepositoryImport.Name {
+		accessRecords = append(accessRecords,
+			auth.Access{
+				Resource: auth.Resource{
+					Type: "registry",
+					Name: "import"},
+				Action: "*",
+			})
+	}
+
 	return accessRecords
 }
 
