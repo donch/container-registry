@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/docker/distribution/configuration"
+	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/api/errcode"
 	"github.com/docker/distribution/registry/api/urls"
 	v2 "github.com/docker/distribution/registry/api/v2"
@@ -278,6 +279,72 @@ func TestAppendAccessRecords(t *testing.T) {
 	if ok := reflect.DeepEqual(result, expectedResult); !ok {
 		t.Fatalf("Actual access record differs from expected")
 	}
+}
+
+// TestAppendRepositoryImportAccessRecords ensures that only admins may trigger imports
+// via the GitLab v1 API.
+func TestAppendRepositoryImportAccessRecords(t *testing.T) {
+
+	// The appendRepositoryImportAccessRecords function depends on
+	// mux.CurrentRoute, which only inside a handler when a proper request is
+	// being made so we need to test against an instantiated app via HTTP.
+	ctx := context.Background()
+	config := configuration.Configuration{
+		Storage: configuration.Storage{
+			"testdriver": nil,
+			"maintenance": configuration.Parameters{"uploadpurging": map[interface{}]interface{}{
+				"enabled": false,
+			}},
+		},
+		Auth: configuration.Auth{
+			"silly": {
+				"realm":   "realm-test",
+				"service": "service-test",
+			},
+		},
+	}
+
+	app := NewApp(ctx, &config)
+
+	server := httptest.NewServer(app)
+	defer server.Close()
+
+	repo, err := reference.WithName("test/repo")
+	require.NoError(t, err)
+
+	repo, err = reference.WithTag(repo, "latest")
+	require.NoError(t, err)
+
+	builder, err := urls.NewBuilderFromString(server.URL, false)
+	require.NoError(t, err)
+
+	url, err := builder.BuildGitlabV1RepositoryImportURL(repo)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPut, url, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+
+	expectedAuthHeader := `Bearer realm="realm-test",service="service-test",scope="repository:test/repo:pull repository:test/repo:push registry:import:*"`
+	require.Equal(t, expectedAuthHeader, resp.Header.Get("WWW-Authenticate"))
+
+	// Ensure import scopes are not attached to other repository scoped requests.
+	url, err = builder.BuildManifestURL(repo)
+	require.NoError(t, err)
+
+	resp, err = http.Get(url)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+
+	expectedAuthHeader = `Bearer realm="realm-test",service="service-test",scope="repository:test/repo:pull"`
+	require.Equal(t, expectedAuthHeader, resp.Header.Get("WWW-Authenticate"))
 }
 
 func Test_updateOnlineGCSettings_SkipIfDatabaseDisabled(t *testing.T) {
