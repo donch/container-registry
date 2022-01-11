@@ -138,14 +138,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 	app.registerGitlab(v1.Base, func(ctx *Context, r *http.Request) http.Handler {
 		return http.HandlerFunc(gitlabAPIBase)
 	})
-
-	// TODO: Placeholder handler so that repository import access scopes test work
-	// properly, will be replace by a real handler.
-	app.registerGitlab(v1.RepositoryImport, func(ctx *Context, r *http.Request) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			fmt.Fprintf(w, "{}")
-		})
-	})
+	app.registerGitlab(v1.RepositoryImport, importDispatcher)
 
 	storageParams := config.Storage.Parameters()
 	if storageParams == nil {
@@ -1064,43 +1057,16 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 		var migrationStatusDuration time.Duration
 
 		if app.nameRequired(r) {
-			nameRef, err := reference.WithName(getName(ctx))
-			if err != nil {
-				dcontext.GetLogger(ctx).Errorf("error parsing reference from context: %v", err)
-				ctx.Errors = append(ctx.Errors, distribution.ErrRepositoryNameInvalid{
-					Name:   getName(ctx),
-					Reason: err,
-				})
-				if err := errcode.ServeJSON(w, ctx.Errors); err != nil {
-					dcontext.GetLogger(ctx).Errorf("error serving error json: %v (from %v)", err, ctx.Errors)
-				}
-				return
-			}
-
 			bp, ok := app.registry.Blobs().(distribution.BlobProvider)
 			if !ok {
-				err = fmt.Errorf("unable to convert BlobEnumerator into BlobProvider")
+				err := fmt.Errorf("unable to convert BlobEnumerator into BlobProvider")
 				dcontext.GetLogger(ctx).Error(err)
 				ctx.Errors = append(ctx.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
 			}
 			ctx.blobProvider = bp
 
-			repository, err := app.registry.Repository(ctx, nameRef)
+			repository, err := app.repositoryFromContext(ctx, w)
 			if err != nil {
-				dcontext.GetLogger(ctx).Errorf("error resolving repository: %v", err)
-
-				switch err := err.(type) {
-				case distribution.ErrRepositoryUnknown:
-					ctx.Errors = append(ctx.Errors, v2.ErrorCodeNameUnknown.WithDetail(err))
-				case distribution.ErrRepositoryNameInvalid:
-					ctx.Errors = append(ctx.Errors, v2.ErrorCodeNameInvalid.WithDetail(err))
-				case errcode.Error:
-					ctx.Errors = append(ctx.Errors, err)
-				}
-
-				if err := errcode.ServeJSON(w, ctx.Errors); err != nil {
-					dcontext.GetLogger(ctx).Errorf("error serving error json: %v (from %v)", err, ctx.Errors)
-				}
 				return
 			}
 
@@ -1127,22 +1093,8 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 				}
 				ctx.blobProvider = bp
 
-				repository, err = app.migrationRegistry.Repository(ctx, nameRef)
+				repository, err = app.migrationRepositoryFromContext(ctx, w)
 				if err != nil {
-					dcontext.GetLogger(ctx).Errorf("error resolving repository: %v", err)
-
-					switch err := err.(type) {
-					case distribution.ErrRepositoryUnknown:
-						ctx.Errors = append(ctx.Errors, v2.ErrorCodeNameUnknown.WithDetail(err))
-					case distribution.ErrRepositoryNameInvalid:
-						ctx.Errors = append(ctx.Errors, v2.ErrorCodeNameInvalid.WithDetail(err))
-					case errcode.Error:
-						ctx.Errors = append(ctx.Errors, err)
-					}
-
-					if err = errcode.ServeJSON(w, ctx.Errors); err != nil {
-						dcontext.GetLogger(ctx).Errorf("error serving error json: %v (from %v)", err, ctx.Errors)
-					}
 					return
 				}
 
@@ -1261,6 +1213,15 @@ func (app *App) dispatcherGitlab(dispatch dispatchFunc) http.Handler {
 		ctx.Context = dcontext.WithLogger(ctx.Context, dcontext.GetLogger(ctx.Context, auth.UserNameKey))
 		// sync up context on the request.
 		r = r.WithContext(ctx)
+
+		if app.nameRequired(r) {
+			repository, err := app.repositoryFromContext(ctx, w)
+			if err != nil {
+				return
+			}
+
+			ctx.Repository = repository
+		}
 
 		dispatch(ctx, r).ServeHTTP(w, r)
 
@@ -1445,7 +1406,13 @@ func (app *App) nameRequired(r *http.Request) bool {
 		return true
 	}
 	routeName := route.GetName()
-	return routeName != v2.RouteNameBase && routeName != v2.RouteNameCatalog
+
+	switch routeName {
+	case v2.RouteNameBase, v2.RouteNameCatalog, v1.Base.Name:
+		return false
+	}
+
+	return true
 }
 
 // distributionAPIBase provides clients with extra information about extended
@@ -1682,4 +1649,48 @@ func (app *App) GracefulShutdown(ctx context.Context) error {
 // DBStats returns the sql.DBStats for the metadata database connection handle.
 func (app *App) DBStats() sql.DBStats {
 	return app.db.Stats()
+}
+
+func (app *App) repositoryFromContext(ctx *Context, w http.ResponseWriter) (distribution.Repository, error) {
+	return repositoryFromContextWithRegistry(ctx, w, app.registry)
+}
+
+func (app *App) migrationRepositoryFromContext(ctx *Context, w http.ResponseWriter) (distribution.Repository, error) {
+	return repositoryFromContextWithRegistry(ctx, w, app.migrationRegistry)
+}
+
+func repositoryFromContextWithRegistry(ctx *Context, w http.ResponseWriter, registry distribution.Namespace) (distribution.Repository, error) {
+	nameRef, err := reference.WithName(getName(ctx))
+	if err != nil {
+		dcontext.GetLogger(ctx).Errorf("error parsing reference from context: %v", err)
+		ctx.Errors = append(ctx.Errors, distribution.ErrRepositoryNameInvalid{
+			Name:   getName(ctx),
+			Reason: err,
+		})
+		if err := errcode.ServeJSON(w, ctx.Errors); err != nil {
+			dcontext.GetLogger(ctx).Errorf("error serving error json: %v (from %v)", err, ctx.Errors)
+		}
+		return nil, err
+	}
+
+	repository, err := registry.Repository(ctx, nameRef)
+	if err != nil {
+		dcontext.GetLogger(ctx).Errorf("error resolving repository: %v", err)
+
+		switch err := err.(type) {
+		case distribution.ErrRepositoryUnknown:
+			ctx.Errors = append(ctx.Errors, v2.ErrorCodeNameUnknown.WithDetail(err))
+		case distribution.ErrRepositoryNameInvalid:
+			ctx.Errors = append(ctx.Errors, v2.ErrorCodeNameInvalid.WithDetail(err))
+		case errcode.Error:
+			ctx.Errors = append(ctx.Errors, err)
+		}
+
+		if err := errcode.ServeJSON(w, ctx.Errors); err != nil {
+			dcontext.GetLogger(ctx).Errorf("error serving error json: %v (from %v)", err, ctx.Errors)
+		}
+		return nil, err
+	}
+
+	return repository, nil
 }
