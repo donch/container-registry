@@ -10,6 +10,7 @@ import (
 
 var (
 	blobDownloadBytesHist, blobUploadBytesHist *prometheus.HistogramVec
+	cdnRedirectTotal                           *prometheus.CounterVec
 
 	timeSince = time.Since // for test purposes only
 )
@@ -22,6 +23,12 @@ const (
 	blobUploadBytesName   = "blob_upload_bytes"
 	blobUploadBytesDesc   = "A histogram of new blob upload bytes for the storage backend."
 	migrationPathLabel    = "migration_path"
+
+	cdnRedirectBackendLabel      = "backend"
+	cdnRedirectBypassLabel       = "bypass"
+	cdnRedirectBypassReasonLabel = "bypass_reason"
+	cdnRedirectTotalName         = "cdn_redirects_total"
+	cdnRedirectTotalDesc         = "A counter of CDN redirections for blob downloads."
 )
 
 func init() {
@@ -70,12 +77,27 @@ func init() {
 		[]string{migrationPathLabel},
 	)
 
+	cdnRedirectTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: metrics.NamespacePrefix,
+			Subsystem: subsystem,
+			Name:      cdnRedirectTotalName,
+			Help:      cdnRedirectTotalDesc,
+		},
+		[]string{cdnRedirectBackendLabel, cdnRedirectBypassLabel, cdnRedirectBypassReasonLabel},
+	)
+
 	prometheus.MustRegister(blobDownloadBytesHist)
 	prometheus.MustRegister(blobUploadBytesHist)
+	prometheus.MustRegister(cdnRedirectTotal)
 }
 
 func BlobDownload(redirect bool, size int64) {
 	blobDownloadBytesHist.WithLabelValues(strconv.FormatBool(redirect)).Observe(float64(size))
+}
+
+func CDNRedirect(backend string, bypass bool, bypassReason string) {
+	cdnRedirectTotal.WithLabelValues(backend, strconv.FormatBool(bypass), bypassReason).Inc()
 }
 
 func BlobUpload(migrationPath string, size int64) {
