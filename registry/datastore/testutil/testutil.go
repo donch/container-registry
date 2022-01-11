@@ -113,36 +113,48 @@ func (t table) seedFileName() string {
 }
 
 // DumpAsJSON dumps the table contents in JSON format using the PostgresSQL `json_agg` function. `bytea` columns are
-// automatically decoded for easy visualization/comparison.
+// automatically decoded for easy visualization/comparison. The output from each table is sorted for consistency. When
+// sorting, we use the `(top_level_namespace_id, id)` columns, the `digest` column or the `id` column, in this order
+// of preference for deterministic reasons.
 func (t table) DumpAsJSON(ctx context.Context, db datastore.Queryer) ([]byte, error) {
-	var query string
+	var tmpl string
 	switch t {
 	case ManifestsTable:
-		s := `SELECT
+		tmpl = `SELECT
 				json_agg(t)
 			FROM (
 				SELECT
 					id,
+					top_level_namespace_id,
 					repository_id,
 					created_at,
 					total_size,
 					schema_version,
-					encode(digest, 'hex') as digest,
+					encode(digest, 'hex') AS digest,
 					convert_from(payload, 'UTF8')::json AS payload,
 					media_type_id,
 					configuration_media_type_id,
 					convert_from(configuration_payload, 'UTF8')::json AS configuration_payload,
-					encode(configuration_blob_digest, 'hex') as configuration_blob_digest,
-					non_conformant
-				FROM %s
-			) t;`
-		query = fmt.Sprintf(s, t)
+					encode(configuration_blob_digest, 'hex') AS configuration_blob_digest,
+					non_conformant,
+					non_distributable_layers
+				FROM
+					%s
+				ORDER BY
+					(top_level_namespace_id, id)) t`
+	case NamespacesTable:
+		tmpl = "SELECT json_agg(t) FROM (SELECT * FROM %s ORDER BY id) t"
+	case RepositoriesTable, ManifestReferencesTable, RepositoryBlobsTable, LayersTable, TagsTable,
+		GCBlobsConfigurationsTable:
+		tmpl = "SELECT json_agg(t) FROM (SELECT * FROM %s ORDER BY (top_level_namespace_id, id)) t"
+	case GCManifestReviewQueueTable:
+		tmpl = "SELECT json_agg(t) FROM (SELECT * FROM %s ORDER BY (top_level_namespace_id, repository_id)) t"
 	default:
-		query = fmt.Sprintf("SELECT json_agg(%s) FROM %s", t, t)
+		tmpl = "SELECT json_agg(t) FROM (SELECT * FROM %s ORDER BY digest) t"
 	}
 
 	var dump []byte
-	row := db.QueryRowContext(ctx, query)
+	row := db.QueryRowContext(ctx, fmt.Sprintf(tmpl, t))
 	if err := row.Scan(&dump); err != nil {
 		return nil, err
 	}
