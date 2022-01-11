@@ -64,9 +64,7 @@ func newGCSDriver(t *testing.T) (driver.StorageDriver, string) {
 	t.Helper()
 
 	// generate unique root directory for each test to make them safe for parallel execution
-	root, err := os.MkdirTemp("", "driver-")
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, os.Remove(root)) })
+	root := t.TempDir()
 
 	d, err := gcs.FromParameters(map[string]interface{}{
 		"bucket":        os.Getenv("REGISTRY_STORAGE_GCS_BUCKET"),

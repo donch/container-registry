@@ -1,27 +1,11 @@
 package testutil
 
 import (
-	"os"
 	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
-
-// TempRoot creates and manages the lifecycle of a temporary directory for
-// driver testing.
-func TempRoot(tb testing.TB) string {
-	tb.Helper()
-
-	d, err := os.MkdirTemp("", "driver-")
-	require.NoError(tb, err)
-
-	tb.Cleanup(func() {
-		os.RemoveAll(d)
-	})
-
-	return d
-}
 
 type Opts struct {
 	Defaultt          interface{}

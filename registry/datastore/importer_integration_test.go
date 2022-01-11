@@ -99,16 +99,15 @@ func newImporterWithRoot(t *testing.T, db *datastore.DB, root string, opts ...da
 	return datastore.NewImporter(db, registry, opts...)
 }
 
-func newTempDirDriver(t *testing.T) (*filesystem.Driver, func()) {
-	rootDir, err := os.MkdirTemp("", "driver-")
-	require.NoError(t, err)
+func newTempDirDriver(t *testing.T) *filesystem.Driver {
+	rootDir := t.TempDir()
 
 	d, err := filesystem.FromParameters(map[string]interface{}{
 		"rootdirectory": rootDir,
 	})
 	require.NoError(t, err)
 
-	return d, func() { os.RemoveAll(rootDir) }
+	return d
 }
 
 // Dump each table as JSON and compare the output against reference snapshots (.golden files)
@@ -257,8 +256,7 @@ func TestImporter_ImportAll_BlobTransfer(t *testing.T) {
 	srcPath := "happy-path"
 	srcDriver := newFilesystemStorageDriverWithRoot(t, srcPath)
 
-	destDriver, cleanup := newTempDirDriver(t)
-	defer cleanup()
+	destDriver := newTempDirDriver(t)
 
 	bts, err := storage.NewBlobTransferService(srcDriver, destDriver)
 	require.NoError(t, err)
@@ -275,8 +273,7 @@ func TestImporter_ImportAll_BlobTransfer_DryRun(t *testing.T) {
 	srcPath := "happy-path"
 	srcDriver := newFilesystemStorageDriverWithRoot(t, srcPath)
 
-	destDriver, cleanup := newTempDirDriver(t)
-	defer cleanup()
+	destDriver := newTempDirDriver(t)
 
 	bts, err := storage.NewBlobTransferService(srcDriver, destDriver)
 	require.NoError(t, err)

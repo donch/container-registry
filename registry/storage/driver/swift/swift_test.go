@@ -18,7 +18,6 @@ import (
 
 	"github.com/docker/distribution/context"
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
-	dtestutil "github.com/docker/distribution/registry/storage/driver/internal/testutil"
 	"github.com/docker/distribution/registry/storage/driver/testsuites"
 
 	"gopkg.in/check.v1"
@@ -126,7 +125,7 @@ func init() {
 }
 
 func TestEmptyRootList(t *testing.T) {
-	validRoot := dtestutil.TempRoot(t)
+	validRoot := t.TempDir()
 
 	rootedDriver, err := swiftDriverConstructor(validRoot)
 	if err != nil {
@@ -285,7 +284,7 @@ func TestSwiftSegmentPath(t *testing.T) {
 
 func TestURLFor_Expiry(t *testing.T) {
 	ctx := context.Background()
-	validRoot := dtestutil.TempRoot(t)
+	validRoot := t.TempDir()
 	d, err := swiftDriverConstructor(validRoot)
 	require.NoError(t, err)
 

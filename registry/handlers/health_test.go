@@ -16,7 +16,7 @@ import (
 func TestFileHealthCheck(t *testing.T) {
 	interval := time.Second
 
-	tmpfile, err := os.CreateTemp(os.TempDir(), "healthcheck")
+	tmpfile, err := os.CreateTemp(t.TempDir(), "healthcheck")
 	if err != nil {
 		t.Fatalf("could not create temporary file: %v", err)
 	}
