@@ -43,6 +43,9 @@ type ResourceActions struct {
 	// set to false. Internally both cases are treated in the same way, but this
 	// is useful for logging and debugging purposes.
 	MigrationEligible *bool `json:"migration_eligible"`
+	// Flag to support the gradual rollout of Google Cloud CDN for GitLab.com, as
+	// per https://gitlab.com/gitlab-org/gitlab/-/issues/349417.
+	CDNRedirect bool `json:"cdn_redirect"`
 }
 
 // ClaimSet describes the main section of a JSON Web Token.

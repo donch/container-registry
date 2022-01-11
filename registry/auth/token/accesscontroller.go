@@ -285,6 +285,7 @@ func (ac *accessController) Authorized(ctx context.Context, accessItems ...auth.
 
 	ctx = auth.WithResources(ctx, token.resources())
 	ctx = injectMigrationEligibility(ctx, accessItems, token.Claims)
+	ctx = injectCDNRedirectFlag(ctx, token.Claims)
 
 	return auth.WithUser(ctx, auth.UserInfo{Name: token.Claims.Subject}), nil
 }
@@ -343,6 +344,24 @@ func injectMigrationEligibility(ctx context.Context, requiredPerms []auth.Access
 	for _, a := range claims.Access {
 		if a.Name == targetRepo && a.MigrationEligible != nil {
 			return migration.WithEligibility(ctx, *a.MigrationEligible)
+		}
+	}
+
+	return ctx
+}
+
+// In this function we detect if the Google Cloud CDN flag was added to the JWT token by GitLab Rails at
+// `access.cdn_redirect`. This is a temporary mechanism to flag if we should redirect blob HEAD or GET requests to
+// Google Cloud CDN during the percentage rollout of this feature for GitLab.com. See
+// https://gitlab.com/gitlab-org/gitlab/-/issues/349417 for more details.
+func injectCDNRedirectFlag(ctx context.Context, claims *ClaimSet) context.Context {
+	// A token may enclose multiple access requests, one per target repository. This is true for cross repository blob
+	// mount requests, where there are always two repositories involved (source and destination). For this specific use
+	// case, we don't care if the `cdn_redirect` flag is set for one but not for the other. If a token includes the CDN
+	// redirection flag, all operations carried with that token are eligible for CDN redirection.
+	for _, a := range claims.Access {
+		if a.CDNRedirect {
+			return dcontext.WithCDNRedirect(ctx)
 		}
 	}
 

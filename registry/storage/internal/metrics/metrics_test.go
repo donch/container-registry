@@ -84,6 +84,26 @@ registry_storage_blob_download_bytes_count{redirect="true"} 2
 	require.NoError(t, err)
 }
 
+func TestCDNRedirect(t *testing.T) {
+	restore := mockTimeSince(10 * time.Millisecond)
+	defer restore()
+
+	CDNRedirect("cdn", false, "")
+	CDNRedirect("storage", true, "ip")
+
+	var expected bytes.Buffer
+	expected.WriteString(`
+# HELP registry_storage_cdn_redirects_total A counter of CDN redirections for blob downloads.
+# TYPE registry_storage_cdn_redirects_total counter
+registry_storage_cdn_redirects_total{backend="cdn",bypass="false",bypass_reason=""} 1
+registry_storage_cdn_redirects_total{backend="storage",bypass="true",bypass_reason="ip"} 1
+`)
+	totalFullName := fmt.Sprintf("%s_%s_%s", metrics.NamespacePrefix, subsystem, cdnRedirectTotalName)
+
+	err := testutil.GatherAndCompare(prometheus.DefaultGatherer, &expected, totalFullName)
+	require.NoError(t, err)
+}
+
 func TestBlobUpload(t *testing.T) {
 	restore := mockTimeSince(10 * time.Millisecond)
 	defer restore()
