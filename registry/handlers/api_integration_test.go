@@ -55,6 +55,7 @@ import (
 	"github.com/opencontainers/go-digest"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/labkit/metrics/sqlmetrics"
 )
@@ -6328,6 +6329,12 @@ type testEnv struct {
 	db      *datastore.DB
 }
 
+func (e *testEnv) requireDB(t *testing.T) {
+	if !e.config.Database.Enabled {
+		t.Skip("skipping test because the metadata database is not enabled")
+	}
+}
+
 func newTestEnvMirror(t *testing.T, opts ...configOpt) *testEnv {
 	config := newConfig(opts...)
 	config.Proxy.RemoteURL = "http://example.com"
@@ -6968,4 +6975,111 @@ func Test_PrometheusMetricsCollectionDoesNotPanic_InMigrationMode(t *testing.T) 
 	defer env.Shutdown()
 
 	testPrometheusMetricsCollectionDoesNotPanic(t, env)
+}
+
+func TestRepositoryImportAPI_Put(t *testing.T) {
+	rootDir, err := os.MkdirTemp("", "api-repository-import-")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		os.RemoveAll(rootDir)
+	})
+
+	migrationDir := filepath.Join(rootDir, "/new")
+
+	env := newTestEnv(t, withFSDriver(rootDir))
+	defer env.Shutdown()
+
+	env.requireDB(t)
+
+	repoPath := "old/repo"
+	tagName := "import-tag"
+
+	// Push up a image to the old side of the registry, so we can migrate it below.
+	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
+
+	env2 := newTestEnv(t, withFSDriver(rootDir), withMigrationEnabled, withMigrationRootDirectory(migrationDir))
+	defer env2.Shutdown()
+
+	// Start Repository Import.
+	repoRef, err := reference.WithName(repoPath)
+	require.NoError(t, err)
+
+	importURL, err := env2.builder.BuildGitlabV1RepositoryImportURL(repoRef)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPut, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Import should start without error.
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	// Spin up a non-migartion mode env to test that the repository imported correctly.
+	// TODO: When https://gitlab.com/gitlab-org/container-registry/-/issues/529 is
+	// finished, we should listen for the completion notification instead.
+	env3 := newTestEnv(t, withFSDriver(migrationDir))
+	defer env3.Shutdown()
+
+	tagURL := buildManifestTagURL(t, env3, repoPath, tagName)
+
+	require.Eventually(t, func() bool {
+		resp, err = http.Get(tagURL)
+		if !assert.NoError(t, err) {
+			return false
+		}
+		defer resp.Body.Close()
+
+		return assert.Equal(t, http.StatusOK, resp.StatusCode)
+	},
+		time.Second*10,
+		time.Millisecond*200,
+	)
+
+	// Subsequent calls to the same repository should not start another import.
+	req, err = http.NewRequest(http.MethodPut, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
+func TestRepositoryImportAPI_Put_RepositoryNotPresentOnOldSide(t *testing.T) {
+	rootDir, err := os.MkdirTemp("", "api-repository-import-")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		os.RemoveAll(rootDir)
+	})
+
+	migrationDir := filepath.Join(rootDir, "/new")
+
+	env := newTestEnv(t, withFSDriver(rootDir), withMigrationEnabled, withMigrationRootDirectory(migrationDir))
+	defer env.Shutdown()
+
+	env.requireDB(t)
+
+	repoPath := "old/repo"
+
+	// Start Repository Import.
+	repoRef, err := reference.WithName(repoPath)
+	require.NoError(t, err)
+
+	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPut, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// We should get a repository not found error
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+	checkBodyHasErrorCodes(t, "repository not found", resp, v2.ErrorCodeNameUnknown)
 }
