@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/docker/distribution"
@@ -32,6 +33,7 @@ type Importer struct {
 	importDanglingBlobs     bool
 	requireEmptyDatabase    bool
 	dryRun                  bool
+	tagConcurrency          int
 }
 
 // ImporterOption provides functional options for the Importer.
@@ -68,11 +70,20 @@ func WithBlobTransferService(bts distribution.BlobTransferService) ImporterOptio
 	}
 }
 
+// WithTagConcurrency configures the Importer to retrieve the details of n tags
+// concurrently.
+func WithTagConcurrency(n int) ImporterOption {
+	return func(imp *Importer) {
+		imp.tagConcurrency = n
+	}
+}
+
 // NewImporter creates a new Importer.
 func NewImporter(db *DB, registry distribution.Namespace, opts ...ImporterOption) *Importer {
 	imp := &Importer{
-		registry: registry,
-		db:       db,
+		registry:       registry,
+		db:             db,
+		tagConcurrency: 1,
 	}
 
 	for _, o := range opts {
@@ -361,6 +372,11 @@ func (imp *Importer) importManifests(ctx context.Context, fsRepo distribution.Re
 	return err
 }
 
+type tagLookupResponse struct {
+	name string
+	desc distribution.Descriptor
+}
+
 func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Repository, dbRepo *models.Repository) error {
 	manifestService, err := fsRepo.Manifests(ctx)
 	if err != nil {
@@ -374,21 +390,48 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 	}
 
 	total := len(fsTags)
+	semaphore := make(chan struct{}, imp.tagConcurrency)
+	tagResChan := make(chan *tagLookupResponse)
 
-	for i, fsTag := range fsTags {
-		l := log.GetLogger().WithFields(log.Fields{"name": fsTag, "count": i + 1, "total": total})
+	// Start a goroutine to concurrently dispatch tag details lookup, up to
+	// the configured tag concurrency at once.
+	go func() {
+		var wg sync.WaitGroup
+		for _, tag := range fsTags {
+			semaphore <- struct{}{}
+			wg.Add(1)
 
-		// read tag details from the filesystem
-		desc, err := tagService.Get(ctx, fsTag)
-		if err != nil {
-			l.WithError(err).Error("reading tag details")
-			continue
+			go func(t string) {
+				defer func() {
+					<-semaphore
+					wg.Done()
+				}()
+
+				desc, err := tagService.Get(ctx, t)
+				if err != nil {
+					log.GetLogger().WithError(err).Error("reading tag details")
+					return
+				}
+
+				tagResChan <- &tagLookupResponse{t, desc}
+			}(tag)
 		}
 
-		l = l.WithFields(log.Fields{"target": desc.Digest})
-		l.Info("importing tag")
+		wg.Wait()
+		close(tagResChan)
+	}()
 
-		dbTag := &models.Tag{Name: fsTag, NamespaceID: dbRepo.NamespaceID, RepositoryID: dbRepo.ID}
+	// Consume the tag lookup details serially. In the ideal case, we only need
+	// retrieve the manifest from the database and associate it with a tag. This
+	// is fast enough that concurrency really isn't warranted here as well.
+	var i int
+	for tRes := range tagResChan {
+		i++
+		fsTag := tRes.name
+		desc := tRes.desc
+
+		l := log.GetLogger().WithFields(log.Fields{"name": fsTag, "count": i, "total": total, "digest": desc.Digest})
+		l.Info("importing tag")
 
 		// Find corresponding manifest in DB or filesystem.
 		var dbManifest *models.Manifest
@@ -400,7 +443,7 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 		if dbManifest == nil {
 			m, err := manifestService.Get(ctx, desc.Digest)
 			if err != nil {
-				l.WithFields(log.Fields{"digest": desc.Digest}).WithError(err).Error("retrieving manifest")
+				l.WithError(err).Error("retrieving manifest")
 				continue
 			}
 
@@ -418,8 +461,7 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 			}
 		}
 
-		dbTag.ManifestID = dbManifest.ID
-
+		dbTag := &models.Tag{Name: fsTag, RepositoryID: dbRepo.ID, ManifestID: dbManifest.ID, NamespaceID: dbRepo.NamespaceID}
 		if err := imp.tagStore.CreateOrUpdate(ctx, dbTag); err != nil {
 			l.WithError(err).Error("creating tag")
 		}
