@@ -695,6 +695,38 @@ migration:
 	testParameter(t, yml, "REGISTRY_MIGRATION_AUTHELIGIBILITYDISABLED", tt, validator)
 }
 
+func TestParseMigrationTagConcurrency(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+migration:
+  enabled: true
+  tagconcurrency: %s
+`
+	tt := []parameterTest{
+		{
+			name:  "sample",
+			value: "10",
+			want:  10,
+		},
+		{
+			name: "default",
+			want: 1,
+		},
+		{
+			name:  "negative",
+			value: "-1",
+			want:  1,
+		},
+	}
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, got.Migration.TagConcurrency)
+	}
+
+	testParameter(t, yml, "REGISTRY_MIGRATION_TAGCONCURRENCY", tt, validator)
+}
+
 // TestParseInvalidVersion validates that the parser will fail to parse a newer configuration
 // version than the CurrentVersion
 func (suite *ConfigSuite) TestParseInvalidVersion(c *C) {
