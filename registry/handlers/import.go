@@ -12,6 +12,7 @@ import (
 	"github.com/docker/distribution/registry/datastore"
 	"github.com/docker/distribution/registry/storage"
 	ghandlers "github.com/gorilla/handlers"
+	"gitlab.com/gitlab-org/labkit/errortracking"
 )
 
 // importHandler handles http operations on repository imports
@@ -99,6 +100,7 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 
 		if err := importer.Import(ctx, ih.Repository.Named().Name()); err != nil {
 			l.WithError(err).Error("importing repository")
+			errortracking.Capture(err, errortracking.WithContext(ctx), errortracking.WithRequest(r))
 		}
 	}()
 
