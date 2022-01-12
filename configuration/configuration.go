@@ -420,6 +420,11 @@ type Migration struct {
 	// AuthEligibilityDisabled allows disabling the evaluation of JWT tokens sent from Rails to determine the code path
 	// that new repositories should follow. If disabled, all new repositories will follow the new code path. Defaults to `false`.
 	AuthEligibilityDisabled bool `yaml:"autheligibilitydisabled,omitempty"`
+	// TagConcurrency determines the number of concurrent tag details requests to
+	// the filesystem backend. This can greatly reduce the time spent importing a
+	// repository after a successful pre import has completed. Pre import is not
+	// affected by this parameter. Default `1`.
+	TagConcurrency int `yaml:"tagconcurrency,omitempty"`
 }
 
 // MailOptions provides the configuration sections to user, for specific handler.
@@ -1046,5 +1051,8 @@ func ApplyDefaults(config *Configuration) {
 	}
 	if config.Redis.Addr != "" && config.Redis.Pool.Size == 0 {
 		config.Redis.Pool.Size = 10
+	}
+	if config.Migration.Enabled && config.Migration.TagConcurrency < 1 {
+		config.Migration.TagConcurrency = 1
 	}
 }
