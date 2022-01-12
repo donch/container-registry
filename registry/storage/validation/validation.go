@@ -8,7 +8,7 @@ import (
 	"regexp"
 
 	"github.com/docker/distribution"
-	digest "github.com/opencontainers/go-digest"
+	"github.com/opencontainers/go-digest"
 )
 
 var (
