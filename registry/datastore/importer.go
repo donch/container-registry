@@ -539,8 +539,6 @@ func (imp *Importer) preImportTaggedManifests(ctx context.Context, fsRepo distri
 }
 
 func (imp *Importer) preImportManifest(ctx context.Context, fsRepo distribution.Repository, dbRepo *models.Repository, dgst digest.Digest) error {
-	var tx Transactor
-
 	manifestService, err := fsRepo.Manifests(ctx)
 	if err != nil {
 		return fmt.Errorf("constructing manifest service: %w", err)
@@ -553,17 +551,6 @@ func (imp *Importer) preImportManifest(ctx context.Context, fsRepo distribution.
 		l.WithFields(log.Fields{"digest": dgst}).WithError(err).Error("retrieving manifest")
 	}
 
-	if !imp.dryRun {
-		tx, err = imp.beginTx(ctx)
-		if err != nil {
-			return fmt.Errorf("beginning transaction: %w", err)
-		}
-		defer func() {
-			tx.Rollback()
-			imp.loadStores(imp.db)
-		}()
-	}
-
 	switch fsManifest := m.(type) {
 	case *manifestlist.DeserializedManifestList:
 		l.Info("pre-importing manifest list")
@@ -574,12 +561,6 @@ func (imp *Importer) preImportManifest(ctx context.Context, fsRepo distribution.
 	}
 	if err != nil {
 		l.WithError(err).Error("pre-importing manifest")
-	}
-
-	if !imp.dryRun {
-		if err := tx.Commit(); err != nil {
-			return fmt.Errorf("commmitting transaction: %w", err)
-		}
 	}
 
 	return nil
