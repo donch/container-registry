@@ -87,7 +87,13 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 			ih.Errors = append(ih.Errors, errcode.FromUnknownError(err))
 		}
 
-		importer := datastore.NewImporter(ih.App.db, ih.App.registry, datastore.WithBlobTransferService(bts))
+		importer := datastore.NewImporter(
+			ih.App.db,
+			ih.App.registry,
+			datastore.WithBlobTransferService(bts),
+			datastore.WithTagConcurrency(ih.App.Config.Migration.TagConcurrency),
+		)
+
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 

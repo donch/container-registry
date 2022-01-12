@@ -182,6 +182,7 @@ migration:
   enabled: true
   disablemirrorfs: true
   rootdirectory: /migration/root
+  tagconcurrency: 10
 auth:
   silly:
     realm: silly-realm
@@ -660,6 +661,7 @@ migration:
   disablemirrorfs: true
   rootdirectory: /migration/root
   autheligibilitydisabled: false
+  tagconcurrency: 10
 ```
 
 | Parameter     | Required | Description                                                                                                                                                                                                                                          |
@@ -668,6 +670,7 @@ migration:
 | `disablemirrorfs` | no       | When set to `true`, the registry does not write metadata to the filesystem. Defaults to `false`. Must be used in combination with the metadata database.
 | `rootdirectory`   | no       | RootDirectory allows repositories that have been migrated to the database to use separate object storage paths. Using a distinct rootdirectory from the main storage driver configuration allows online migrations.
 | `autheligibilitydisabled`   | no       | Allows disabling the evaluation of JWT tokens sent from Rails to determine the code path that _new_ repositories should follow. If disabled, all new repositories will follow the new code path. Defaults to `false`.
+| `tagconcurrency`   | no       | This parameter determines the number of concurrent tag details requests to the filesystem backend. This can greatly reduce the time spent importing a repository after a successful pre import has completed. Pre import is not affected by this parameter. Default `1`.
 
 ## `auth`
 
