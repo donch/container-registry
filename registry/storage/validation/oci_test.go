@@ -11,7 +11,7 @@ import (
 	"github.com/docker/distribution/manifest/ocischema"
 	"github.com/docker/distribution/registry/storage/validation"
 	"github.com/docker/distribution/testutil"
-	digest "github.com/opencontainers/go-digest"
+	"github.com/opencontainers/go-digest"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/require"
 )

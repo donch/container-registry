@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/docker/distribution"
-	digest "github.com/opencontainers/go-digest"
+	"github.com/opencontainers/go-digest"
 )
 
 func TestCacheSet(t *testing.T) {

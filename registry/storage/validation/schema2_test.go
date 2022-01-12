@@ -12,7 +12,7 @@ import (
 	"github.com/docker/distribution/manifest/schema2"
 	"github.com/docker/distribution/registry/storage/validation"
 	"github.com/docker/distribution/testutil"
-	digest "github.com/opencontainers/go-digest"
+	"github.com/opencontainers/go-digest"
 	"github.com/stretchr/testify/require"
 )
 
