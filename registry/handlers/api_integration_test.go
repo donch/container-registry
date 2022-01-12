@@ -100,6 +100,12 @@ func withMigrationRootDirectory(path string) configOpt {
 	}
 }
 
+func withMigrationTagConcurrency(n int) configOpt {
+	return func(config *configuration.Configuration) {
+		config.Migration.TagConcurrency = n
+	}
+}
+
 func withEligibilityMockAuth(enabled, eligible bool) configOpt {
 	return func(config *configuration.Configuration) {
 		if config.Auth == nil {
@@ -6386,6 +6392,10 @@ func newTestEnvWithConfig(t *testing.T, config *configuration.Configuration) *te
 				config.Auth = make(map[string]configuration.Parameters)
 				withEligibilityMockAuth(true, true)(config)
 			}
+
+			// Default to a tag concurrency of 1, or imports will hang without
+			// an explicit configuration.
+			config.Migration.TagConcurrency = 1
 		}
 	}
 
@@ -7037,6 +7047,88 @@ func TestRepositoryImportAPI_Put(t *testing.T) {
 		time.Second*10,
 		time.Millisecond*200,
 	)
+
+	// Subsequent calls to the same repository should not start another import.
+	req, err = http.NewRequest(http.MethodPut, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
+func TestRepositoryImportAPI_Put_ConcurrentTags(t *testing.T) {
+	rootDir := t.TempDir()
+	migrationDir := filepath.Join(rootDir, "/new")
+
+	env := newTestEnv(t, withFSDriver(rootDir))
+	defer env.Shutdown()
+
+	env.requireDB(t)
+
+	repoPath := "old/repo"
+	tagTmpl := "import-tag-%d"
+	tags := make([]string, 10)
+
+	// Push up a image to the old side of the registry, so we can migrate it below.
+	// Push up a series of images to the old side of the registry, so we can
+	// test the importer works as expectd when launching multiple goroutines.
+	for n := range tags {
+		tagName := fmt.Sprintf(tagTmpl, n)
+		tags[n] = tagName
+
+		seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
+	}
+
+	env2 := newTestEnv(
+		t, withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+		withMigrationTagConcurrency(5),
+	)
+	defer env2.Shutdown()
+
+	// Start Repository Import.
+	repoRef, err := reference.WithName(repoPath)
+	require.NoError(t, err)
+
+	importURL, err := env2.builder.BuildGitlabV1RepositoryImportURL(repoRef)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPut, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Import should start without error.
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	// Spin up a non-migartion mode env to test that the repository imported correctly.
+	// TODO: When https://gitlab.com/gitlab-org/container-registry/-/issues/529 is
+	// finished, we should listen for the completion notification instead.
+	env3 := newTestEnv(t, withFSDriver(migrationDir))
+	defer env3.Shutdown()
+
+	for _, tag := range tags {
+		tagURL := buildManifestTagURL(t, env3, repoPath, tag)
+
+		require.Eventually(t, func() bool {
+			resp, err = http.Get(tagURL)
+			if !assert.NoError(t, err) {
+				return false
+			}
+			defer resp.Body.Close()
+
+			return assert.Equal(t, http.StatusOK, resp.StatusCode)
+		},
+			time.Second*10,
+			time.Millisecond*200,
+		)
+	}
 
 	// Subsequent calls to the same repository should not start another import.
 	req, err = http.NewRequest(http.MethodPut, importURL, nil)
