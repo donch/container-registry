@@ -199,7 +199,7 @@ func (c *singleRepositoryCache) Clear(id int64) {
 func scanFullRepository(row *sql.Row) (*models.Repository, error) {
 	r := new(models.Repository)
 
-	if err := row.Scan(&r.ID, &r.NamespaceID, &r.Name, &r.Path, &r.ParentID, &r.CreatedAt, &r.UpdatedAt); err != nil {
+	if err := row.Scan(&r.ID, &r.NamespaceID, &r.Name, &r.Path, &r.ParentID, &r.MigrationStatus, &r.CreatedAt, &r.UpdatedAt); err != nil {
 		if err != sql.ErrNoRows {
 			return nil, fmt.Errorf("scanning repository: %w", err)
 		}
@@ -215,7 +215,7 @@ func scanFullRepositories(rows *sql.Rows) (models.Repositories, error) {
 
 	for rows.Next() {
 		r := new(models.Repository)
-		if err := rows.Scan(&r.ID, &r.NamespaceID, &r.Name, &r.Path, &r.ParentID, &r.CreatedAt, &r.UpdatedAt); err != nil {
+		if err := rows.Scan(&r.ID, &r.NamespaceID, &r.Name, &r.Path, &r.ParentID, &r.MigrationStatus, &r.CreatedAt, &r.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scanning repository: %w", err)
 		}
 		rr = append(rr, r)
@@ -236,6 +236,7 @@ func (s *repositoryStore) FindByID(ctx context.Context, id int64) (*models.Repos
 			name,
 			path,
 			parent_id,
+			migration_status,
 			created_at,
 			updated_at
 		FROM
@@ -267,6 +268,7 @@ func (s *repositoryStore) FindByPath(ctx context.Context, path string) (*models.
 			name,
 			path,
 			parent_id,
+			migration_status,
 			created_at,
 			updated_at
 		FROM
@@ -295,6 +297,7 @@ func (s *repositoryStore) FindAll(ctx context.Context) (models.Repositories, err
 			name,
 			path,
 			parent_id,
+			migration_status,
 			created_at,
 			updated_at
 		FROM
@@ -321,6 +324,7 @@ func (s *repositoryStore) FindAllPaginated(ctx context.Context, limit int, lastP
 			r.name,
 			r.path,
 			r.parent_id,
+			r.migration_status,
 			r.created_at,
 			r.updated_at
 		FROM
@@ -355,6 +359,7 @@ func (s *repositoryStore) FindDescendantsOf(ctx context.Context, id int64) (mode
 				name,
 				path,
 				parent_id,
+				migration_status,
 				created_at,
 				updated_at
 			FROM
@@ -368,6 +373,7 @@ func (s *repositoryStore) FindDescendantsOf(ctx context.Context, id int64) (mode
 				r.name,
 				r.path,
 				r.parent_id,
+				r.migration_status,
 				r.created_at,
 				r.updated_at
 			FROM
@@ -399,6 +405,7 @@ func (s *repositoryStore) FindAncestorsOf(ctx context.Context, id int64) (models
 				name,
 				path,
 				parent_id,
+				migration_status,
 				created_at,
 				updated_at
 			FROM
@@ -412,6 +419,7 @@ func (s *repositoryStore) FindAncestorsOf(ctx context.Context, id int64) (models
 				r.name,
 				r.path,
 				r.parent_id,
+				r.migration_status,
 				r.created_at,
 				r.updated_at
 			FROM
@@ -442,6 +450,7 @@ func (s *repositoryStore) FindSiblingsOf(ctx context.Context, id int64) (models.
 			siblings.name,
 			siblings.path,
 			siblings.parent_id,
+			siblings.migration_status,
 			siblings.created_at,
 			siblings.updated_at
 		FROM
@@ -798,10 +807,10 @@ func (s *repositoryStore) Create(ctx context.Context, r *models.Repository) erro
 	q := `INSERT INTO repositories (top_level_namespace_id, name, path, parent_id)
 			VALUES ($1, $2, $3, $4)
 		RETURNING
-			id, created_at`
+			id, migration_status, created_at`
 
 	row := s.db.QueryRowContext(ctx, q, r.NamespaceID, r.Name, r.Path, r.ParentID)
-	if err := row.Scan(&r.ID, &r.CreatedAt); err != nil {
+	if err := row.Scan(&r.ID, &r.MigrationStatus, &r.CreatedAt); err != nil {
 		return fmt.Errorf("creating repository: %w", err)
 	}
 
@@ -919,10 +928,10 @@ func (s *repositoryStore) CreateOrFind(ctx context.Context, r *models.Repository
 		ON CONFLICT (path)
 			DO NOTHING
 		RETURNING
-			id, created_at`
+			id, migration_status, created_at`
 
 	row := s.db.QueryRowContext(ctx, q, r.NamespaceID, r.Name, r.Path, r.ParentID)
-	if err := row.Scan(&r.ID, &r.CreatedAt); err != nil {
+	if err := row.Scan(&r.ID, &r.MigrationStatus, &r.CreatedAt); err != nil {
 		if err != sql.ErrNoRows {
 			return fmt.Errorf("creating repository: %w", err)
 		}

@@ -11,12 +11,11 @@ import (
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/manifest/manifestlist"
-
-	"github.com/opencontainers/go-digest"
-
 	"github.com/docker/distribution/registry/datastore"
 	"github.com/docker/distribution/registry/datastore/models"
 	"github.com/docker/distribution/registry/datastore/testutil"
+	"github.com/docker/distribution/registry/internal/migration"
+	"github.com/opencontainers/go-digest"
 	"github.com/stretchr/testify/require"
 )
 
@@ -41,11 +40,12 @@ func TestRepositoryStore_FindByID(t *testing.T) {
 
 	// see testdata/fixtures/repositories.sql
 	excepted := &models.Repository{
-		ID:          1,
-		NamespaceID: 1,
-		Name:        "gitlab-org",
-		Path:        "gitlab-org",
-		CreatedAt:   testutil.ParseTimestamp(t, "2020-03-02 17:47:39.849864", r.CreatedAt.Location()),
+		ID:              1,
+		NamespaceID:     1,
+		Name:            "gitlab-org",
+		Path:            "gitlab-org",
+		MigrationStatus: migration.RepositoryStatusNative,
+		CreatedAt:       testutil.ParseTimestamp(t, "2020-03-02 17:47:39.849864", r.CreatedAt.Location()),
 	}
 	require.Equal(t, excepted, r)
 }
@@ -66,12 +66,13 @@ func TestRepositoryStore_FindByPath(t *testing.T) {
 
 	// see testdata/fixtures/repositories.sql
 	excepted := &models.Repository{
-		ID:          2,
-		NamespaceID: 1,
-		Name:        "gitlab-test",
-		Path:        "gitlab-org/gitlab-test",
-		ParentID:    sql.NullInt64{Int64: 1, Valid: true},
-		CreatedAt:   testutil.ParseTimestamp(t, "2020-03-02 17:47:40.866312", r.CreatedAt.Location()),
+		ID:              2,
+		NamespaceID:     1,
+		Name:            "gitlab-test",
+		Path:            "gitlab-org/gitlab-test",
+		ParentID:        sql.NullInt64{Int64: 1, Valid: true},
+		MigrationStatus: migration.RepositoryStatusNative,
+		CreatedAt:       testutil.ParseTimestamp(t, "2020-03-02 17:47:40.866312", r.CreatedAt.Location()),
 	}
 	require.Equal(t, excepted, r)
 }
@@ -104,12 +105,13 @@ func TestRepositoryStore_FindByPath_SingleRepositoryCache(t *testing.T) {
 
 	// see testdata/fixtures/repositories.sql
 	expected := &models.Repository{
-		ID:          6,
-		NamespaceID: 2,
-		Name:        "foo",
-		Path:        path,
-		ParentID:    sql.NullInt64{Int64: 5, Valid: true},
-		CreatedAt:   testutil.ParseTimestamp(t, "2020-06-08 16:01:39.476421", r.CreatedAt.Location()),
+		ID:              6,
+		NamespaceID:     2,
+		Name:            "foo",
+		Path:            path,
+		ParentID:        sql.NullInt64{Int64: 5, Valid: true},
+		MigrationStatus: migration.RepositoryStatusNative,
+		CreatedAt:       testutil.ParseTimestamp(t, "2020-06-08 16:01:39.476421", r.CreatedAt.Location()),
 	}
 
 	require.NotEqual(t, expected, c.Get("fake/path"))
@@ -128,81 +130,91 @@ func TestRepositoryStore_FindAll(t *testing.T) {
 	local := rr[0].CreatedAt.Location()
 	expected := models.Repositories{
 		{
-			ID:          1,
-			NamespaceID: 1,
-			Name:        "gitlab-org",
-			Path:        "gitlab-org",
-			CreatedAt:   testutil.ParseTimestamp(t, "2020-03-02 17:47:39.849864", local),
+			ID:              1,
+			NamespaceID:     1,
+			Name:            "gitlab-org",
+			Path:            "gitlab-org",
+			MigrationStatus: migration.RepositoryStatusNative,
+			CreatedAt:       testutil.ParseTimestamp(t, "2020-03-02 17:47:39.849864", local),
 		},
 		{
-			ID:          2,
-			NamespaceID: 1,
-			Name:        "gitlab-test",
-			Path:        "gitlab-org/gitlab-test",
-			ParentID:    sql.NullInt64{Int64: 1, Valid: true},
-			CreatedAt:   testutil.ParseTimestamp(t, "2020-03-02 17:47:40.866312", local),
+			ID:              2,
+			NamespaceID:     1,
+			Name:            "gitlab-test",
+			Path:            "gitlab-org/gitlab-test",
+			ParentID:        sql.NullInt64{Int64: 1, Valid: true},
+			MigrationStatus: migration.RepositoryStatusNative,
+			CreatedAt:       testutil.ParseTimestamp(t, "2020-03-02 17:47:40.866312", local),
 		},
 		{
-			ID:          3,
-			NamespaceID: 1,
-			Name:        "backend",
-			Path:        "gitlab-org/gitlab-test/backend",
-			ParentID:    sql.NullInt64{Int64: 2, Valid: true},
-			CreatedAt:   testutil.ParseTimestamp(t, "2020-03-02 17:42:12.566212", local),
+			ID:              3,
+			NamespaceID:     1,
+			Name:            "backend",
+			Path:            "gitlab-org/gitlab-test/backend",
+			ParentID:        sql.NullInt64{Int64: 2, Valid: true},
+			MigrationStatus: migration.RepositoryStatusNative,
+			CreatedAt:       testutil.ParseTimestamp(t, "2020-03-02 17:42:12.566212", local),
 		},
 		{
-			ID:          4,
-			NamespaceID: 1,
-			Name:        "frontend",
-			Path:        "gitlab-org/gitlab-test/frontend",
-			ParentID:    sql.NullInt64{Int64: 2, Valid: true},
-			CreatedAt:   testutil.ParseTimestamp(t, "2020-03-02 17:43:39.476421", local),
+			ID:              4,
+			NamespaceID:     1,
+			Name:            "frontend",
+			Path:            "gitlab-org/gitlab-test/frontend",
+			ParentID:        sql.NullInt64{Int64: 2, Valid: true},
+			MigrationStatus: migration.RepositoryStatusNative,
+			CreatedAt:       testutil.ParseTimestamp(t, "2020-03-02 17:43:39.476421", local),
 		},
 		{
-			ID:          5,
-			NamespaceID: 2,
-			Name:        "a-test-group",
-			Path:        "a-test-group",
-			CreatedAt:   testutil.ParseTimestamp(t, "2020-06-08 16:01:39.476421", local),
+			ID:              5,
+			NamespaceID:     2,
+			Name:            "a-test-group",
+			Path:            "a-test-group",
+			MigrationStatus: migration.RepositoryStatusNative,
+			CreatedAt:       testutil.ParseTimestamp(t, "2020-06-08 16:01:39.476421", local),
 		},
 		{
-			ID:          6,
-			NamespaceID: 2,
-			Name:        "foo",
-			Path:        "a-test-group/foo",
-			ParentID:    sql.NullInt64{Int64: 5, Valid: true},
-			CreatedAt:   testutil.ParseTimestamp(t, "2020-06-08 16:01:39.476421", local),
+			ID:              6,
+			NamespaceID:     2,
+			Name:            "foo",
+			Path:            "a-test-group/foo",
+			ParentID:        sql.NullInt64{Int64: 5, Valid: true},
+			MigrationStatus: migration.RepositoryStatusNative,
+			CreatedAt:       testutil.ParseTimestamp(t, "2020-06-08 16:01:39.476421", local),
 		},
 		{
-			ID:          7,
-			NamespaceID: 2,
-			Name:        "bar",
-			Path:        "a-test-group/bar",
-			ParentID:    sql.NullInt64{Int64: 5, Valid: true},
-			CreatedAt:   testutil.ParseTimestamp(t, "2020-06-08 16:01:39.476421", local),
+			ID:              7,
+			NamespaceID:     2,
+			Name:            "bar",
+			Path:            "a-test-group/bar",
+			ParentID:        sql.NullInt64{Int64: 5, Valid: true},
+			MigrationStatus: migration.RepositoryStatusNative,
+			CreatedAt:       testutil.ParseTimestamp(t, "2020-06-08 16:01:39.476421", local),
 		},
 		{
-			ID:          8,
-			NamespaceID: 3,
-			Name:        "usage-group",
-			Path:        "usage-group",
-			CreatedAt:   testutil.ParseTimestamp(t, "2021-11-24 11:36:04.692846", local),
+			ID:              8,
+			NamespaceID:     3,
+			Name:            "usage-group",
+			Path:            "usage-group",
+			MigrationStatus: migration.RepositoryStatusNative,
+			CreatedAt:       testutil.ParseTimestamp(t, "2021-11-24 11:36:04.692846", local),
 		},
 		{
-			ID:          9,
-			NamespaceID: 3,
-			Name:        "sub-group-1",
-			Path:        "usage-group/sub-group-1",
-			ParentID:    sql.NullInt64{Int64: 8, Valid: true},
-			CreatedAt:   testutil.ParseTimestamp(t, "2021-11-24 11:36:04.692846", local),
+			ID:              9,
+			NamespaceID:     3,
+			Name:            "sub-group-1",
+			Path:            "usage-group/sub-group-1",
+			ParentID:        sql.NullInt64{Int64: 8, Valid: true},
+			MigrationStatus: migration.RepositoryStatusNative,
+			CreatedAt:       testutil.ParseTimestamp(t, "2021-11-24 11:36:04.692846", local),
 		},
 		{
-			ID:          10,
-			NamespaceID: 3,
-			Name:        "repository-1",
-			Path:        "usage-group/sub-group-1/repository-1",
-			ParentID:    sql.NullInt64{Int64: 9, Valid: true},
-			CreatedAt:   testutil.ParseTimestamp(t, "2021-11-24 11:36:04.692846", local),
+			ID:              10,
+			NamespaceID:     3,
+			Name:            "repository-1",
+			Path:            "usage-group/sub-group-1/repository-1",
+			ParentID:        sql.NullInt64{Int64: 9, Valid: true},
+			MigrationStatus: migration.RepositoryStatusNative,
+			CreatedAt:       testutil.ParseTimestamp(t, "2021-11-24 11:36:04.692846", local),
 		},
 	}
 
@@ -243,39 +255,44 @@ func TestRepositoryStore_FindAllPaginated(t *testing.T) {
 			lastPath: "",  // this is the equivalent to no last path, as all repository paths are non-empty
 			expectedRepos: models.Repositories{
 				{
-					ID:          7,
-					NamespaceID: 2,
-					Name:        "bar",
-					Path:        "a-test-group/bar",
-					ParentID:    sql.NullInt64{Int64: 5, Valid: true},
+					ID:              7,
+					NamespaceID:     2,
+					Name:            "bar",
+					Path:            "a-test-group/bar",
+					ParentID:        sql.NullInt64{Int64: 5, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
 				},
 				{
-					ID:          6,
-					NamespaceID: 2,
-					Name:        "foo",
-					Path:        "a-test-group/foo",
-					ParentID:    sql.NullInt64{Int64: 5, Valid: true},
+					ID:              6,
+					NamespaceID:     2,
+					Name:            "foo",
+					Path:            "a-test-group/foo",
+					ParentID:        sql.NullInt64{Int64: 5, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
 				},
 				{
-					ID:          3,
-					NamespaceID: 1,
-					Name:        "backend",
-					Path:        "gitlab-org/gitlab-test/backend",
-					ParentID:    sql.NullInt64{Int64: 2, Valid: true},
+					ID:              3,
+					NamespaceID:     1,
+					Name:            "backend",
+					Path:            "gitlab-org/gitlab-test/backend",
+					ParentID:        sql.NullInt64{Int64: 2, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
 				},
 				{
-					ID:          4,
-					NamespaceID: 1,
-					Name:        "frontend",
-					Path:        "gitlab-org/gitlab-test/frontend",
-					ParentID:    sql.NullInt64{Int64: 2, Valid: true},
+					ID:              4,
+					NamespaceID:     1,
+					Name:            "frontend",
+					Path:            "gitlab-org/gitlab-test/frontend",
+					ParentID:        sql.NullInt64{Int64: 2, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
 				},
 				{
-					ID:          10,
-					NamespaceID: 3,
-					Name:        "repository-1",
-					Path:        "usage-group/sub-group-1/repository-1",
-					ParentID:    sql.NullInt64{Int64: 9, Valid: true},
+					ID:              10,
+					NamespaceID:     3,
+					Name:            "repository-1",
+					Path:            "usage-group/sub-group-1/repository-1",
+					ParentID:        sql.NullInt64{Int64: 9, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
 				},
 			},
 		},
@@ -285,18 +302,20 @@ func TestRepositoryStore_FindAllPaginated(t *testing.T) {
 			lastPath: "",
 			expectedRepos: models.Repositories{
 				{
-					ID:          7,
-					NamespaceID: 2,
-					Name:        "bar",
-					Path:        "a-test-group/bar",
-					ParentID:    sql.NullInt64{Int64: 5, Valid: true},
+					ID:              7,
+					NamespaceID:     2,
+					Name:            "bar",
+					Path:            "a-test-group/bar",
+					ParentID:        sql.NullInt64{Int64: 5, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
 				},
 				{
-					ID:          6,
-					NamespaceID: 2,
-					Name:        "foo",
-					Path:        "a-test-group/foo",
-					ParentID:    sql.NullInt64{Int64: 5, Valid: true},
+					ID:              6,
+					NamespaceID:     2,
+					Name:            "foo",
+					Path:            "a-test-group/foo",
+					ParentID:        sql.NullInt64{Int64: 5, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
 				},
 			},
 		},
@@ -306,11 +325,12 @@ func TestRepositoryStore_FindAllPaginated(t *testing.T) {
 			lastPath: "a-test-group/foo",
 			expectedRepos: models.Repositories{
 				{
-					ID:          3,
-					NamespaceID: 1,
-					Name:        "backend",
-					Path:        "gitlab-org/gitlab-test/backend",
-					ParentID:    sql.NullInt64{Int64: 2, Valid: true},
+					ID:              3,
+					NamespaceID:     1,
+					Name:            "backend",
+					Path:            "gitlab-org/gitlab-test/backend",
+					ParentID:        sql.NullInt64{Int64: 2, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
 				},
 			},
 		},
@@ -320,18 +340,20 @@ func TestRepositoryStore_FindAllPaginated(t *testing.T) {
 			lastPath: "gitlab-org/gitlab-test/backend",
 			expectedRepos: models.Repositories{
 				{
-					ID:          4,
-					NamespaceID: 1,
-					Name:        "frontend",
-					Path:        "gitlab-org/gitlab-test/frontend",
-					ParentID:    sql.NullInt64{Int64: 2, Valid: true},
+					ID:              4,
+					NamespaceID:     1,
+					Name:            "frontend",
+					Path:            "gitlab-org/gitlab-test/frontend",
+					ParentID:        sql.NullInt64{Int64: 2, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
 				},
 				{
-					ID:          10,
-					NamespaceID: 3,
-					Name:        "repository-1",
-					Path:        "usage-group/sub-group-1/repository-1",
-					ParentID:    sql.NullInt64{Int64: 9, Valid: true},
+					ID:              10,
+					NamespaceID:     3,
+					Name:            "repository-1",
+					Path:            "usage-group/sub-group-1/repository-1",
+					ParentID:        sql.NullInt64{Int64: 9, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
 				},
 			},
 		},
@@ -341,25 +363,28 @@ func TestRepositoryStore_FindAllPaginated(t *testing.T) {
 			lastPath: "does-not-exist",
 			expectedRepos: models.Repositories{
 				{
-					ID:          3,
-					NamespaceID: 1,
-					Name:        "backend",
-					Path:        "gitlab-org/gitlab-test/backend",
-					ParentID:    sql.NullInt64{Int64: 2, Valid: true},
+					ID:              3,
+					NamespaceID:     1,
+					Name:            "backend",
+					Path:            "gitlab-org/gitlab-test/backend",
+					ParentID:        sql.NullInt64{Int64: 2, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
 				},
 				{
-					ID:          4,
-					NamespaceID: 1,
-					Name:        "frontend",
-					Path:        "gitlab-org/gitlab-test/frontend",
-					ParentID:    sql.NullInt64{Int64: 2, Valid: true},
+					ID:              4,
+					NamespaceID:     1,
+					Name:            "frontend",
+					Path:            "gitlab-org/gitlab-test/frontend",
+					ParentID:        sql.NullInt64{Int64: 2, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
 				},
 				{
-					ID:          10,
-					NamespaceID: 3,
-					Name:        "repository-1",
-					Path:        "usage-group/sub-group-1/repository-1",
-					ParentID:    sql.NullInt64{Int64: 9, Valid: true},
+					ID:              10,
+					NamespaceID:     3,
+					Name:            "repository-1",
+					Path:            "usage-group/sub-group-1/repository-1",
+					ParentID:        sql.NullInt64{Int64: 9, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
 				},
 			},
 		},
@@ -404,28 +429,31 @@ func TestRepositoryStore_DescendantsOf(t *testing.T) {
 	local := rr[0].CreatedAt.Location()
 	expected := models.Repositories{
 		{
-			ID:          2,
-			NamespaceID: 1,
-			Name:        "gitlab-test",
-			Path:        "gitlab-org/gitlab-test",
-			ParentID:    sql.NullInt64{Int64: 1, Valid: true},
-			CreatedAt:   testutil.ParseTimestamp(t, "2020-03-02 17:47:40.866312", local),
+			ID:              2,
+			NamespaceID:     1,
+			Name:            "gitlab-test",
+			Path:            "gitlab-org/gitlab-test",
+			ParentID:        sql.NullInt64{Int64: 1, Valid: true},
+			MigrationStatus: migration.RepositoryStatusNative,
+			CreatedAt:       testutil.ParseTimestamp(t, "2020-03-02 17:47:40.866312", local),
 		},
 		{
-			ID:          3,
-			NamespaceID: 1,
-			Name:        "backend",
-			Path:        "gitlab-org/gitlab-test/backend",
-			ParentID:    sql.NullInt64{Int64: 2, Valid: true},
-			CreatedAt:   testutil.ParseTimestamp(t, "2020-03-02 17:42:12.566212", local),
+			ID:              3,
+			NamespaceID:     1,
+			Name:            "backend",
+			Path:            "gitlab-org/gitlab-test/backend",
+			ParentID:        sql.NullInt64{Int64: 2, Valid: true},
+			MigrationStatus: migration.RepositoryStatusNative,
+			CreatedAt:       testutil.ParseTimestamp(t, "2020-03-02 17:42:12.566212", local),
 		},
 		{
-			ID:          4,
-			NamespaceID: 1,
-			Name:        "frontend",
-			Path:        "gitlab-org/gitlab-test/frontend",
-			ParentID:    sql.NullInt64{Int64: 2, Valid: true},
-			CreatedAt:   testutil.ParseTimestamp(t, "2020-03-02 17:43:39.476421", local),
+			ID:              4,
+			NamespaceID:     1,
+			Name:            "frontend",
+			Path:            "gitlab-org/gitlab-test/frontend",
+			ParentID:        sql.NullInt64{Int64: 2, Valid: true},
+			MigrationStatus: migration.RepositoryStatusNative,
+			CreatedAt:       testutil.ParseTimestamp(t, "2020-03-02 17:43:39.476421", local),
 		},
 	}
 
@@ -462,19 +490,21 @@ func TestRepositoryStore_AncestorsOf(t *testing.T) {
 	local := rr[0].CreatedAt.Location()
 	expected := models.Repositories{
 		{
-			ID:          2,
-			NamespaceID: 1,
-			Name:        "gitlab-test",
-			Path:        "gitlab-org/gitlab-test",
-			ParentID:    sql.NullInt64{Int64: 1, Valid: true},
-			CreatedAt:   testutil.ParseTimestamp(t, "2020-03-02 17:47:40.866312", local),
+			ID:              2,
+			NamespaceID:     1,
+			Name:            "gitlab-test",
+			Path:            "gitlab-org/gitlab-test",
+			ParentID:        sql.NullInt64{Int64: 1, Valid: true},
+			MigrationStatus: migration.RepositoryStatusNative,
+			CreatedAt:       testutil.ParseTimestamp(t, "2020-03-02 17:47:40.866312", local),
 		},
 		{
-			ID:          1,
-			NamespaceID: 1,
-			Name:        "gitlab-org",
-			Path:        "gitlab-org",
-			CreatedAt:   testutil.ParseTimestamp(t, "2020-03-02 17:47:39.849864", local),
+			ID:              1,
+			NamespaceID:     1,
+			Name:            "gitlab-org",
+			Path:            "gitlab-org",
+			MigrationStatus: migration.RepositoryStatusNative,
+			CreatedAt:       testutil.ParseTimestamp(t, "2020-03-02 17:47:39.849864", local),
 		},
 	}
 
@@ -511,12 +541,13 @@ func TestRepositoryStore_SiblingsOf(t *testing.T) {
 	local := rr[0].CreatedAt.Location()
 	expected := models.Repositories{
 		{
-			ID:          4,
-			NamespaceID: 1,
-			Name:        "frontend",
-			Path:        "gitlab-org/gitlab-test/frontend",
-			ParentID:    sql.NullInt64{Int64: 2, Valid: true},
-			CreatedAt:   testutil.ParseTimestamp(t, "2020-03-02 17:43:39.476421", local),
+			ID:              4,
+			NamespaceID:     1,
+			Name:            "frontend",
+			Path:            "gitlab-org/gitlab-test/frontend",
+			ParentID:        sql.NullInt64{Int64: 2, Valid: true},
+			MigrationStatus: migration.RepositoryStatusNative,
+			CreatedAt:       testutil.ParseTimestamp(t, "2020-03-02 17:43:39.476421", local),
 		},
 	}
 
@@ -1310,6 +1341,7 @@ func TestRepositoryStore_Create(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, r.ID)
 	require.NotEmpty(t, r.CreatedAt)
+	require.Equal(t, migration.RepositoryStatusNative, r.MigrationStatus)
 }
 
 func TestRepositoryStore_Create_NonUniquePathFails(t *testing.T) {
@@ -1695,11 +1727,12 @@ func TestRepositoryStore_Update(t *testing.T) {
 
 	s := datastore.NewRepositoryStore(suite.db)
 	update := &models.Repository{
-		NamespaceID: 1,
-		ID:          4,
-		Name:        "bar",
-		Path:        "bar",
-		ParentID:    sql.NullInt64{Int64: 0, Valid: false},
+		NamespaceID:     1,
+		ID:              4,
+		Name:            "bar",
+		Path:            "bar",
+		ParentID:        sql.NullInt64{Int64: 0, Valid: false},
+		MigrationStatus: migration.RepositoryStatusNative,
 	}
 	err := s.Update(suite.ctx, update)
 	require.NoError(t, err)
