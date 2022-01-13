@@ -142,7 +142,7 @@ func (imp *Importer) importLayer(ctx context.Context, dbRepo *models.Repository,
 	}
 
 	if err := imp.transferBlob(ctx, dbLayer.Digest); err != nil {
-		return fmt.Errorf("transferring layer blob: %w", err)
+		return err
 	}
 
 	return nil
@@ -166,7 +166,7 @@ func (imp *Importer) importLayers(ctx context.Context, dbRepo *models.Repository
 				l.Warn("blob is not linked to repository, skipping blob import")
 				continue
 			}
-			return fmt.Errorf("checking for access to blob with digest %s on repository %s: %v", fsLayer.Digest, fsRepo.Named().Name(), err)
+			return fmt.Errorf("checking for access to blob with digest %s on repository %s: %w", fsLayer.Digest, fsRepo.Named().Name(), err)
 		}
 
 		if err := imp.importLayer(ctx, dbRepo, dbManifest, &models.Blob{
@@ -189,7 +189,7 @@ func (imp *Importer) transferBlob(ctx context.Context, d digest.Digest) error {
 
 	start := time.Now()
 	if err := imp.blobTransferService.Transfer(ctx, d); err != nil {
-		return err
+		return fmt.Errorf("transferring blob with digest %s: %w", d, err)
 	}
 
 	end := time.Since(start).Seconds()
@@ -204,14 +204,14 @@ func (imp *Importer) transferBlob(ctx context.Context, d digest.Digest) error {
 func (imp *Importer) importManifestV2(ctx context.Context, fsRepo distribution.Repository, dbRepo *models.Repository, m distribution.ManifestV2, dgst digest.Digest) (*models.Manifest, error) {
 	_, payload, err := m.Payload()
 	if err != nil {
-		return nil, fmt.Errorf("error parsing manifest payload: %w", err)
+		return nil, fmt.Errorf("parsing manifest payload: %w", err)
 	}
 
 	// get configuration blob payload
 	blobStore := fsRepo.Blobs(ctx)
 	configPayload, err := blobStore.Get(ctx, m.Config().Digest)
 	if err != nil {
-		return nil, fmt.Errorf("error obtaining configuration payload: %w", err)
+		return nil, fmt.Errorf("obtaining configuration payload: %w", err)
 	}
 
 	dbConfigBlob := &models.Blob{
@@ -224,12 +224,12 @@ func (imp *Importer) importManifestV2(ctx context.Context, fsRepo distribution.R
 	}
 
 	if err = imp.transferBlob(ctx, m.Config().Digest); err != nil {
-		return nil, fmt.Errorf("transferring config blob: %w", err)
+		return nil, err
 	}
 
 	// link configuration to repository
 	if err := imp.repositoryStore.LinkBlob(ctx, dbRepo, dbConfigBlob.Digest); err != nil {
-		return nil, fmt.Errorf("error associating configuration blob with repository: %w", err)
+		return nil, fmt.Errorf("associating configuration blob with repository: %w", err)
 	}
 
 	// find or create DB manifest
@@ -253,7 +253,7 @@ func (imp *Importer) importManifestV2(ctx context.Context, fsRepo distribution.R
 
 	// import manifest layers
 	if err := imp.importLayers(ctx, dbRepo, fsRepo, dbManifest, m.Layers()); err != nil {
-		return nil, fmt.Errorf("error importing layers: %w", err)
+		return nil, fmt.Errorf("importing layers: %w", err)
 	}
 
 	return dbManifest, nil
@@ -262,7 +262,7 @@ func (imp *Importer) importManifestV2(ctx context.Context, fsRepo distribution.R
 func (imp *Importer) importManifestList(ctx context.Context, fsRepo distribution.Repository, dbRepo *models.Repository, ml *manifestlist.DeserializedManifestList, dgst digest.Digest) (*models.Manifest, error) {
 	_, payload, err := ml.Payload()
 	if err != nil {
-		return nil, fmt.Errorf("error parsing manifest list payload: %w", err)
+		return nil, fmt.Errorf("parsing payload: %w", err)
 	}
 
 	// Media type can be either Docker (`application/vnd.docker.distribution.manifest.list.v2+json`) or OCI (empty).
@@ -282,7 +282,7 @@ func (imp *Importer) importManifestList(ctx context.Context, fsRepo distribution
 		Payload:       payload,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("creating manifest list: %w", err)
+		return nil, fmt.Errorf("creating manifest list in database: %w", err)
 	}
 
 	manifestService, err := fsRepo.Manifests(ctx)
@@ -477,14 +477,14 @@ func (imp *Importer) importRepository(ctx context.Context, path string) error {
 	}
 	fsRepo, err := imp.registry.Repository(ctx, named)
 	if err != nil {
-		return fmt.Errorf("constructing repository: %w", err)
+		return fmt.Errorf("constructing filesystem repository: %w", err)
 	}
 
 	// Find or create repository.
 	var dbRepo *models.Repository
 
 	if dbRepo, err = imp.repositoryStore.CreateOrFindByPath(ctx, path); err != nil {
-		return fmt.Errorf("importing repository: %w", err)
+		return fmt.Errorf("creating or finding repository in database: %w", err)
 	}
 
 	if imp.importDanglingManifests {
@@ -530,7 +530,7 @@ func (imp *Importer) preImportTaggedManifests(ctx context.Context, fsRepo distri
 		}
 		if dbManifest == nil {
 			if err := imp.preImportManifest(ctx, fsRepo, dbRepo, desc.Digest); err != nil {
-				return err
+				return fmt.Errorf("pre importing manifest: %w", err)
 			}
 		}
 	}
@@ -556,7 +556,7 @@ func (imp *Importer) preImportManifest(ctx context.Context, fsRepo distribution.
 	if !imp.dryRun {
 		tx, err = imp.beginTx(ctx)
 		if err != nil {
-			return fmt.Errorf("begin manifest transaction: %w", err)
+			return fmt.Errorf("beginning transaction: %w", err)
 		}
 		defer func() {
 			tx.Rollback()
@@ -578,7 +578,7 @@ func (imp *Importer) preImportManifest(ctx context.Context, fsRepo distribution.
 
 	if !imp.dryRun {
 		if err := tx.Commit(); err != nil {
-			return err
+			return fmt.Errorf("commmitting transaction: %w", err)
 		}
 	}
 
@@ -637,7 +637,7 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 	if imp.dryRun {
 		tx, err = imp.beginTx(ctx)
 		if err != nil {
-			return fmt.Errorf("begin dry run transaction: %w", err)
+			return fmt.Errorf("beginning dry run transaction: %w", err)
 		}
 		defer tx.Rollback()
 	}
@@ -672,14 +672,14 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 
 			if dbBlob == nil {
 				if err := imp.blobStore.Create(ctx, &models.Blob{MediaType: "application/octet-stream", Digest: desc.Digest, Size: desc.Size}); err != nil {
-					return err
+					return fmt.Errorf("creating blob in database: %w", err)
 				}
 			}
 
 			// Even if we found the blob in the database, try to transfer in case it's
 			// not present in blob storage on the transfer side.
 			if err = imp.transferBlob(ctx, desc.Digest); err != nil {
-				return fmt.Errorf("transferring blob: %w", err)
+				return err
 			}
 
 			return nil
@@ -702,7 +702,7 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 		if !imp.dryRun {
 			tx, err = imp.beginTx(ctx)
 			if err != nil {
-				return fmt.Errorf("begin repository transaction: %w", err)
+				return fmt.Errorf("beginning repository transaction: %w", err)
 			}
 			defer tx.Rollback()
 		}
@@ -845,7 +845,7 @@ func (imp *Importer) PreImport(ctx context.Context, path string) error {
 	}
 	fsRepo, err := imp.registry.Repository(ctx, named)
 	if err != nil {
-		return fmt.Errorf("constructing repository: %w", err)
+		return fmt.Errorf("constructing filesystem repository: %w", err)
 	}
 
 	// Find or create repository.
@@ -858,12 +858,12 @@ func (imp *Importer) PreImport(ctx context.Context, path string) error {
 
 	if dbRepo == nil {
 		if dbRepo, err = imp.repositoryStore.CreateByPath(ctx, path); err != nil {
-			return fmt.Errorf("importing repository: %w", err)
+			return fmt.Errorf("creating repository in database: %w", err)
 		}
 	}
 
 	if err = imp.preImportTaggedManifests(ctx, fsRepo, dbRepo); err != nil {
-		return fmt.Errorf("importing tags: %w", err)
+		return fmt.Errorf("pre importing tagged manifests: %w", err)
 	}
 
 	if !imp.dryRun {
