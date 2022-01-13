@@ -1,3 +1,15 @@
+# [3.22.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.21.0-gitlab...v3.22.0-gitlab) (2022-01-13)
+
+
+### Features
+
+* track online migration status of repositories in the database ([a18b11b](https://gitlab.com/gitlab-org/container-registry/commit/a18b11bd9fe27eaa2310160d0cd14a8440d5db07))
+* **configuration:** add tagconcurrency to migration stanza ([fcc4595](https://gitlab.com/gitlab-org/container-registry/commit/fcc4595833a75972b5b553597ff0b5c987e7ecf6))
+* **handlers:** add gitlab v1 API import route ([beba40e](https://gitlab.com/gitlab-org/container-registry/commit/beba40ec4d513730aed63fb1544b3502a7ad7f2a))
+* **handlers:** add support for tag concurrency to import API route ([1bf25b3](https://gitlab.com/gitlab-org/container-registry/commit/1bf25b3f0e9558de0a97bf6251fb6b3045e7ca7d))
+* **handlers:** send import errors to sentry ([968a027](https://gitlab.com/gitlab-org/container-registry/commit/968a02736ff3d6c2d0761f672399a5aa3d0703c1))
+* limit redirections to Google Cloud CDN based on a feature flag ([feb1604](https://gitlab.com/gitlab-org/container-registry/commit/feb160454437c1a2aa9ec8f1be12a32b4951bcb8))
+
 # [3.21.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.20.0-gitlab...v3.21.0-gitlab) (2022-01-06)
 
 
