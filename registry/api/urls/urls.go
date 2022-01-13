@@ -232,15 +232,15 @@ func (ub *Builder) BuildGitlabV1BaseURL() (string, error) {
 
 // BuildGitlabV1RepositoryImportURL constructs a URL for the Gitlab v1 API
 // repository import route by name.
-func (ub *Builder) BuildGitlabV1RepositoryImportURL(name reference.Named) (string, error) {
+func (ub *Builder) BuildGitlabV1RepositoryImportURL(name reference.Named, values ...url.Values) (string, error) {
 	route := ub.cloneGitLabRoute(v1.RepositoryImport)
 
-	url, err := route.URL("name", name.Name())
+	u, err := route.URL("name", name.Name())
 	if err != nil {
 		return "", err
 	}
 
-	return url.String(), nil
+	return appendValuesURL(u, values...).String(), nil
 }
 
 // cloneDistributionRoute returns a clone of the named route from the

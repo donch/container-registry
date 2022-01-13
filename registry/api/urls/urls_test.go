@@ -143,6 +143,26 @@ func makeBuilderTestCases(builder *Builder) []urlBuilderTestCase {
 				return builder.BuildGitlabV1RepositoryImportURL(fooBarRef)
 			},
 		},
+		{
+			description:  "test Gitlab v1 repository import url pre=true",
+			expectedPath: "/gitlab/v1/repositories/import/foo/bar/?pre=true",
+			expectedErr:  nil,
+			build: func() (string, error) {
+				return builder.BuildGitlabV1RepositoryImportURL(fooBarRef, url.Values{
+					"pre": []string{"true"},
+				})
+			},
+		},
+		{
+			description:  "test Gitlab v1 repository import url pre=false",
+			expectedPath: "/gitlab/v1/repositories/import/foo/bar/?pre=false",
+			expectedErr:  nil,
+			build: func() (string, error) {
+				return builder.BuildGitlabV1RepositoryImportURL(fooBarRef, url.Values{
+					"pre": []string{"false"},
+				})
+			},
+		},
 	}
 }
 
