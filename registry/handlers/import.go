@@ -39,6 +39,8 @@ func importDispatcher(ctx *Context, r *http.Request) http.Handler {
 	return ihandler
 }
 
+const preImportQueryParamKey = "pre"
+
 // StartRepository begins a repository import.
 func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Request) {
 	l := log.GetLogger(log.WithContext(ih)).WithFields(log.Fields{"repository": ih.Repository.Named().Name()})
@@ -59,9 +61,18 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 	// * another import is currently in progress
 	// and communicate appropriately back to the client, as defined in the spec.
 	if dbRepo != nil {
-		l.Info("repository already imported, skipping import")
-		w.WriteHeader(http.StatusOK)
-		return
+		// Horrible hack before !510 is finished to detect pre imported repositories.
+		tags, err := ih.Tags(ih.Context, dbRepo)
+		if err != nil {
+			ih.Errors = append(ih.Errors, errcode.FromUnknownError(err))
+			return
+		}
+
+		if len(tags) != 0 {
+			l.Info("repository already imported, skipping import")
+			w.WriteHeader(http.StatusOK)
+			return
+		}
 	}
 
 	validator, ok := ih.Repository.(storage.RepositoryValidator)
@@ -82,9 +93,17 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	preImport, err := getPreValue(r)
+	if err != nil {
+		ih.Errors = append(ih.Errors, errcode.FromUnknownError(err))
+	}
+
+	l = l.WithFields(log.Fields{"pre_import": preImport})
+
 	go func() {
 		bts, err := storage.NewBlobTransferService(ih.App.driver, ih.App.migrationDriver)
 		if err != nil {
+			// TODO: We should have a specific error for bad query values.
 			ih.Errors = append(ih.Errors, errcode.FromUnknownError(err))
 		}
 
@@ -98,11 +117,32 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		if err := importer.Import(ctx, ih.Repository.Named().Name()); err != nil {
+		if preImport {
+			err = importer.PreImport(ctx, ih.Repository.Named().Name())
+		} else {
+			err = importer.Import(ctx, ih.Repository.Named().Name())
+		}
+
+		if err != nil {
 			l.WithError(err).Error("importing repository")
 			errortracking.Capture(err, errortracking.WithContext(ctx), errortracking.WithRequest(r))
 		}
 	}()
 
 	w.WriteHeader(http.StatusAccepted)
+}
+
+// The API spec for this route only specifies 'true' or 'false', while
+// strconv.ParseBool accepts a greater range of string values.
+func getPreValue(r *http.Request) (bool, error) {
+	preImportValue := r.URL.Query().Get(preImportQueryParamKey)
+
+	switch preImportValue {
+	case "true":
+		return true, nil
+	case "false", "":
+		return false, nil
+	default:
+		return false, fmt.Errorf("pre value must be 'true' or 'false', got %s", preImportValue)
+	}
 }
