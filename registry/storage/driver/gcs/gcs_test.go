@@ -405,7 +405,7 @@ func TestTransferTo(t *testing.T) {
 		t.Skip(skipGCSTransferTo())
 	}
 
-	validRoot := dtestutil.TempRoot(t)
+	validRoot := t.TempDir()
 
 	srcDriver, err := gcsDriverConstructor(validRoot)
 	require.NoError(t, err)
@@ -481,7 +481,7 @@ func TestTransferToInvalidPath(t *testing.T) {
 		t.Skip(skipGCSTransferTo())
 	}
 
-	validRoot := dtestutil.TempRoot(t)
+	validRoot := t.TempDir()
 
 	srcDriver, err := gcsDriverConstructor(validRoot)
 	require.NoError(t, err)
@@ -522,7 +522,7 @@ func TestTransferToExistingDest(t *testing.T) {
 		t.Skip(skipGCSTransferTo())
 	}
 
-	validRoot := dtestutil.TempRoot(t)
+	validRoot := t.TempDir()
 
 	srcDriver, err := gcsDriverConstructor(validRoot)
 	require.NoError(t, err)
@@ -561,7 +561,7 @@ func TestExistsPath(t *testing.T) {
 		t.Skip(skipGCS())
 	}
 
-	root := dtestutil.TempRoot(t)
+	root := t.TempDir()
 	d, err := gcsDriverConstructor(root)
 	require.NoError(t, err)
 
@@ -586,7 +586,7 @@ func TestExistsPath_NotFound(t *testing.T) {
 		t.Skip(skipGCS())
 	}
 
-	root := dtestutil.TempRoot(t)
+	root := t.TempDir()
 	d, err := gcsDriverConstructor(root)
 	require.NoError(t, err)
 
@@ -602,7 +602,7 @@ func TestExistsPath_Object(t *testing.T) {
 		t.Skip(skipGCS())
 	}
 
-	root := dtestutil.TempRoot(t)
+	root := t.TempDir()
 	d, err := gcsDriverConstructor(root)
 	require.NoError(t, err)
 
@@ -645,7 +645,7 @@ func Test_parseParameters_Bool(t *testing.T) {
 func newTempDirDriver(tb testing.TB) storagedriver.StorageDriver {
 	tb.Helper()
 
-	root := dtestutil.TempRoot(tb)
+	root := t.TempDir()
 
 	d, err := gcsDriverConstructor(root)
 	require.NoError(tb, err)
@@ -659,7 +659,7 @@ func TestURLFor_Expiry(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	validRoot := dtestutil.TempRoot(t)
+	validRoot := t.TempDir()
 	d, err := gcsDriverConstructor(validRoot)
 	require.NoError(t, err)
 

@@ -5,7 +5,6 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -121,15 +120,8 @@ func makeTestEnv(t *testing.T) *testEnv {
 
 	ctx := context.Background()
 
-	truthDir, err := os.MkdirTemp("", "truth")
-	if err != nil {
-		t.Fatalf("unable to create tempdir: %s", err)
-	}
-
-	cacheDir, err := os.MkdirTemp("", "cache")
-	if err != nil {
-		t.Fatalf("unable to create tempdir: %s", err)
-	}
+	truthDir := t.TempDir()
+	cacheDir := t.TempDir()
 
 	localDriver, err := filesystem.FromParameters(map[string]interface{}{
 		"rootdirectory": truthDir,

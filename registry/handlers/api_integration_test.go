@@ -1212,11 +1212,7 @@ func TestDeleteDisabled(t *testing.T) {
 }
 
 func TestBlobMount_Migration_FromOldToNewRepoWithMigrationRoot(t *testing.T) {
-	rootDir, err := os.MkdirTemp("", "api-conformance-")
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		os.RemoveAll(rootDir)
-	})
+	rootDir := t.TempDir()
 
 	migrationDir := filepath.Join(rootDir, "/new")
 
@@ -1243,11 +1239,7 @@ func TestBlobMount_Migration_FromOldToNewRepoWithMigrationRoot(t *testing.T) {
 }
 
 func TestBlobMount_Migration_FromNewToOldRepoWithMigrationRoot(t *testing.T) {
-	rootDir, err := os.MkdirTemp("", "api-conformance-")
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		os.RemoveAll(rootDir)
-	})
+	rootDir := t.TempDir()
 
 	migrationDir := filepath.Join(rootDir, "/new")
 
@@ -1275,12 +1267,7 @@ func TestBlobMount_Migration_FromNewToOldRepoWithMigrationRoot(t *testing.T) {
 }
 
 func TestBlobMount_Migration_FromOldToOldRepoWithMigrationRoot(t *testing.T) {
-	rootDir, err := os.MkdirTemp("", "api-conformance-")
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		os.RemoveAll(rootDir)
-	})
-
+	rootDir := t.TempDir()
 	migrationDir := filepath.Join(rootDir, "/new")
 
 	// Create a repository on the old code path and seed it with a layer.
@@ -1307,12 +1294,7 @@ func TestBlobMount_Migration_FromOldToOldRepoWithMigrationRoot(t *testing.T) {
 }
 
 func TestBlobMount_Migration_FromNewToNewRepoWithMigrationRoot(t *testing.T) {
-	rootDir, err := os.MkdirTemp("", "api-conformance-")
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		os.RemoveAll(rootDir)
-	})
-
+	rootDir := t.TempDir()
 	migrationDir := filepath.Join(rootDir, "/new")
 
 	// Create a repository on the old code path and seed it with a layer to ensure
@@ -1358,12 +1340,7 @@ func TestBlobMount_Migration_FromNewToNewRepoWithMigrationRoot(t *testing.T) {
 }
 
 func TestBlobMount_Migration_FromNewToNewRepoWithMigrationRootFSMirroringDisabled(t *testing.T) {
-	rootDir, err := os.MkdirTemp("", "api-conformance-")
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		os.RemoveAll(rootDir)
-	})
-
+	rootDir := t.TempDir()
 	migrationDir := filepath.Join(rootDir, "/new")
 
 	// Create a repository on the old code path and seed it with a layer to ensure
@@ -1410,12 +1387,7 @@ func TestBlobMount_Migration_FromNewToNewRepoWithMigrationRootFSMirroringDisable
 }
 
 func TestDeleteReadOnly(t *testing.T) {
-	rootDir, err := os.MkdirTemp("", "api-conformance-")
-	require.NoError(t, err)
-
-	t.Cleanup(func() {
-		os.RemoveAll(rootDir)
-	})
+	rootDir := t.TempDir()
 
 	setupEnv := newTestEnv(t, withFSDriver(rootDir))
 	defer setupEnv.Shutdown()
@@ -1755,11 +1727,7 @@ func TestAPIConformance(t *testing.T) {
 				// Use filesystem driver here. This way, we're able to test conformance
 				// with migration mode enabled as the inmemory driver does not support
 				// root directories.
-				rootDir, err := os.MkdirTemp("", "api-conformance-")
-				require.NoError(t, err)
-				t.Cleanup(func() {
-					os.RemoveAll(rootDir)
-				})
+				rootDir := t.TempDir()
 
 				o.opts = append(o.opts, withFSDriver(rootDir))
 
@@ -2974,16 +2942,8 @@ func TestManifestAPI_ManifestListWithLayerReferences(t *testing.T) {
 }
 
 func TestManifestAPI_Migration_Schema2(t *testing.T) {
-	rootDir, err := os.MkdirTemp("", "test-manifest-api-")
-	require.NoError(t, err)
-
-	migrationDir, err := os.MkdirTemp("", "test-manifest-api-")
-	require.NoError(t, err)
-
-	t.Cleanup(func() {
-		os.RemoveAll(rootDir)
-		os.RemoveAll(migrationDir)
-	})
+	rootDir := t.TempDir()
+	migrationDir := t.TempDir()
 
 	env1 := newTestEnv(t, withFSDriver(rootDir))
 	defer env1.Shutdown()
@@ -3159,16 +3119,8 @@ func TestManifestAPI_Migration_Schema2(t *testing.T) {
 }
 
 func TestAPI_Migration_Schema2_PauseMigration(t *testing.T) {
-	rootDir, err := os.MkdirTemp("", "test-manifest-api-")
-	require.NoError(t, err)
-
-	migrationDir, err := os.MkdirTemp("", "test-manifest-api-")
-	require.NoError(t, err)
-
-	t.Cleanup(func() {
-		os.RemoveAll(rootDir)
-		os.RemoveAll(migrationDir)
-	})
+	rootDir := t.TempDir()
+	migrationDir := t.TempDir()
 
 	env1 := newTestEnv(t, withFSDriver(rootDir))
 	defer env1.Shutdown()
@@ -3340,15 +3292,8 @@ func TestAPI_Migration_Schema2_PauseMigration(t *testing.T) {
 // so testing it for the simplest write (starting a blob upload) and read (unknown manifest get) operations is enough.
 // The validation of the routing logic lies elsewhere.
 func TestAPI_MigrationPathResponseHeader(t *testing.T) {
-	rootDir, err := os.MkdirTemp("", "")
-	require.NoError(t, err)
-	migrationDir, err := os.MkdirTemp("", "")
-	require.NoError(t, err)
-
-	t.Cleanup(func() {
-		os.RemoveAll(rootDir)
-		os.RemoveAll(migrationDir)
-	})
+	rootDir := t.TempDir()
+	migrationDir := t.TempDir()
 
 	env1 := newTestEnv(t, withFSDriver(rootDir))
 	defer env1.Shutdown()

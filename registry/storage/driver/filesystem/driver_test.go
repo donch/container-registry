@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
-	dtestutil "github.com/docker/distribution/registry/storage/driver/internal/testutil"
 	"github.com/docker/distribution/registry/storage/driver/testsuites"
 	"github.com/stretchr/testify/require"
 	. "gopkg.in/check.v1"
@@ -235,7 +234,7 @@ func TestTransferToExistingDest(t *testing.T) {
 }
 
 func TestTransferToSameRootDir(t *testing.T) {
-	rootDir := dtestutil.TempRoot(t)
+	rootDir := t.TempDir()
 
 	srcDriver, err := FromParameters(map[string]interface{}{
 		"rootdirectory": rootDir,
@@ -266,7 +265,7 @@ func TestTransferToSameRootDir(t *testing.T) {
 func newTempDirDriver(t *testing.T) *Driver {
 	t.Helper()
 
-	rootDir := dtestutil.TempRoot(t)
+	rootDir := t.TempDir()
 
 	d, err := FromParameters(map[string]interface{}{
 		"rootdirectory": rootDir,

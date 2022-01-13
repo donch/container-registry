@@ -432,7 +432,7 @@ func TestEmptyRootList(t *testing.T) {
 		t.Skip(skipS3())
 	}
 
-	validRoot := dtestutil.TempRoot(t)
+	validRoot := t.TempDir()
 
 	rootedDriver, err := s3DriverConstructor(validRoot, s3.StorageClassStandard)
 	if err != nil {
@@ -478,7 +478,7 @@ func TestStorageClass(t *testing.T) {
 		t.Skip(skipS3())
 	}
 
-	rootDir := dtestutil.TempRoot(t)
+	rootDir := t.TempDir()
 
 	standardDriver, err := s3DriverConstructor(rootDir, s3.StorageClassStandard)
 	if err != nil {
@@ -931,7 +931,7 @@ func TestBackoffDoesNotRetryNonRequestErrors(t *testing.T) {
 func newTempDirDriver(t *testing.T) *Driver {
 	t.Helper()
 
-	rootDir := dtestutil.TempRoot(t)
+	rootDir := t.TempDir()
 
 	d, err := s3DriverConstructor(rootDir, s3.StorageClassStandard)
 	require.NoError(t, err)

@@ -293,7 +293,7 @@ func TestURLFor_Expiry(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	validRoot := dtestutil.TempRoot(t)
+	validRoot := t.TempDir()
 	d, err := azureDriverConstructor(validRoot)
 	require.NoError(t, err)
 

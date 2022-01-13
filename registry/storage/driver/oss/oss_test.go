@@ -103,7 +103,7 @@ func TestEmptyRootList(t *testing.T) {
 		t.Skip(skipCheck())
 	}
 
-	validRoot := dtestutil.TempRoot(t)
+	validRoot := t.TempDir()
 
 	rootedDriver, err := ossDriverConstructor(validRoot)
 	if err != nil {
@@ -204,7 +204,7 @@ func TestURLFor_Expiry(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	validRoot := dtestutil.TempRoot(t)
+	validRoot := t.TempDir()
 	d, err := ossDriverConstructor(validRoot)
 	require.NoError(t, err)
 
