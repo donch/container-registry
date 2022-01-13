@@ -1,5 +1,5 @@
 /*
-Package migration provides utilities to support the GitLab.com migration Phase 1, as
+Package migration provides utilities to support the GitLab.com migration, as
 described in https://gitlab.com/gitlab-org/container-registry/-/issues/374.
 */
 package migration
@@ -167,3 +167,9 @@ func (m Status) Description() string {
 func (m Status) ShouldMigrate() bool {
 	return m >= eligibilityCutoff
 }
+
+// RepositoryStatus represents the status of a repository during an online migration.
+type RepositoryStatus string
+
+// RepositoryStatusNative is the migration status of a repository that was originally created on the metadata database.
+const RepositoryStatusNative RepositoryStatus = "native"

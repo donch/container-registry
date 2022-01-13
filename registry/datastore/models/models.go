@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/docker/distribution/registry/internal/migration"
+
 	"github.com/opencontainers/go-digest"
 )
 
-// Payload implements sql/driver.Valuer interfance, allowing pgx to use
+// Payload implements sql/driver.Valuer interface, allowing pgx to use
 // the PostgreSQL simple protocol.
 type Payload json.RawMessage
 
@@ -27,13 +29,14 @@ type Namespace struct {
 }
 
 type Repository struct {
-	ID          int64
-	NamespaceID int64
-	Name        string
-	Path        string
-	ParentID    sql.NullInt64
-	CreatedAt   time.Time
-	UpdatedAt   sql.NullTime
+	ID              int64
+	NamespaceID     int64
+	Name            string
+	Path            string
+	ParentID        sql.NullInt64
+	MigrationStatus migration.RepositoryStatus
+	CreatedAt       time.Time
+	UpdatedAt       sql.NullTime
 }
 
 // Repositories is a slice of Repository pointers.
@@ -43,7 +46,7 @@ type Configuration struct {
 	MediaType string
 	Digest    digest.Digest
 	// Payload is the JSON payload of a manifest configuration. For operational safety reasons,
-	// a payload is only saved in this attribute if its size does not exceeds a predefined
+	// a payload is only saved in this attribute if its size does not exceed a predefined
 	// limit (see handlers.dbConfigSizeLimit).
 	Payload Payload
 }
