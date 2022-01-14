@@ -20,6 +20,11 @@ var (
 		Name: "base",
 		Path: "/gitlab/v1/",
 	}
+	// Repositories is the API route for the repositories' entity.
+	Repositories = Route{
+		Name: "repositories",
+		Path: Base.Path + "repositories/{name:" + reference.NameRegexp.String() + "}/",
+	}
 	// RepositoryImport is the API route that triggers a repository import.
 	RepositoryImport = Route{
 		Name: "import-repository",
@@ -38,6 +43,7 @@ func Router() *mux.Router {
 
 	router.Path(Base.Path).Name(Base.Name)
 	router.Path(RepositoryImport.Path).Name(RepositoryImport.Name)
+	router.Path(Repositories.Path).Name(Repositories.Name)
 
 	return router
 }

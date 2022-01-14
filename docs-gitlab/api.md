@@ -102,6 +102,7 @@ curl --header "Authorization: Bearer <token>" "https://registry.gitlab.com/gitla
 | ------------------ | ------------------------------------------------------------ |
 | `200 OK`           | The repository was found. The response body includes the requested details. |
 | `401 Unauthorized` | The client should take action based on the contents of the `WWW-Authenticate` header and try the endpoint again. |
+| `400 Bad Request`    | The value of the `size` query parameter is invalid.                                |
 | `404 Not Found`    | The repository was not found.                                |
 
 #### Body
@@ -211,7 +212,43 @@ curl --header "Authorization: Bearer <token>" "https://registry.gitlab.com/gitla
 }
 ```
 
+## Errors
+
+In case of an error, the response body payload (if any) follows the format defined in the
+[OCI Distribution Spec](https://github.com/opencontainers/distribution-spec/blob/main/spec.md#error-codes), which is the
+same format found on the [V2 API](../docs/spec/api.md#errors):
+
+```json
+{
+    "errors": [
+        {
+            "code": "<error identifier, see below>",
+            "message": "<message describing condition>",
+            "detail": "<unstructured>"
+        },
+        ...
+    ]
+}
+```
+
+### Codes
+
+The error codes encountered via this API are enumerated in the following table. For consistency, whenever possible,
+error codes described in the
+[OCI Distribution Spec](https://github.com/opencontainers/distribution-spec/blob/main/spec.md#error-codes) are reused.
+
+|Code|Message|Description|
+|----|-------|-----------|
+`NAME_INVALID` | `invalid repository name` | Invalid repository name encountered either during manifest validation or any API operation.
+`NAME_UNKNOWN` | `repository name not known to registry` | This is returned if the name used during an operation is unknown to the registry.
+`UNAUTHORIZED` | `authentication required` | The access controller was unable to authenticate the client. Often this will be accompanied by a Www-Authenticate HTTP response header indicating how to authenticate.
+`INVALID_QUERY_PARAMETER_VALUE` | `the value of a query parameter is invalid` | The value of a request query parameter is invalid. The error detail identifies the concerning parameter and the list of possible values.
+
 ## Changes
+
+### 2022-01-13
+
+- Add errors section.
 
 ### 2021-12-17
 

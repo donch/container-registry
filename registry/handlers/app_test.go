@@ -141,11 +141,8 @@ func TestAppDistribtionDispatcher(t *testing.T) {
 	}
 }
 
-// TestNewApp covers the creation of an application via NewApp with a
-// configuration.
-func TestNewApp(t *testing.T) {
-	ctx := context.Background()
-	config := configuration.Configuration{
+func testConfig() *configuration.Configuration {
+	return &configuration.Configuration{
 		Storage: configuration.Storage{
 			"testdriver": nil,
 			"maintenance": configuration.Parameters{"uploadpurging": map[interface{}]interface{}{
@@ -153,19 +150,24 @@ func TestNewApp(t *testing.T) {
 			}},
 		},
 		Auth: configuration.Auth{
-			// For now, we simply test that new auth results in a viable
-			// application.
 			"silly": {
 				"realm":   "realm-test",
 				"service": "service-test",
 			},
 		},
 	}
+}
+
+// TestNewApp covers the creation of an application via NewApp with a
+// configuration.
+func TestNewApp(t *testing.T) {
+	ctx := context.Background()
+	config := testConfig()
 
 	// Mostly, with this test, given a sane configuration, we are simply
 	// ensuring that NewApp doesn't panic. We might want to tweak this
 	// behavior.
-	app := NewApp(ctx, &config)
+	app := NewApp(ctx, config)
 
 	server := httptest.NewServer(app)
 	defer server.Close()
@@ -281,30 +283,17 @@ func TestAppendAccessRecords(t *testing.T) {
 	}
 }
 
-// TestAppendRepositoryImportAccessRecords ensures that only admins may trigger imports
+// TestGitlabAPI_RepositoryImportAccessRecords ensures that only admins may trigger imports
 // via the GitLab v1 API.
-func TestAppendRepositoryImportAccessRecords(t *testing.T) {
+func TestGitlabAPI_RepositoryImportAccessRecords(t *testing.T) {
 
 	// The appendRepositoryImportAccessRecords function depends on
 	// mux.CurrentRoute, which only inside a handler when a proper request is
 	// being made so we need to test against an instantiated app via HTTP.
 	ctx := context.Background()
-	config := configuration.Configuration{
-		Storage: configuration.Storage{
-			"testdriver": nil,
-			"maintenance": configuration.Parameters{"uploadpurging": map[interface{}]interface{}{
-				"enabled": false,
-			}},
-		},
-		Auth: configuration.Auth{
-			"silly": {
-				"realm":   "realm-test",
-				"service": "service-test",
-			},
-		},
-	}
+	config := testConfig()
 
-	app := NewApp(ctx, &config)
+	app := NewApp(ctx, config)
 
 	server := httptest.NewServer(app)
 	defer server.Close()
@@ -344,6 +333,39 @@ func TestAppendRepositoryImportAccessRecords(t *testing.T) {
 	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 
 	expectedAuthHeader = `Bearer realm="realm-test",service="service-test",scope="repository:test/repo:pull"`
+	require.Equal(t, expectedAuthHeader, resp.Header.Get("WWW-Authenticate"))
+}
+
+// TestGitlabAPI_GetRepositoryDetailsAccessRecords ensures that only users will pull permissions for repository x can invoke the
+// `GET /gitlab/v1/repositories/x` endpoint.
+func TestGitlabAPI_GetRepositoryDetailsAccessRecords(t *testing.T) {
+	ctx := context.Background()
+	config := testConfig()
+
+	app := NewApp(ctx, config)
+
+	server := httptest.NewServer(app)
+	defer server.Close()
+
+	repo, err := reference.WithName("test/repo")
+	require.NoError(t, err)
+
+	repo, err = reference.WithTag(repo, "latest")
+	require.NoError(t, err)
+
+	builder, err := urls.NewBuilderFromString(server.URL, false)
+	require.NoError(t, err)
+
+	u, err := builder.BuildGitlabV1RepositoryURL(repo)
+	require.NoError(t, err)
+
+	resp, err := http.Get(u)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+
+	expectedAuthHeader := `Bearer realm="realm-test",service="service-test",scope="repository:test/repo:pull"`
 	require.Equal(t, expectedAuthHeader, resp.Header.Get("WWW-Authenticate"))
 }
 
