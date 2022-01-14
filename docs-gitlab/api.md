@@ -150,7 +150,7 @@ PUT /gitlab/v1/import/<path>
 #### Example
 
 ```shell
-curl --header "Authorization: Bearer <token>" "https://registry.gitlab.com/gitlab/v1/import/gitlab-org/build/cng/gitlab-container-registry?pre=true"
+curl --header "Authorization: Bearer <token>" "https://registry.gitlab.com/gitlab/v1/import/gitlab-org/build/cng/gitlab-container-registry/?pre=true"
 ```
 
 ### Response
