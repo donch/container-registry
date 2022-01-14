@@ -163,6 +163,24 @@ func makeBuilderTestCases(builder *Builder) []urlBuilderTestCase {
 				})
 			},
 		},
+		{
+			description:  "test Gitlab v1 repository url",
+			expectedPath: "/gitlab/v1/repositories/foo/bar/",
+			expectedErr:  nil,
+			build: func() (string, error) {
+				return builder.BuildGitlabV1RepositoryURL(fooBarRef)
+			},
+		},
+		{
+			description:  "test Gitlab v1 repository url with size",
+			expectedPath: "/gitlab/v1/repositories/foo/bar/?size=self",
+			expectedErr:  nil,
+			build: func() (string, error) {
+				return builder.BuildGitlabV1RepositoryURL(fooBarRef, url.Values{
+					"size": []string{"self"},
+				})
+			},
+		},
 	}
 }
 

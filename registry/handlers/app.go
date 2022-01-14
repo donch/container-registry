@@ -139,6 +139,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 		return http.HandlerFunc(gitlabAPIBase)
 	})
 	app.registerGitlab(v1.RepositoryImport, importDispatcher)
+	app.registerGitlab(v1.Repositories, repositoryDispatcher)
 
 	storageParams := config.Storage.Parameters()
 	if storageParams == nil {

@@ -19,6 +19,7 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -35,6 +36,7 @@ import (
 	"github.com/docker/distribution/manifest/schema2"
 	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/api/errcode"
+	gitlabV1 "github.com/docker/distribution/registry/api/gitlab/v1"
 	"github.com/docker/distribution/registry/api/urls"
 	v2 "github.com/docker/distribution/registry/api/v2"
 	_ "github.com/docker/distribution/registry/auth/eligibilitymock"
@@ -2099,7 +2101,7 @@ func manifest_Put_Schema2_MissingConfig(t *testing.T, opts ...configOpt) {
 	manifest.Layers = make([]distribution.Descriptor, 2)
 
 	for i := range manifest.Layers {
-		rs, dgst := createRandomSmallLayer()
+		rs, dgst, size := createRandomSmallLayer()
 
 		uploadURLBase, _ := startPushLayer(t, env, repoRef)
 		pushLayer(t, env.builder, repoRef, dgst, uploadURLBase, rs)
@@ -2107,6 +2109,7 @@ func manifest_Put_Schema2_MissingConfig(t *testing.T, opts ...configOpt) {
 		manifest.Layers[i] = distribution.Descriptor{
 			Digest:    dgst,
 			MediaType: schema2.MediaTypeLayer,
+			Size:      size,
 		}
 	}
 
@@ -2177,11 +2180,12 @@ func manifest_Put_Schema2_MissingLayers(t *testing.T, opts ...configOpt) {
 	manifest.Layers = make([]distribution.Descriptor, 2)
 
 	for i := range manifest.Layers {
-		_, dgst := createRandomSmallLayer()
+		_, dgst, size := createRandomSmallLayer()
 
 		manifest.Layers[i] = distribution.Descriptor{
 			Digest:    dgst,
 			MediaType: schema2.MediaTypeLayer,
+			Size:      size,
 		}
 	}
 
@@ -2244,7 +2248,7 @@ func manifest_Put_Schema2_MissingConfigAndLayers(t *testing.T, opts ...configOpt
 	repoRef, err := reference.WithName(repoPath)
 	require.NoError(t, err)
 
-	rs, dgst := createRandomSmallLayer()
+	rs, dgst, _ := createRandomSmallLayer()
 
 	uploadURLBase, _ := startPushLayer(t, env, repoRef)
 	pushLayer(t, env.builder, repoRef, dgst, uploadURLBase, rs)
@@ -2257,11 +2261,12 @@ func manifest_Put_Schema2_MissingConfigAndLayers(t *testing.T, opts ...configOpt
 	manifest.Layers = make([]distribution.Descriptor, 2)
 
 	for i := range manifest.Layers {
-		_, dgst = createRandomSmallLayer()
+		_, dgst, size := createRandomSmallLayer()
 
 		manifest.Layers[i] = distribution.Descriptor{
 			Digest:    dgst,
 			MediaType: schema2.MediaTypeLayer,
+			Size:      size,
 		}
 	}
 
@@ -2333,7 +2338,7 @@ func manifest_Put_Schema2_ReferencesExceedLimit(t *testing.T, opts ...configOpt)
 	manifest.Layers = make([]distribution.Descriptor, 10)
 
 	for i := range manifest.Layers {
-		rs, dgst := createRandomSmallLayer()
+		rs, dgst, size := createRandomSmallLayer()
 
 		uploadURLBase, _ := startPushLayer(t, env, repoRef)
 		pushLayer(t, env.builder, repoRef, dgst, uploadURLBase, rs)
@@ -2341,6 +2346,7 @@ func manifest_Put_Schema2_ReferencesExceedLimit(t *testing.T, opts ...configOpt)
 		manifest.Layers[i] = distribution.Descriptor{
 			Digest:    dgst,
 			MediaType: schema2.MediaTypeLayer,
+			Size:      size,
 		}
 	}
 
@@ -2501,7 +2507,7 @@ func TestManifestAPI_Put_Schema2LayersNotAssociatedWithRepositoryButArePresentIn
 	require.NoError(t, err)
 
 	for i := range manifest.Layers {
-		rs, dgst := createRandomSmallLayer()
+		rs, dgst, size := createRandomSmallLayer()
 
 		// Save the layer content as pushLayer exhausts the io.ReadSeeker
 		layerBytes, err := io.ReadAll(rs)
@@ -2522,6 +2528,7 @@ func TestManifestAPI_Put_Schema2LayersNotAssociatedWithRepositoryButArePresentIn
 		manifest.Layers[i] = distribution.Descriptor{
 			Digest:    dgst,
 			MediaType: schema2.MediaTypeLayer,
+			Size:      size,
 		}
 	}
 
@@ -2736,7 +2743,7 @@ func manifest_Put_Schema2_ByDigest_LayersNotAssociatedWithRepository(t *testing.
 	manifest.Layers = make([]distribution.Descriptor, 2)
 
 	for i := range manifest.Layers {
-		rs, dgst := createRandomSmallLayer()
+		rs, dgst, size := createRandomSmallLayer()
 
 		uploadURLBase, _ := startPushLayer(t, env, repoRef2)
 		pushLayer(t, env.builder, repoRef2, dgst, uploadURLBase, rs)
@@ -2744,6 +2751,7 @@ func manifest_Put_Schema2_ByDigest_LayersNotAssociatedWithRepository(t *testing.
 		manifest.Layers[i] = distribution.Descriptor{
 			Digest:    dgst,
 			MediaType: schema2.MediaTypeLayer,
+			Size:      size,
 		}
 	}
 
@@ -2787,7 +2795,7 @@ func manifest_Put_Schema2_ByDigest_ConfigNotAssociatedWithRepository(t *testing.
 	manifest.Layers = make([]distribution.Descriptor, 2)
 
 	for i := range manifest.Layers {
-		rs, dgst := createRandomSmallLayer()
+		rs, dgst, size := createRandomSmallLayer()
 
 		uploadURLBase, _ := startPushLayer(t, env, repoRef1)
 		pushLayer(t, env.builder, repoRef1, dgst, uploadURLBase, rs)
@@ -2795,6 +2803,7 @@ func manifest_Put_Schema2_ByDigest_ConfigNotAssociatedWithRepository(t *testing.
 		manifest.Layers[i] = distribution.Descriptor{
 			Digest:    dgst,
 			MediaType: schema2.MediaTypeLayer,
+			Size:      size,
 		}
 	}
 
@@ -2829,13 +2838,13 @@ func TestManifestAPI_BuildkitIndex(t *testing.T) {
 	// Create and push 2 random layers
 	layers := make([]distribution.Descriptor, 2)
 	for i := range layers {
-		rs, dgst := createRandomSmallLayer()
+		rs, dgst, size := createRandomSmallLayer()
 		assertBlobPutResponse(t, env, repoPath, dgst, rs, 201)
 
 		layers[i] = distribution.Descriptor{
 			MediaType: v1.MediaTypeImageLayerGzip,
 			Digest:    dgst,
-			Size:      rand.Int63(),
+			Size:      size,
 			Annotations: map[string]string{
 				"buildkit/createdat":         time.Now().String(),
 				"containerd.io/uncompressed": digest.FromString(strconv.Itoa(i)).String(),
@@ -2904,13 +2913,13 @@ func TestManifestAPI_ManifestListWithLayerReferences(t *testing.T) {
 	// Create and push 2 random layers
 	layers := make([]distribution.Descriptor, 2)
 	for i := range layers {
-		rs, dgst := createRandomSmallLayer()
+		rs, dgst, size := createRandomSmallLayer()
 		assertBlobPutResponse(t, env, repoPath, dgst, rs, 201)
 
 		layers[i] = distribution.Descriptor{
 			MediaType: v1.MediaTypeImageLayerGzip,
 			Digest:    dgst,
-			Size:      rand.Int63(),
+			Size:      size,
 		}
 	}
 
@@ -3463,7 +3472,7 @@ func manifest_Put_Schema1_ByTag(t *testing.T, opts ...configOpt) {
 	unsignedManifest.FSLayers = make([]schema1.FSLayer, 2)
 
 	for i := range unsignedManifest.FSLayers {
-		rs, dgst := createRandomSmallLayer()
+		rs, dgst, _ := createRandomSmallLayer()
 
 		uploadURLBase, _ := startPushLayer(t, env, repoRef)
 		pushLayer(t, env.builder, repoRef, dgst, uploadURLBase, rs)
@@ -3514,7 +3523,7 @@ func manifest_Put_Schema1_ByDigest(t *testing.T, opts ...configOpt) {
 	unsignedManifest.FSLayers = make([]schema1.FSLayer, 2)
 
 	for i := range unsignedManifest.FSLayers {
-		rs, dgst := createRandomSmallLayer()
+		rs, dgst, _ := createRandomSmallLayer()
 
 		uploadURLBase, _ := startPushLayer(t, env, repoRef)
 		pushLayer(t, env.builder, repoRef, dgst, uploadURLBase, rs)
@@ -4159,12 +4168,12 @@ func TestManifestAPI_Put_DatabaseEnabled_InvalidConfigMediaType(t *testing.T) {
 	assertBlobPutResponse(t, env, repoPath, cfgDesc.Digest, strings.NewReader(cfgPayload), 201)
 
 	// Create and push 1 random layer
-	rs, dgst := createRandomSmallLayer()
+	rs, dgst, size := createRandomSmallLayer()
 	assertBlobPutResponse(t, env, repoPath, dgst, rs, 201)
 	layerDesc := distribution.Descriptor{
 		MediaType: v1.MediaTypeImageLayerGzip,
 		Digest:    dgst,
-		Size:      rand.Int63(),
+		Size:      size,
 	}
 
 	m := ocischema.Manifest{
@@ -4889,7 +4898,7 @@ func TestManifestAPI_Put_ManifestWithAllPossibleMediaTypeAndContentTypeCombinati
 	pushLayer(t, env.builder, repoRef, cfgDesc.Digest, u, bytes.NewReader(cfgPayload))
 
 	// push random layer blob
-	rs, layerDgst := createRandomSmallLayer()
+	rs, layerDgst, size := createRandomSmallLayer()
 	u, _ = startPushLayer(t, env, repoRef)
 	pushLayer(t, env.builder, repoRef, layerDgst, u, rs)
 
@@ -4909,6 +4918,7 @@ func TestManifestAPI_Put_ManifestWithAllPossibleMediaTypeAndContentTypeCombinati
 					{
 						Digest:    layerDgst,
 						MediaType: schema2.MediaTypeLayer,
+						Size:      size,
 					},
 				},
 			}
@@ -5233,7 +5243,7 @@ func seedRandomSchema2Manifest(t *testing.T, env *testEnv, repoPath string, opts
 	manifest.Layers = make([]distribution.Descriptor, 2)
 
 	for i := range manifest.Layers {
-		rs, dgst := createRandomSmallLayer()
+		rs, dgst, size := createRandomSmallLayer()
 
 		uploadURLBase, _ := startPushLayer(t, env, repoRef)
 		pushLayer(t, env.builder, repoRef, dgst, uploadURLBase, rs)
@@ -5241,6 +5251,7 @@ func seedRandomSchema2Manifest(t *testing.T, env *testEnv, repoPath string, opts
 		manifest.Layers[i] = distribution.Descriptor{
 			Digest:    dgst,
 			MediaType: schema2.MediaTypeLayer,
+			Size:      size,
 		}
 	}
 
@@ -5269,14 +5280,15 @@ func seedRandomSchema2Manifest(t *testing.T, env *testEnv, repoPath string, opts
 	return deserializedManifest
 }
 
-func createRandomSmallLayer() (io.ReadSeeker, digest.Digest) {
-	b := make([]byte, rand.Intn(20))
+func createRandomSmallLayer() (io.ReadSeeker, digest.Digest, int64) {
+	size := rand.Int63n(20)
+	b := make([]byte, size)
 	rand.Read(b)
 
 	dgst := digest.FromBytes(b)
 	rs := bytes.NewReader(b)
 
-	return rs, dgst
+	return rs, dgst, size
 }
 
 func ociConfig() ([]byte, distribution.Descriptor) {
@@ -5372,7 +5384,7 @@ func seedRandomOCIManifest(t *testing.T, env *testEnv, repoPath string, opts ...
 	manifest.Layers = make([]distribution.Descriptor, 2)
 
 	for i := range manifest.Layers {
-		rs, dgst := createRandomSmallLayer()
+		rs, dgst, size := createRandomSmallLayer()
 
 		uploadURLBase, _ := startPushLayer(t, env, repoRef)
 		pushLayer(t, env.builder, repoRef, dgst, uploadURLBase, rs)
@@ -5380,6 +5392,7 @@ func seedRandomOCIManifest(t *testing.T, env *testEnv, repoPath string, opts ...
 		manifest.Layers[i] = distribution.Descriptor{
 			Digest:    dgst,
 			MediaType: v1.MediaTypeImageLayer,
+			Size:      size,
 		}
 	}
 
@@ -6932,7 +6945,7 @@ func Test_PrometheusMetricsCollectionDoesNotPanic_InMigrationMode(t *testing.T) 
 	testPrometheusMetricsCollectionDoesNotPanic(t, env)
 }
 
-func TestRepositoryImportAPI_Put(t *testing.T) {
+func TestGitlabAPI_RepositoryImportAPI_Put(t *testing.T) {
 	rootDir, err := os.MkdirTemp("", "api-repository-import-")
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -7004,7 +7017,7 @@ func TestRepositoryImportAPI_Put(t *testing.T) {
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
-func TestRepositoryImportAPI_Put_ConcurrentTags(t *testing.T) {
+func TestGitlabAPI_RepositoryImport_Put_ConcurrentTags(t *testing.T) {
 	rootDir := t.TempDir()
 	migrationDir := filepath.Join(rootDir, "/new")
 
@@ -7086,7 +7099,7 @@ func TestRepositoryImportAPI_Put_ConcurrentTags(t *testing.T) {
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
-func TestRepositoryImportAPI_Put_RepositoryNotPresentOnOldSide(t *testing.T) {
+func TestGitlabAPI_RepositoryImport_Put_RepositoryNotPresentOnOldSide(t *testing.T) {
 	rootDir, err := os.MkdirTemp("", "api-repository-import-")
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -7119,4 +7132,92 @@ func TestRepositoryImportAPI_Put_RepositoryNotPresentOnOldSide(t *testing.T) {
 	// We should get a repository not found error
 	require.Equal(t, http.StatusNotFound, resp.StatusCode)
 	checkBodyHasErrorCodes(t, "repository not found", resp, v2.ErrorCodeNameUnknown)
+}
+
+// iso8601MsFormat is a regular expression to validate ISO8601 timestamps with millisecond precision.
+var iso8601MsFormat = regexp.MustCompile(`^(?:[0-9]{4}-[0-9]{2}-[0-9]{2})?(?:[ T][0-9]{2}:[0-9]{2}:[0-9]{2})?(?:[.][0-9]{3})`)
+
+func TestGitlabAPI_Repository_Get(t *testing.T) {
+	env := newTestEnv(t, disableMirrorFS)
+	defer env.Shutdown()
+	env.requireDB(t)
+
+	repoName := "bar"
+	repoPath := fmt.Sprintf("foo/%s", repoName)
+	tagName := "latest"
+	repoRef, err := reference.WithName(repoPath)
+	require.NoError(t, err)
+
+	// try to get details of non-existing repository
+	u, err := env.builder.BuildGitlabV1RepositoryURL(repoRef)
+	require.NoError(t, err)
+
+	resp, err := http.Get(u)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+	checkBodyHasErrorCodes(t, "wrong response body error code", resp, v2.ErrorCodeNameUnknown)
+
+	// try getting the details of an "empty" (no tagged artifacts) repository
+	seedRandomSchema2Manifest(t, env, repoPath, putByDigest)
+
+	u, err = env.builder.BuildGitlabV1RepositoryURL(repoRef, url.Values{
+		"size": []string{"self"},
+	})
+	require.NoError(t, err)
+
+	resp, err = http.Get(u)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var r registryhandlers.RepositoryAPIResponse
+	p, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	err = json.Unmarshal(p, &r)
+	require.NoError(t, err)
+
+	require.Equal(t, r.Name, repoName)
+	require.Equal(t, r.Path, repoPath)
+	require.Zero(t, *r.Size)
+	require.NotEmpty(t, r.CreatedAt)
+	require.Regexp(t, iso8601MsFormat, r.CreatedAt)
+	require.Empty(t, r.UpdatedAt)
+
+	// repeat, but before that push another image, this time tagged
+	dm := seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName))
+	var expectedSize int64
+	for _, d := range dm.Layers() {
+		expectedSize += d.Size
+	}
+
+	resp, err = http.Get(u)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	r = registryhandlers.RepositoryAPIResponse{}
+	p, err = io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	err = json.Unmarshal(p, &r)
+	require.NoError(t, err)
+
+	require.Equal(t, r.Name, repoName)
+	require.Equal(t, r.Path, repoPath)
+	require.Equal(t, *r.Size, expectedSize)
+	require.NotEmpty(t, r.CreatedAt)
+	require.Regexp(t, iso8601MsFormat, r.CreatedAt)
+	require.Empty(t, r.UpdatedAt)
+
+	// use invalid `size` query param value
+	u, err = env.builder.BuildGitlabV1RepositoryURL(repoRef, url.Values{
+		"size": []string{"selfff"},
+	})
+	require.NoError(t, err)
+
+	resp, err = http.Get(u)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	checkBodyHasErrorCodes(t, "wrong response body error code", resp, gitlabV1.ErrorCodeInvalidQueryParamValue)
 }

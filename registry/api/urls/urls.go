@@ -218,7 +218,7 @@ func (ub *Builder) BuildBlobUploadChunkURL(name reference.Named, uuid string, va
 	return appendValuesURL(uploadURL, values...).String(), nil
 }
 
-// BuildGitLabV1BaseURL constructs a base URL for the Gitlab v1 API.
+// BuildGitlabV1BaseURL constructs a base URL for the Gitlab v1 API.
 func (ub *Builder) BuildGitlabV1BaseURL() (string, error) {
 	route := ub.cloneGitLabRoute(v1.Base)
 
@@ -228,6 +228,18 @@ func (ub *Builder) BuildGitlabV1BaseURL() (string, error) {
 	}
 
 	return baseURL.String(), nil
+}
+
+// BuildGitlabV1RepositoryURL constructs a URL for the Gitlab v1 API repository route by name.
+func (ub *Builder) BuildGitlabV1RepositoryURL(name reference.Named, values ...url.Values) (string, error) {
+	route := ub.cloneGitLabRoute(v1.Repositories)
+
+	u, err := route.URL("name", name.Name())
+	if err != nil {
+		return "", err
+	}
+
+	return appendValuesURL(u, values...).String(), nil
 }
 
 // BuildGitlabV1RepositoryImportURL constructs a URL for the Gitlab v1 API
