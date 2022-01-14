@@ -848,18 +848,9 @@ func (imp *Importer) PreImport(ctx context.Context, path string) error {
 		return fmt.Errorf("constructing filesystem repository: %w", err)
 	}
 
-	// Find or create repository.
-	var dbRepo *models.Repository
-
-	dbRepo, err = imp.repositoryStore.FindByPath(ctx, path)
+	dbRepo, err := imp.repositoryStore.CreateOrFindByPath(ctx, path)
 	if err != nil {
-		return fmt.Errorf("checking for existence of repository: %w", err)
-	}
-
-	if dbRepo == nil {
-		if dbRepo, err = imp.repositoryStore.CreateByPath(ctx, path); err != nil {
-			return fmt.Errorf("creating repository in database: %w", err)
-		}
+		return fmt.Errorf("creating or finding repository in database: %w", err)
 	}
 
 	if err = imp.preImportTaggedManifests(ctx, fsRepo, dbRepo); err != nil {
