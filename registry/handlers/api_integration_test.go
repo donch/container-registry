@@ -6945,7 +6945,7 @@ func Test_PrometheusMetricsCollectionDoesNotPanic_InMigrationMode(t *testing.T) 
 	testPrometheusMetricsCollectionDoesNotPanic(t, env)
 }
 
-func TestGitlabAPI_RepositoryImportAPI_Put(t *testing.T) {
+func TestGitlabAPI_RepositoryImport_Put(t *testing.T) {
 	rootDir, err := os.MkdirTemp("", "api-repository-import-")
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -6986,25 +6986,11 @@ func TestGitlabAPI_RepositoryImportAPI_Put(t *testing.T) {
 	require.Equal(t, http.StatusAccepted, resp.StatusCode)
 
 	// Spin up a non-migartion mode env to test that the repository imported correctly.
-	// TODO: When https://gitlab.com/gitlab-org/container-registry/-/issues/529 is
-	// finished, we should listen for the completion notification instead.
 	env3 := newTestEnv(t, withFSDriver(migrationDir))
 	defer env3.Shutdown()
 
 	tagURL := buildManifestTagURL(t, env3, repoPath, tagName)
-
-	require.Eventually(t, func() bool {
-		resp, err = http.Get(tagURL)
-		if !assert.NoError(t, err) {
-			return false
-		}
-		defer resp.Body.Close()
-
-		return assert.Equal(t, http.StatusOK, resp.StatusCode)
-	},
-		time.Second*10,
-		time.Millisecond*200,
-	)
+	waitForImportSuccess(t, tagURL)
 
 	// Subsequent calls to the same repository should not start another import.
 	req, err = http.NewRequest(http.MethodPut, importURL, nil)
@@ -7066,26 +7052,12 @@ func TestGitlabAPI_RepositoryImport_Put_ConcurrentTags(t *testing.T) {
 	require.Equal(t, http.StatusAccepted, resp.StatusCode)
 
 	// Spin up a non-migartion mode env to test that the repository imported correctly.
-	// TODO: When https://gitlab.com/gitlab-org/container-registry/-/issues/529 is
-	// finished, we should listen for the completion notification instead.
 	env3 := newTestEnv(t, withFSDriver(migrationDir))
 	defer env3.Shutdown()
 
 	for _, tag := range tags {
 		tagURL := buildManifestTagURL(t, env3, repoPath, tag)
-
-		require.Eventually(t, func() bool {
-			resp, err = http.Get(tagURL)
-			if !assert.NoError(t, err) {
-				return false
-			}
-			defer resp.Body.Close()
-
-			return assert.Equal(t, http.StatusOK, resp.StatusCode)
-		},
-			time.Second*10,
-			time.Millisecond*200,
-		)
+		waitForImportSuccess(t, tagURL)
 	}
 
 	// Subsequent calls to the same repository should not start another import.
@@ -7097,6 +7069,100 @@ func TestGitlabAPI_RepositoryImport_Put_ConcurrentTags(t *testing.T) {
 	defer resp.Body.Close()
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
+func TestGitlabAPI_RepositoryImport_Put_PreImport(t *testing.T) {
+	rootDir := t.TempDir()
+	migrationDir := filepath.Join(rootDir, "/new")
+
+	env := newTestEnv(t, withFSDriver(rootDir))
+	defer env.Shutdown()
+
+	env.requireDB(t)
+
+	repoPath := "old/repo"
+	tagName := "import-tag"
+
+	// Push up a image to the old side of the registry, so we can migrate it below.
+	deserializedManifest := seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
+
+	env2 := newTestEnv(t, withFSDriver(rootDir), withMigrationEnabled, withMigrationRootDirectory(migrationDir))
+	defer env2.Shutdown()
+
+	// Start repository pre import.
+	repoRef, err := reference.WithName(repoPath)
+	require.NoError(t, err)
+
+	importURL, err := env2.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"pre": []string{"true"}})
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPut, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Pre import should start without error.
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	// Spin up a non-migartion mode env to test that the repository pre imported correctly.
+	env3 := newTestEnv(t, withFSDriver(migrationDir))
+	defer env3.Shutdown()
+
+	// The manifest should only be reachable by digest.
+	digestURL := buildManifestDigestURL(t, env3, repoPath, deserializedManifest)
+	waitForImportSuccess(t, digestURL)
+
+	// The tag should not have been imported.
+	tagURL := buildManifestTagURL(t, env3, repoPath, tagName)
+	resp, err = http.Get(tagURL)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+
+	// Subsequent calls to the same repository should start another pre import.
+	req, err = http.NewRequest(http.MethodPut, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	// Importing after pre import should succeed.
+	importURL, err = env2.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"pre": []string{"false"}})
+	require.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodPut, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	waitForImportSuccess(t, tagURL)
+}
+
+func waitForImportSuccess(tb testing.TB, u string) {
+	require.Eventually(tb, func() bool {
+		// TODO: When https://gitlab.com/gitlab-org/container-registry/-/issues/529 is
+		// finished, we should listen for the completion notification instead.
+		resp, err := http.Get(u)
+		if !assert.NoError(tb, err) {
+			return false
+		}
+		defer resp.Body.Close()
+
+		return assert.Equal(tb, http.StatusOK, resp.StatusCode)
+	},
+		time.Second*10,
+		time.Millisecond*200,
+	)
 }
 
 func TestGitlabAPI_RepositoryImport_Put_RepositoryNotPresentOnOldSide(t *testing.T) {
