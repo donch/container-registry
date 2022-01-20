@@ -1,3 +1,11 @@
+# [3.23.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.22.0-gitlab...v3.23.0-gitlab) (2022-01-20)
+
+
+### Features
+
+* **api/gitlab/v1:** implement get repository details operation ([d2e92b9](https://gitlab.com/gitlab-org/container-registry/commit/d2e92b9f58600f8f35349fcb010dca3d53759aae))
+* **handlers:** enable pre-imports via the Gitlab V1 API ([967a0c9](https://gitlab.com/gitlab-org/container-registry/commit/967a0c9d8bf5fc45ac3ff43da6bfd4ea77b92546))
+
 # [3.22.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.21.0-gitlab...v3.22.0-gitlab) (2022-01-13)
 
 
