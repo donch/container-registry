@@ -151,8 +151,8 @@ func (imp *Importer) importLayer(ctx context.Context, dbRepo *models.Repository,
 func (imp *Importer) importLayers(ctx context.Context, dbRepo *models.Repository, fsRepo distribution.Repository, dbManifest *models.Manifest, fsLayers []distribution.Descriptor) error {
 	total := len(fsLayers)
 	for i, fsLayer := range fsLayers {
-		l := log.GetLogger().WithFields(log.Fields{
-			"repository": fsRepo.Named().Name(),
+		l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
+			"repository": dbRepo.Name,
 			"digest":     fsLayer.Digest,
 			"media_type": fsLayer.MediaType,
 			"size":       fsLayer.Size,
@@ -193,7 +193,7 @@ func (imp *Importer) transferBlob(ctx context.Context, d digest.Digest) error {
 	}
 
 	end := time.Since(start).Seconds()
-	log.GetLogger().WithFields(log.Fields{
+	log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
 		"digest":     d,
 		"duration_s": end,
 	}).Info("blob transfer complete")
@@ -293,27 +293,28 @@ func (imp *Importer) importManifestList(ctx context.Context, fsRepo distribution
 	// import manifests in list
 	total := len(ml.Manifests)
 	for i, m := range ml.Manifests {
+		l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
+			"repository": dbRepo.Name,
+			"digest":     m.Digest.String(),
+			"count":      i + 1,
+			"total":      total,
+		})
 		fsManifest, err := manifestService.Get(ctx, m.Digest)
 		if err != nil {
-			log.GetLogger().WithError(err).Error("retrieving manifest")
+			l.WithError(err).Error("retrieving manifest")
 			continue
 		}
 
-		log.GetLogger().WithFields(log.Fields{
-			"digest": m.Digest.String(),
-			"count":  i + 1,
-			"total":  total,
-			"type":   fmt.Sprintf("%T", fsManifest),
-		}).Info("importing manifest from list")
+		l.WithFields(log.Fields{"type": fmt.Sprintf("%T", fsManifest)}).Info("importing manifest from list")
 
 		dbManifest, err := imp.importManifest(ctx, fsRepo, dbRepo, fsManifest, m.Digest)
 		if err != nil {
-			log.GetLogger().WithError(err).Error("importing manifest")
+			l.WithError(err).Error("importing manifest")
 			continue
 		}
 
 		if err := imp.manifestStore.AssociateManifest(ctx, dbManifestList, dbManifest); err != nil {
-			log.GetLogger().WithError(err).Error("associating manifest and manifest list")
+			l.WithError(err).Error("associating manifest and manifest list")
 			continue
 		}
 	}
@@ -351,7 +352,12 @@ func (imp *Importer) importManifests(ctx context.Context, fsRepo distribution.Re
 			return fmt.Errorf("retrieving manifest %q: %w", dgst, err)
 		}
 
-		l := log.GetLogger().WithFields(log.Fields{"digest": dgst, "count": index, "type": fmt.Sprintf("%T", m)})
+		l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
+			"repository": dbRepo.Name,
+			"digest":     dgst,
+			"count":      index,
+			"type":       fmt.Sprintf("%T", m),
+		})
 
 		switch fsManifest := m.(type) {
 		case *manifestlist.DeserializedManifestList:
@@ -361,7 +367,7 @@ func (imp *Importer) importManifests(ctx context.Context, fsRepo distribution.Re
 			l.Info("importing manifest")
 			_, err = imp.importManifest(ctx, fsRepo, dbRepo, fsManifest, dgst)
 			if errors.Is(err, distribution.ErrSchemaV1Unsupported) {
-				log.GetLogger().WithError(err).Error("importing manifest")
+				l.WithError(err).Error("importing manifest")
 				return nil
 			}
 		}
@@ -409,7 +415,7 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 
 				desc, err := tagService.Get(ctx, t)
 				if err != nil {
-					log.GetLogger().WithError(err).Error("reading tag details")
+					log.GetLogger(log.WithContext(ctx)).WithError(err).Error("reading tag details")
 					return
 				}
 
@@ -430,7 +436,13 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 		fsTag := tRes.name
 		desc := tRes.desc
 
-		l := log.GetLogger().WithFields(log.Fields{"name": fsTag, "count": i, "total": total, "digest": desc.Digest})
+		l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
+			"repository": dbRepo.Name,
+			"tag":        fsTag,
+			"count":      i,
+			"total":      total,
+			"digest":     desc.Digest,
+		})
 		l.Info("importing tag")
 
 		// Find corresponding manifest in DB or filesystem.
@@ -512,7 +524,7 @@ func (imp *Importer) preImportTaggedManifests(ctx context.Context, fsRepo distri
 	total := len(fsTags)
 
 	for i, fsTag := range fsTags {
-		l := log.GetLogger().WithFields(log.Fields{"name": fsTag, "count": i + 1, "total": total})
+		l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": dbRepo.Name, "name": fsTag, "count": i + 1, "total": total})
 
 		// read tag details from the filesystem
 		desc, err := tagService.Get(ctx, fsTag)
@@ -546,11 +558,11 @@ func (imp *Importer) preImportManifest(ctx context.Context, fsRepo distribution.
 		return fmt.Errorf("constructing manifest service: %w", err)
 	}
 
-	l := log.GetLogger().WithFields(log.Fields{"digest": dgst})
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": dbRepo.Name, "digest": dgst})
 
 	m, err := manifestService.Get(ctx, dgst)
 	if err != nil {
-		l.WithFields(log.Fields{"digest": dgst}).WithError(err).Error("retrieving manifest")
+		l.WithError(err).Error("retrieving manifest")
 	}
 
 	if !imp.dryRun {
@@ -633,6 +645,10 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 	var tx Transactor
 	var err error
 
+	// Add pre_import field to all subsequent logging.
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"pre_import": false, "dry_run": imp.dryRun})
+	ctx = log.WithLogger(ctx, l)
+
 	// Create a single transaction and roll it back at the end for dry runs.
 	if imp.dryRun {
 		tx, err = imp.beginTx(ctx)
@@ -643,7 +659,6 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 	}
 
 	start := time.Now()
-	l := log.GetLogger()
 	l.Info("starting metadata import")
 
 	if imp.requireEmptyDatabase {
@@ -709,7 +724,7 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 
 		index++
 		repoStart := time.Now()
-		l := log.GetLogger().WithFields(log.Fields{"path": path, "count": index})
+		l := l.WithFields(log.Fields{"repository": path, "count": index})
 		l.Info("importing repository")
 
 		if err := imp.importRepository(ctx, path); err != nil {
@@ -744,7 +759,7 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 
 	counters, err := imp.countRows(ctx)
 	if err != nil {
-		log.GetLogger().WithError(err).Error("counting table rows")
+		l.WithError(err).Error("counting table rows")
 	}
 
 	logCounters := make(map[string]interface{}, len(counters))
@@ -753,7 +768,7 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 	}
 
 	t := time.Since(start).Seconds()
-	log.GetLogger().WithFields(log.Fields{"duration_s": t}).WithFields(logCounters).Info("metadata import complete")
+	l.WithFields(log.Fields{"duration_s": t}).WithFields(logCounters).Info("metadata import complete")
 
 	return err
 }
@@ -766,8 +781,13 @@ func (imp *Importer) Import(ctx context.Context, path string) error {
 	}
 	defer tx.Rollback()
 
+	// Add pre_import field to all subsequent logging.
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"pre_import": false, "dry_run": imp.dryRun})
+	ctx = log.WithLogger(ctx, l)
+
 	start := time.Now()
-	log.GetLogger().Info("starting metadata import")
+	l = l.WithFields(log.Fields{"repository": path})
+	l.Info("starting metadata import")
 
 	if imp.requireEmptyDatabase {
 		empty, err := imp.isDatabaseEmpty(ctx)
@@ -779,7 +799,6 @@ func (imp *Importer) Import(ctx context.Context, path string) error {
 		}
 	}
 
-	l := log.GetLogger().WithFields(log.Fields{"path": path})
 	l.Info("importing repository")
 	if err := imp.importRepository(ctx, path); err != nil {
 		l.WithError(err).Error("error importing repository")
@@ -788,7 +807,7 @@ func (imp *Importer) Import(ctx context.Context, path string) error {
 
 	counters, err := imp.countRows(ctx)
 	if err != nil {
-		log.GetLogger().WithError(err).Error("error counting table rows")
+		l.WithError(err).Error("error counting table rows")
 	}
 
 	logCounters := make(map[string]interface{}, len(counters))
@@ -797,7 +816,7 @@ func (imp *Importer) Import(ctx context.Context, path string) error {
 	}
 
 	t := time.Since(start).Seconds()
-	log.GetLogger().WithFields(log.Fields{"duration_s": t}).WithFields(logCounters).Info("metadata import complete")
+	l.WithFields(log.Fields{"duration_s": t}).WithFields(logCounters).Info("metadata import complete")
 
 	if !imp.dryRun {
 		if err := tx.Commit(); err != nil {
@@ -815,6 +834,10 @@ func (imp *Importer) Import(ctx context.Context, path string) error {
 func (imp *Importer) PreImport(ctx context.Context, path string) error {
 	var tx Transactor
 	var err error
+
+	// Add pre_import field to all subsequent logging.
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"pre_import": true})
+	ctx = log.WithLogger(ctx, l)
 
 	// Create a single transaction and roll it back at the end for dry runs.
 	if imp.dryRun {
@@ -836,7 +859,7 @@ func (imp *Importer) PreImport(ctx context.Context, path string) error {
 	}
 
 	start := time.Now()
-	l := log.GetLogger().WithFields(log.Fields{"path": path})
+	l = l.WithFields(log.Fields{"repository": path})
 	l.Info("starting repository pre-import")
 
 	named, err := reference.WithName(path)
@@ -864,7 +887,7 @@ func (imp *Importer) PreImport(ctx context.Context, path string) error {
 
 	counters, err := imp.countRows(ctx)
 	if err != nil {
-		log.GetLogger().WithError(err).Error("error counting table rows")
+		l.WithError(err).Error("error counting table rows")
 	}
 
 	logCounters := make(map[string]interface{}, len(counters))

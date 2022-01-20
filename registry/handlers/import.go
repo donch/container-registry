@@ -117,6 +117,10 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
+		// Add parent logger to worker context to preserve request-specific fields.
+		l := log.GetLogger(log.WithContext(ih.Context))
+		ctx = log.WithLogger(ctx, l)
+
 		if preImport {
 			err = importer.PreImport(ctx, ih.Repository.Named().Name())
 		} else {
