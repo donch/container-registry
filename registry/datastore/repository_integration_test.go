@@ -1732,7 +1732,7 @@ func TestRepositoryStore_Update(t *testing.T) {
 		Name:            "bar",
 		Path:            "bar",
 		ParentID:        sql.NullInt64{Int64: 0, Valid: false},
-		MigrationStatus: migration.RepositoryStatusNative,
+		MigrationStatus: migration.RepositoryStatusPreImportInProgress,
 	}
 	err := s.Update(suite.ctx, update)
 	require.NoError(t, err)

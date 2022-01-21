@@ -1078,14 +1078,14 @@ func (s *repositoryStore) Update(ctx context.Context, r *models.Repository) erro
 	q := `UPDATE
 			repositories
 		SET
-			(name, path, parent_id, updated_at) = ($1, $2, $3, now())
+			(name, path, parent_id, updated_at, migration_status) = ($1, $2, $3, now(), $6)
 		WHERE
 			top_level_namespace_id = $4
 			AND id = $5
 		RETURNING
 			updated_at`
 
-	row := s.db.QueryRowContext(ctx, q, r.Name, r.Path, r.ParentID, r.NamespaceID, r.ID)
+	row := s.db.QueryRowContext(ctx, q, r.Name, r.Path, r.ParentID, r.NamespaceID, r.ID, r.MigrationStatus)
 	if err := row.Scan(&r.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("repository not found")

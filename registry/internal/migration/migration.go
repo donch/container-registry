@@ -171,5 +171,25 @@ func (m Status) ShouldMigrate() bool {
 // RepositoryStatus represents the status of a repository during an online migration.
 type RepositoryStatus string
 
-// RepositoryStatusNative is the migration status of a repository that was originally created on the metadata database.
-const RepositoryStatusNative RepositoryStatus = "native"
+const (
+	// RepositoryStatusNative is the migration status of a repository that was originally created on the metadata database.
+	RepositoryStatusNative RepositoryStatus = "native"
+
+	// RepositoryStatusImportInProgress is the migration status of a repository that is currently undergoing an import.
+	RepositoryStatusImportInProgress RepositoryStatus = "import_in_progress"
+
+	// RepositoryStatusImported is the migration status of a repository that has successfully been imported.
+	RepositoryStatusImported RepositoryStatus = "imported"
+
+	// RepositoryStatusImportFailed is the migration status of a repository that has failed to import.
+	RepositoryStatusImportFailed RepositoryStatus = "pre_import_failed"
+
+	// RepositoryStatusPreImportInProgress is the migration status of a repository that is currently undergoing a pre import.
+	RepositoryStatusPreImportInProgress RepositoryStatus = "pre_import_in_progress"
+
+	// RepositoryStatusPreImportComplete is the migration status of a repository that has successfully been pre imported.
+	RepositoryStatusPreImportComplete RepositoryStatus = "pre_import_complete"
+
+	// RepositoryStatusPreImportFailed  the migration status of a repository that has failed to pre import.
+	RepositoryStatusPreImportFailed RepositoryStatus = "pre_import_failed"
+)
