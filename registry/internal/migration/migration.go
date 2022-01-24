@@ -182,7 +182,7 @@ const (
 	RepositoryStatusImported RepositoryStatus = "imported"
 
 	// RepositoryStatusImportFailed is the migration status of a repository that has failed to import.
-	RepositoryStatusImportFailed RepositoryStatus = "pre_import_failed"
+	RepositoryStatusImportFailed RepositoryStatus = "import_failed"
 
 	// RepositoryStatusPreImportInProgress is the migration status of a repository that is currently undergoing a pre import.
 	RepositoryStatusPreImportInProgress RepositoryStatus = "pre_import_in_progress"
