@@ -137,7 +137,7 @@ func makeBuilderTestCases(builder *Builder) []urlBuilderTestCase {
 		},
 		{
 			description:  "test Gitlab v1 repository import url",
-			expectedPath: "/gitlab/v1/repositories/import/foo/bar/",
+			expectedPath: "/gitlab/v1/import/foo/bar/",
 			expectedErr:  nil,
 			build: func() (string, error) {
 				return builder.BuildGitlabV1RepositoryImportURL(fooBarRef)
@@ -145,7 +145,7 @@ func makeBuilderTestCases(builder *Builder) []urlBuilderTestCase {
 		},
 		{
 			description:  "test Gitlab v1 repository import url pre=true",
-			expectedPath: "/gitlab/v1/repositories/import/foo/bar/?pre=true",
+			expectedPath: "/gitlab/v1/import/foo/bar/?pre=true",
 			expectedErr:  nil,
 			build: func() (string, error) {
 				return builder.BuildGitlabV1RepositoryImportURL(fooBarRef, url.Values{
@@ -155,7 +155,7 @@ func makeBuilderTestCases(builder *Builder) []urlBuilderTestCase {
 		},
 		{
 			description:  "test Gitlab v1 repository import url pre=false",
-			expectedPath: "/gitlab/v1/repositories/import/foo/bar/?pre=false",
+			expectedPath: "/gitlab/v1/import/foo/bar/?pre=false",
 			expectedErr:  nil,
 			build: func() (string, error) {
 				return builder.BuildGitlabV1RepositoryImportURL(fooBarRef, url.Values{

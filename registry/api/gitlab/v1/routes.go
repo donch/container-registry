@@ -28,7 +28,7 @@ var (
 	// RepositoryImport is the API route that triggers a repository import.
 	RepositoryImport = Route{
 		Name: "import-repository",
-		Path: Base.Path + "repositories/import/{name:" + reference.NameRegexp.String() + "}/",
+		Path: Base.Path + "import/{name:" + reference.NameRegexp.String() + "}/",
 	}
 )
 

@@ -28,6 +28,7 @@ A list of methods and URIs are covered in the table below:
 | ------ | ----------------------------- | ------------------------------------------------------------- |
 | `GET`  | `/gitlab/v1/`                    | Check that the registry implements this API specification. |
 | `GET`  | `/gitlab/v1/repositories/<path>` | Obtain details about the repository identified by `path`.  |
+| `PUT`  | `/gitlab/v1/import/<path>` | Move the repository identified by `path` from filesystem metadata to the database.  |
 
 By design, any feature that incurs additional processing time, such as query parameters that allow obtaining additional data, is opt-*in*.
 
