@@ -193,3 +193,13 @@ const (
 	// RepositoryStatusPreImportFailed  the migration status of a repository that has failed to pre import.
 	RepositoryStatusPreImportFailed RepositoryStatus = "pre_import_failed"
 )
+
+// OnDatabase returns true if the repository uses the database for metadata.
+func (s RepositoryStatus) OnDatabase() bool {
+	switch s {
+	case RepositoryStatusNative, RepositoryStatusImported:
+		return true
+	default:
+		return false
+	}
+}
