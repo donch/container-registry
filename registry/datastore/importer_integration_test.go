@@ -1,3 +1,4 @@
+//go:build integration
 // +build integration
 
 package datastore_test
@@ -284,6 +285,22 @@ func TestImporter_ImportAll_BlobTransfer_DryRun(t *testing.T) {
 	validateBlobTransfer(t, destDriver)
 }
 
+func TestImporter_ImportAll_BadManifestFormat(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "bad-manifest-format")
+	err := imp.ImportAll(suite.ctx)
+	require.EqualError(t, err, `importing tags: retrieving manifest "sha256:a2490cec4484ee6c1068ba3a05f89934010c85242f736280b35343483b2264b6" from filesystem: failed to unmarshal manifest payload: invalid character 's' looking for beginning of value`)
+}
+
+func TestImporter_ImportAll_DanglingManifests_BadManifestFormat(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "bad-manifest-format", datastore.WithImportDanglingManifests)
+	err := imp.ImportAll(suite.ctx)
+	require.EqualError(t, err, `importing manifests: retrieving manifest "sha256:a2490cec4484ee6c1068ba3a05f89934010c85242f736280b35343483b2264b6" from filesystem: failed to unmarshal manifest payload: invalid character 's' looking for beginning of value`)
+}
+
 func TestImporter_Import(t *testing.T) {
 	require.NoError(t, testutil.TruncateAllTables(suite.db))
 
@@ -324,6 +341,22 @@ func TestImporter_Import_UnlinkedLayers(t *testing.T) {
 	imp := newImporterWithRoot(t, suite.db, "unlinked-layers")
 	require.NoError(t, imp.Import(suite.ctx, "a-unlinked-layers"))
 	validateImport(t, suite.db)
+}
+
+func TestImporter_Import_BadManifestFormat(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "bad-manifest-format")
+	err := imp.Import(suite.ctx, "a-yaml-manifest")
+	require.EqualError(t, err, `importing tags: retrieving manifest "sha256:a2490cec4484ee6c1068ba3a05f89934010c85242f736280b35343483b2264b6" from filesystem: failed to unmarshal manifest payload: invalid character 's' looking for beginning of value`)
+}
+
+func TestImporter_Import_DanglingManifests_BadManifestFormat(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "bad-manifest-format", datastore.WithImportDanglingManifests)
+	err := imp.Import(suite.ctx, "a-yaml-manifest")
+	require.EqualError(t, err, `importing manifests: retrieving manifest "sha256:a2490cec4484ee6c1068ba3a05f89934010c85242f736280b35343483b2264b6" from filesystem: failed to unmarshal manifest payload: invalid character 's' looking for beginning of value`)
 }
 
 func TestImporter_Import_AbortsIfDatabaseIsNotEmpty(t *testing.T) {
@@ -373,4 +406,12 @@ func TestImporter_PreImport_AbortsIfDatabaseIsNotEmpty(t *testing.T) {
 	imp := datastore.NewImporter(suite.db, registry, datastore.WithImportDanglingManifests, datastore.WithRequireEmptyDatabase)
 	err := imp.PreImport(suite.ctx, "a-simple")
 	require.EqualError(t, err, "non-empty database")
+}
+
+func TestImporter_PreImport_BadManifestFormat(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "bad-manifest-format")
+	err := imp.PreImport(suite.ctx, "a-yaml-manifest")
+	require.EqualError(t, err, `pre importing tagged manifests: pre importing manifest: retrieving manifest "sha256:a2490cec4484ee6c1068ba3a05f89934010c85242f736280b35343483b2264b6" from filesystem: failed to unmarshal manifest payload: invalid character 's' looking for beginning of value`)
 }
