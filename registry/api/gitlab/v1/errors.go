@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/docker/distribution"
 	"github.com/docker/distribution/registry/api/errcode"
 )
 
@@ -20,4 +21,16 @@ var ErrorCodeInvalidQueryParamValue = errcode.Register(errGroup, errcode.ErrorDe
 
 func InvalidQueryParamValueErrorDetail(key string, validValues []string) string {
 	return fmt.Sprintf("the '%s' query parameter must be set to one of: %s", key, strings.Join(validValues, ", "))
+}
+
+// ErrorCodePreImportInProgress is returned when a repository is already pre importing.
+var ErrorCodePreImportInProgress = errcode.Register(errGroup, errcode.ErrorDescriptor{
+	Value:          "PRE_IMPORT_IN_PROGRESS",
+	Message:        "request cannot happen concurrently with pre import",
+	Description:    "The repository is being pre imported",
+	HTTPStatusCode: http.StatusTooEarly,
+})
+
+func ErrorCodePreImportInProgressErrorDetail(repo distribution.Repository) string {
+	return fmt.Sprintf("repository path %s", repo.Named().Name())
 }
