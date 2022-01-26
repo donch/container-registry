@@ -8,6 +8,7 @@ import (
 
 	"github.com/docker/distribution/log"
 	"github.com/docker/distribution/registry/api/errcode"
+	v1 "github.com/docker/distribution/registry/api/gitlab/v1"
 	v2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/docker/distribution/registry/datastore"
 	"github.com/docker/distribution/registry/datastore/models"
@@ -67,6 +68,12 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 		if dbRepo.MigrationStatus.OnDatabase() {
 			l.Info("repository already imported, skipping import")
 			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		if dbRepo.MigrationStatus == migration.RepositoryStatusPreImportInProgress {
+			detail := v1.ErrorCodePreImportInProgressErrorDetail(ih.Repository)
+			ih.Errors = append(ih.Errors, v1.ErrorCodePreImportInProgress.WithDetail(detail))
 			return
 		}
 	}
