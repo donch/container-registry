@@ -309,8 +309,11 @@ func (imp *Importer) importManifestList(ctx context.Context, fsRepo distribution
 
 		dbManifest, err := imp.importManifest(ctx, fsRepo, dbRepo, fsManifest, m.Digest)
 		if err != nil {
-			l.WithError(err).Error("importing manifest")
-			continue
+			if errors.Is(err, distribution.ErrSchemaV1Unsupported) {
+				l.WithError(err).Warn("skipping child manifest import")
+				continue
+			}
+			return nil, err
 		}
 
 		if err := imp.manifestStore.AssociateManifest(ctx, dbManifestList, dbManifest); err != nil {
@@ -349,7 +352,7 @@ func (imp *Importer) importManifests(ctx context.Context, fsRepo distribution.Re
 
 		m, err := manifestService.Get(ctx, dgst)
 		if err != nil {
-			return fmt.Errorf("retrieving manifest %q: %w", dgst, err)
+			return fmt.Errorf("retrieving manifest %q from filesystem: %w", dgst, err)
 		}
 
 		l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
@@ -367,7 +370,7 @@ func (imp *Importer) importManifests(ctx context.Context, fsRepo distribution.Re
 			l.Info("importing manifest")
 			_, err = imp.importManifest(ctx, fsRepo, dbRepo, fsManifest, dgst)
 			if errors.Is(err, distribution.ErrSchemaV1Unsupported) {
-				l.WithError(err).Error("importing manifest")
+				l.WithError(err).Warn("skipping manifest import")
 				return nil
 			}
 		}
@@ -449,14 +452,12 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 		var dbManifest *models.Manifest
 		dbManifest, err = imp.repositoryStore.FindManifestByDigest(ctx, dbRepo, desc.Digest)
 		if err != nil {
-			l.WithError(err).Error("finding tag manifest")
-			continue
+			return fmt.Errorf("finding tagged manifest in database: %w", err)
 		}
 		if dbManifest == nil {
 			m, err := manifestService.Get(ctx, desc.Digest)
 			if err != nil {
-				l.WithError(err).Error("retrieving manifest")
-				continue
+				return fmt.Errorf("retrieving manifest %q from filesystem: %w", desc.Digest, err)
 			}
 
 			switch fsManifest := m.(type) {
@@ -468,8 +469,11 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 				dbManifest, err = imp.importManifest(ctx, fsRepo, dbRepo, fsManifest, desc.Digest)
 			}
 			if err != nil {
-				l.WithError(err).Error("importing manifest")
-				continue
+				if errors.Is(err, distribution.ErrSchemaV1Unsupported) {
+					l.WithError(err).Warn("skipping manifest import")
+					continue
+				}
+				return fmt.Errorf("importing manifest: %w", err)
 			}
 		}
 
@@ -537,8 +541,7 @@ func (imp *Importer) preImportTaggedManifests(ctx context.Context, fsRepo distri
 		var dbManifest *models.Manifest
 		dbManifest, err = imp.repositoryStore.FindManifestByDigest(ctx, dbRepo, desc.Digest)
 		if err != nil {
-			l.WithError(err).Error("finding tag manifest")
-			continue
+			return fmt.Errorf("finding tagged manifests in database: %w", err)
 		}
 		if dbManifest == nil {
 			if err := imp.preImportManifest(ctx, fsRepo, dbRepo, desc.Digest); err != nil {
@@ -560,19 +563,24 @@ func (imp *Importer) preImportManifest(ctx context.Context, fsRepo distribution.
 
 	m, err := manifestService.Get(ctx, dgst)
 	if err != nil {
-		l.WithError(err).Error("retrieving manifest")
+		return fmt.Errorf("retrieving manifest %q from filesystem: %w", dgst, err)
 	}
 
 	switch fsManifest := m.(type) {
 	case *manifestlist.DeserializedManifestList:
 		l.Info("pre-importing manifest list")
-		_, err = imp.importManifestList(ctx, fsRepo, dbRepo, fsManifest, dgst)
+		if _, err := imp.importManifestList(ctx, fsRepo, dbRepo, fsManifest, dgst); err != nil {
+			return fmt.Errorf("pre importing manifest list: %w", err)
+		}
 	default:
 		l.Info("pre-importing manifest")
-		_, err = imp.importManifest(ctx, fsRepo, dbRepo, fsManifest, dgst)
-	}
-	if err != nil {
-		l.WithError(err).Error("pre-importing manifest")
+		if _, err := imp.importManifest(ctx, fsRepo, dbRepo, fsManifest, dgst); err != nil {
+			if errors.Is(err, distribution.ErrSchemaV1Unsupported) {
+				l.WithError(err).Warn("skipping manifest import")
+				return nil
+			}
+			return fmt.Errorf("pre importing manifest: %w", err)
+		}
 	}
 
 	return nil
