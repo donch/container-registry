@@ -178,8 +178,8 @@ const (
 	// RepositoryStatusImportInProgress is the migration status of a repository that is currently undergoing an import.
 	RepositoryStatusImportInProgress RepositoryStatus = "import_in_progress"
 
-	// RepositoryStatusImported is the migration status of a repository that has successfully been imported.
-	RepositoryStatusImported RepositoryStatus = "imported"
+	// RepositoryStatusImportComplete is the migration status of a repository that has successfully been imported.
+	RepositoryStatusImportComplete RepositoryStatus = "import_complete"
 
 	// RepositoryStatusImportFailed is the migration status of a repository that has failed to import.
 	RepositoryStatusImportFailed RepositoryStatus = "import_failed"
@@ -197,7 +197,7 @@ const (
 // OnDatabase returns true if the repository uses the database for metadata.
 func (s RepositoryStatus) OnDatabase() bool {
 	switch s {
-	case RepositoryStatusNative, RepositoryStatusImported:
+	case RepositoryStatusNative, RepositoryStatusImportComplete:
 		return true
 	default:
 		return false

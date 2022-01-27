@@ -29,6 +29,7 @@ A list of methods and URIs are covered in the table below:
 | `GET`  | `/gitlab/v1/`                    | Check that the registry implements this API specification. |
 | `GET`  | `/gitlab/v1/repositories/<path>` | Obtain details about the repository identified by `path`.  |
 | `PUT`  | `/gitlab/v1/import/<path>` | Move the repository identified by `path` from filesystem metadata to the database.  |
+| `GET`  | `/gitlab/v1/import/<path>` | Query import status of the repository identified by `path`.  |
 
 By design, any feature that incurs additional processing time, such as query parameters that allow obtaining additional data, is opt-*in*.
 
@@ -152,7 +153,7 @@ PUT /gitlab/v1/import/<path>
 #### Example
 
 ```shell
-curl --header "Authorization: Bearer <token>" "https://registry.gitlab.com/gitlab/v1/import/gitlab-org/build/cng/gitlab-container-registry/?pre=true"
+curl -X PUT --header "Authorization: Bearer <token>" "https://registry.gitlab.com/gitlab/v1/import/gitlab-org/build/cng/gitlab-container-registry/?pre=true"
 ```
 
 ### Response
@@ -169,8 +170,9 @@ curl --header "Authorization: Bearer <token>" "https://registry.gitlab.com/gitla
 | `425 Too Early`           | The Repository is currently being pre imported. |
 | `429 Too Many Requests`   | The registry is already running the maximum configured import jobs. |
 
-
 ### Import Notification
+
+Once an import completes, the registry will send a synchronous notification in the form of an HTTP `PUT` request to the endpoint configured in [`migration`](../docs/configuration.md#migration). This notification includes the status of the import and any relevant details about it (such as the reason for a failure).
 
 #### Request
 ##### Body
@@ -180,16 +182,16 @@ curl --header "Authorization: Bearer <token>" "https://registry.gitlab.com/gitla
 | `name`       | The repository name. This is the last segment of the repository path.  | String |
 | `path`       | The repository path.                                                   | String |
 | `status`     | The status of the completed import.                                    | String |
-| `detail`     | A detailed explanation of the status.
+| `detail`     | A detailed explanation of the status. In case an error occurred, this field will contain the reason. | string |
 
 ##### Possible Statuses
 
 | Value | Meaning |
 | ----- | ------- |
-| `success`  | The import completed successfully. |
-| `timedout` | The import exceeded the configured time limit. |
-| `canceled` | The import was canceled. |
-| `error`    | The import failed due to an error. |
+| `import_complete`  | The import was completed successfully. |
+| `pre_import_complete` | The pre-import completed successfully. |
+| `import_failed` | The import has failed. |
+| `pre_import_failed`    | The pre-import has failed. |
 
 ##### Examples
 
@@ -198,7 +200,7 @@ curl --header "Authorization: Bearer <token>" "https://registry.gitlab.com/gitla
 {
   "name": "gitlab-container-registry",
   "path": "gitlab-org/build/cng/gitlab-container-registry",
-  "status": "success",
+  "status": "import_complete",
   "detail": "import completed successfully"
 }
 ```
@@ -208,8 +210,74 @@ curl --header "Authorization: Bearer <token>" "https://registry.gitlab.com/gitla
 {
   "name": "gitlab-container-registry",
   "path": "gitlab-org/build/cng/gitlab-container-registry",
-  "status": "error",
+  "status": "import_failed",
   "detail": "importing tags: reading tags: write tcp 172.0.0.1:1234->172.0.0.1:4321: write: broken pipe"
+}
+```
+
+## Get Repository Import Status
+
+Query import status of a repository.
+
+### Request
+
+```shell
+GET /gitlab/v1/import/<path>
+```
+
+| Attribute     | Type    | Required | Default   | Description                                                  |
+| ------------- | ------- | -------- | --------- | ------------------------------------------------------------ |
+| `path`        | String  | Yes      |           | The full path of the target repository. Equivalent to the `name` parameter in the `/v2/` API, described in the [OCI Distribution Spec](https://github.com/opencontainers/distribution-spec/blob/main/spec.md). The same pattern validation applies. |
+
+#### Authentication
+
+This endpoint requires an auth token with the `registry` resource type, name set to `import`, and the `*` action.
+
+#### Example
+
+```shell
+curl --header "Authorization: Bearer <token>" "https://registry.gitlab.com/gitlab/v1/import/gitlab-org/build/cng/gitlab-container-registry/"
+```
+
+### Response
+
+#### Header
+
+| Status Code        | Reason                                                       |
+| ------------------ | ------------------------------------------------------------ |
+| `200 OK`           | The repository was found. The response body includes the requested details. |
+| `401 Unauthorized` | The client should take action based on the contents of the `WWW-Authenticate` header and try the endpoint again. |
+| `404 Not Found`    | The repository was not found.                                |
+
+#### Body
+
+| Key          | Value                                                        | Type   | 
+| ------------ | ------------------------------------------------------------ | ------ | 
+| `name`       | The repository name. This is the last segment of the repository path. | String |                                     |                                                              |
+| `path`       | The repository path.                                         | String |                                     |                                                              |
+| `status`     | The status of the import.                                    | String |
+| `detail`     | A detailed explanation of the status. | String |
+
+##### Possible Statuses
+
+| Value | Meaning |
+| ----- | ------- |
+| `native`  | This repository was originally created on the new platform. No import occurred. |
+| `import_in_progress`  | The import is in progress. |
+| `import_complete`  | The import was completed successfully. |
+| `import_failed` | The import has failed. |
+| `pre_import_in_progress`  | The pre-import is in progress. |
+| `pre_import_complete` | The pre-import completed successfully. |
+| `pre_import_failed`    | The pre-import has failed. |
+
+#### Example
+
+```json
+{
+  "name": "gitlab-container-registry",
+  "path": "gitlab-org/build/cng/gitlab-container-registry",
+  "status": "import_in_progress",
+  "detail": "import in progress"
 }
 ```
 
@@ -246,6 +314,11 @@ error codes described in the
 `INVALID_QUERY_PARAMETER_VALUE` | `the value of a query parameter is invalid` | The value of a request query parameter is invalid. The error detail identifies the concerning parameter and the list of possible values.
 
 ## Changes
+
+### 2022-01-26
+
+- Add get repository import status endpoint.
+- Consolidate statuses across the "get repository import status" endpoint and the sync import notifications. 
 
 ### 2022-01-13
 

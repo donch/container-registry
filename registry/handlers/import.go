@@ -185,7 +185,7 @@ func (ih *importHandler) runImport(ctx context.Context, importer *datastore.Impo
 		return err
 	}
 
-	dbRepo.MigrationStatus = migration.RepositoryStatusImported
+	dbRepo.MigrationStatus = migration.RepositoryStatusImportComplete
 	if err := ih.Update(ctx, dbRepo); err != nil {
 		return fmt.Errorf("updating migration status after successful import: %w", err)
 	}
