@@ -131,7 +131,7 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 		l := log.GetLogger(log.WithContext(ih.Context))
 		ctx = log.WithLogger(ctx, l)
 
-		ih.runImport(ctx, importer, dbRepo)
+		err = ih.runImport(ctx, importer, dbRepo)
 		if err != nil {
 			l.WithError(err).Error("importing repository")
 			errortracking.Capture(err, errortracking.WithContext(ctx), errortracking.WithRequest(r))
