@@ -155,6 +155,25 @@ PUT /gitlab/v1/import/<path>
 curl --header "Authorization: Bearer <token>" "https://registry.gitlab.com/gitlab/v1/import/gitlab-org/build/cng/gitlab-container-registry/?pre=true"
 ```
 
+#### Authentication
+
+This endpoint requires an auth token with the `registry` resource type, name set to `import`, and the `*` action. Sample:
+
+```json
+{
+  "access": [
+    {
+      "actions": [
+        "*"
+      ],
+      "name": "import",
+      "type": "registry"
+    }
+  ],
+  // ...
+}
+```
+
 ### Response
 #### Header
 
