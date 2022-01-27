@@ -52,7 +52,7 @@ Generate a new release ([documentation](../../docs-gitlab/README.md#releases)).
     - [ ] Update `REGISTRY_VERSION` in [`gitlab-container-registry/Dockerfile`](https://gitlab.com/gitlab-org/build/CNG/blob/master/gitlab-container-registry/Dockerfile)
     - [ ] Update `REGISTRY_VERSION` in [`gitlab-container-registry/Dockerfile.build.ubi8`](https://gitlab.com/gitlab-org/build/CNG/blob/master/gitlab-container-registry/Dockerfile.build.ubi8)
     - [ ] Label merge request with: `/label ~"group::distribution" ~"devops::enablement" ~"workflow::ready for review" ~"feature::maintenance"`
-1. [ ] Versions bumps for specific distribution paths:
+1. [ ] Version bumps for specific distribution paths:
     - [ ] Version bump in [Omnibus](https://gitlab.com/gitlab-org/omnibus-gitlab):
         - [ ] Update `version` in [`config/software/registry.rb`](https://gitlab.com/gitlab-org/omnibus-gitlab/blob/master/config/software/registry.rb) and use the `Changelog: changed` commit trailer in the commit message
         - [ ] Label merge request with: `/label ~"workflow::ready for review" ~"feature::maintenance"`
@@ -71,6 +71,10 @@ Generate a new release ([documentation](../../docs-gitlab/README.md#releases)).
             - [ ] Update `registry_version` under `gprd`
             - [ ] Label with: `/label ~"Service::Container Registry" ~"team::delivery" ~"workflow::ready for review"`
             - [ ] Assign to a reviewer
+1. [ ] Version bump for [GDK](https://gitlab.com/gitlab-org/gitlab-development-kit):
+    - [ ] Update `"${registry_image:-registry.gitlab.com/gitlab-org/build/cng/gitlab-container-registry:vX.Y.Z-gitlab}"`, which is passed to the `docker run` command in [support/docker-registry](https://gitlab.com/gitlab-org/gitlab-development-kit/-/blob/main/support/docker-registry)
+    - [ ] Label with: `/label ~"workflow::ready for review"`
+    - [ ] Assign to the reviewer suggested by reviewer roulette
 
 <details>
 <summary><b>Instructions</b></summary>
