@@ -184,7 +184,7 @@ This endpoint requires an auth token with the `registry` resource type, name set
 | `202 Accepted`            | The import or pre import was successfully started. |
 | `401 Unauthorized`        | The client should take action based on the contents of the `WWW-Authenticate` header and try the endpoint again. |
 | `404 Not Found`           | The repository was not found. |
-| `409 Conflict`            | The repository is already being imported or pre imported. |
+| `409 Conflict`            | The repository is already being imported. |
 | `424 Failed Dependency`   | The repository failed to pre import. This error only affects the import request when `pre=false`, when `pre=true` the pre import will be retried.|
 | `425 Too Early`           | The Repository is currently being pre imported. |
 | `429 Too Many Requests`   | The registry is already running the maximum configured import jobs. |

@@ -210,7 +210,7 @@ func TestGitlabAPI_RepositoryImport_Put_PreImport(t *testing.T) {
 
 	require.Equal(t, http.StatusAccepted, resp.StatusCode)
 
-        // TODO: Once the notification is done, we should listen for that, rather than sleeping.
+	// TODO: Once the notification is done, we should listen for that, rather than sleeping.
 	time.Sleep(time.Second * 1)
 
 	// Importing after pre import should succeed.
@@ -292,6 +292,71 @@ func TestGitlabAPI_RepositoryImport_Put_PreImportInProgress(t *testing.T) {
 	defer resp.Body.Close()
 
 	require.Equal(t, http.StatusTooEarly, resp.StatusCode)
+}
+
+func TestGitlabAPI_RepositoryImport_Put_ImportInProgress(t *testing.T) {
+	rootDir := t.TempDir()
+	migrationDir := filepath.Join(rootDir, "/new")
+
+	env := newTestEnv(t, withFSDriver(rootDir))
+	defer env.Shutdown()
+
+	env.requireDB(t)
+
+	repoPath := "old/repo"
+	tagName := "import-tag"
+
+	// Push up a image to the old side of the registry, so we can migrate it below.
+	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
+
+	env2 := newTestEnv(
+		t, withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+		// Zero causes the importer to block, simulating a long running import.
+		withMigrationTagConcurrency(0),
+	)
+	defer env2.Shutdown()
+
+	// Start repository import.
+	repoRef, err := reference.WithName(repoPath)
+	require.NoError(t, err)
+
+	importURL, err := env2.builder.BuildGitlabV1RepositoryImportURL(repoRef)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPut, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Import should start without error.
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	// Additonal import attemps should fail
+	req, err = http.NewRequest(http.MethodPut, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusConflict, resp.StatusCode)
+
+	// Pre import attemps should fail as well
+	importURL, err = env2.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"pre": []string{"true"}})
+	require.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodPut, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusConflict, resp.StatusCode)
 }
 
 func waitForImportSuccess(tb testing.TB, u string) {

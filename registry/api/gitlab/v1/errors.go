@@ -34,3 +34,15 @@ var ErrorCodePreImportInProgress = errcode.Register(errGroup, errcode.ErrorDescr
 func ErrorCodePreImportInProgressErrorDetail(repo distribution.Repository) string {
 	return fmt.Sprintf("repository path %s", repo.Named().Name())
 }
+
+// ErrorCodeImportInProgress is returned when a repository is already importing.
+var ErrorCodeImportInProgress = errcode.Register(errGroup, errcode.ErrorDescriptor{
+	Value:          "IMPORT_IN_PROGRESS",
+	Message:        "request cannot happen concurrently with import",
+	Description:    "The repository is being imported",
+	HTTPStatusCode: http.StatusConflict,
+})
+
+func ErrorCodeImportInProgressErrorDetail(repo distribution.Repository) string {
+	return fmt.Sprintf("repository path %s", repo.Named().Name())
+}
