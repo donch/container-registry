@@ -445,3 +445,11 @@ func TestImporter_PreImport_BadManifestFormat(t *testing.T) {
 	err := imp.PreImport(suite.ctx, "a-yaml-manifest")
 	require.EqualError(t, err, `pre importing tagged manifests: pre importing manifest: retrieving manifest "sha256:a2490cec4484ee6c1068ba3a05f89934010c85242f736280b35343483b2264b6" from filesystem: failed to unmarshal manifest payload: invalid character 's' looking for beginning of value`)
 }
+
+func TestImporter_PreImport_BadTagLink(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "bad-tag-link")
+	err := imp.PreImport(suite.ctx, "alpine")
+	require.EqualError(t, err, `pre importing tagged manifests: reading tag "3.11.6" from filesystem: invalid checksum digest format`)
+}

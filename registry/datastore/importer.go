@@ -550,12 +550,12 @@ func (imp *Importer) preImportTaggedManifests(ctx context.Context, fsRepo distri
 
 	for i, fsTag := range fsTags {
 		l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": dbRepo.Name, "name": fsTag, "count": i + 1, "total": total})
+		l.Info("processing tag")
 
 		// read tag details from the filesystem
 		desc, err := tagService.Get(ctx, fsTag)
 		if err != nil {
-			l.WithError(err).Error("reading tag details")
-			continue
+			return fmt.Errorf("reading tag %q from filesystem: %w", fsTag, err)
 		}
 
 		// Find corresponding manifest in DB or filesystem.
