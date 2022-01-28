@@ -83,6 +83,10 @@ garbage collector workers
 [`reviewafter`](https://gitlab.com/gitlab-org/container-registry/-/blob/master/docs/configuration.md#gc)
 delay.
 
+#### Row Count
+
+The `--row-count` option allows logging the row count of relevant database tables on (pre)import completion.
+
 ## Prerequisites
 
 ### Create Database

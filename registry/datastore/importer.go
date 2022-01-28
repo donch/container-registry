@@ -34,6 +34,7 @@ type Importer struct {
 	requireEmptyDatabase    bool
 	dryRun                  bool
 	tagConcurrency          int
+	rowCount                bool
 }
 
 // ImporterOption provides functional options for the Importer.
@@ -61,6 +62,12 @@ func WithRequireEmptyDatabase(imp *Importer) {
 // back and the end of an import cycle.
 func WithDryRun(imp *Importer) {
 	imp.dryRun = true
+}
+
+// WithRowCount configures the Importer to count and log the number of rows across the most relevant database tables
+// on (pre)import completion.
+func WithRowCount(imp *Importer) {
+	imp.rowCount = true
 }
 
 // WithBlobTransferService configures the Importer to use the passed BlobTransferService.
@@ -746,18 +753,21 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 		imp.loadStores(imp.db)
 	}
 
-	counters, err := imp.countRows(ctx)
-	if err != nil {
-		l.WithError(err).Error("counting table rows")
-	}
+	if imp.rowCount {
+		counters, err := imp.countRows(ctx)
+		if err != nil {
+			l.WithError(err).Error("counting table rows")
+		}
 
-	logCounters := make(map[string]interface{}, len(counters))
-	for t, n := range counters {
-		logCounters[t] = n
+		logCounters := make(map[string]interface{}, len(counters))
+		for t, n := range counters {
+			logCounters[t] = n
+		}
+		l = l.WithFields(logCounters)
 	}
 
 	t := time.Since(start).Seconds()
-	l.WithFields(log.Fields{"duration_s": t}).WithFields(logCounters).Info("metadata import complete")
+	l.WithFields(log.Fields{"duration_s": t}).Info("metadata import complete")
 
 	return err
 }
@@ -794,18 +804,21 @@ func (imp *Importer) Import(ctx context.Context, path string) error {
 		return err
 	}
 
-	counters, err := imp.countRows(ctx)
-	if err != nil {
-		l.WithError(err).Error("error counting table rows")
-	}
+	if imp.rowCount {
+		counters, err := imp.countRows(ctx)
+		if err != nil {
+			l.WithError(err).Error("counting table rows")
+		}
 
-	logCounters := make(map[string]interface{}, len(counters))
-	for t, n := range counters {
-		logCounters[t] = n
+		logCounters := make(map[string]interface{}, len(counters))
+		for t, n := range counters {
+			logCounters[t] = n
+		}
+		l = l.WithFields(logCounters)
 	}
 
 	t := time.Since(start).Seconds()
-	l.WithFields(log.Fields{"duration_s": t}).WithFields(logCounters).Info("metadata import complete")
+	l.WithFields(log.Fields{"duration_s": t}).Info("metadata import complete")
 
 	if !imp.dryRun {
 		if err := tx.Commit(); err != nil {
@@ -874,18 +887,21 @@ func (imp *Importer) PreImport(ctx context.Context, path string) error {
 		imp.loadStores(imp.db)
 	}
 
-	counters, err := imp.countRows(ctx)
-	if err != nil {
-		l.WithError(err).Error("error counting table rows")
-	}
+	if imp.rowCount {
+		counters, err := imp.countRows(ctx)
+		if err != nil {
+			l.WithError(err).Error("counting table rows")
+		}
 
-	logCounters := make(map[string]interface{}, len(counters))
-	for t, n := range counters {
-		logCounters[t] = n
+		logCounters := make(map[string]interface{}, len(counters))
+		for t, n := range counters {
+			logCounters[t] = n
+		}
+		l = l.WithFields(logCounters)
 	}
 
 	t := time.Since(start).Seconds()
-	l.WithFields(log.Fields{"duration_s": t}).WithFields(logCounters).Info("pre-import complete")
+	l.WithFields(log.Fields{"duration_s": t}).Info("pre-import complete")
 
 	return nil
 }

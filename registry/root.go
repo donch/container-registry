@@ -61,6 +61,7 @@ func init() {
 	ImportCmd.Flags().BoolVarP(&importDanglingManifests, "dangling-manifests", "m", false, "import all manifests, regardless of whether they are tagged or not")
 	ImportCmd.Flags().BoolVarP(&requireEmptyDatabase, "require-empty-database", "e", false, "abort import if the database is not empty")
 	ImportCmd.Flags().BoolVarP(&preImport, "pre-import", "p", false, "import immutable data to speed up a following full import, may only be used in conjunction with the `--repository` option")
+	ImportCmd.Flags().BoolVarP(&rowCount, "row-count", "c", false, "count and log number of rows across relevant database tables on (pre)import completion")
 
 	InventoryCmd.Flags().StringVarP(&format, "format", "f", "text", "which format to write output to, text output produces an additional summary for convenience, options: text, json, csv")
 	InventoryCmd.Flags().BoolVarP(&countTags, "tag-count", "t", true, "count repository tags, set this to false to increase inventory speed")
@@ -84,6 +85,7 @@ var (
 	preImport               bool
 	format                  string
 	countTags               bool
+	rowCount                bool
 )
 
 var parallelwalkKey = "parallelwalk"
@@ -506,6 +508,9 @@ var ImportCmd = &cobra.Command{
 		}
 		if requireEmptyDatabase {
 			opts = append(opts, datastore.WithRequireEmptyDatabase)
+		}
+		if rowCount {
+			opts = append(opts, datastore.WithRowCount)
 		}
 
 		if blobTransferDest != "" {
