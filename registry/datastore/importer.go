@@ -387,6 +387,8 @@ type tagLookupResponse struct {
 }
 
 func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Repository, dbRepo *models.Repository) error {
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": dbRepo.Name})
+
 	manifestService, err := fsRepo.Manifests(ctx)
 	if err != nil {
 		return fmt.Errorf("constructing manifest service: %w", err)
@@ -402,13 +404,24 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 	semaphore := make(chan struct{}, imp.tagConcurrency)
 	tagResChan := make(chan *tagLookupResponse)
 
-	// Start a goroutine to concurrently dispatch tag details lookup, up to
-	// the configured tag concurrency at once.
+	// Start a goroutine to concurrently dispatch tag details lookup, up to  the configured tag concurrency at once.
+	// If a tag lookup fails, lookupCtx is cancelled. Therefore, any operation using lookupCtx from now onwards will be
+	// automatically aborted.
+	lookupCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	go func() {
 		var wg sync.WaitGroup
 		for _, tag := range fsTags {
 			semaphore <- struct{}{}
 			wg.Add(1)
+
+			select {
+			case <-lookupCtx.Done():
+				// exit earlier if a tag lookup failed
+				return
+			default:
+			}
 
 			go func(t string) {
 				defer func() {
@@ -416,9 +429,11 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 					wg.Done()
 				}()
 
-				desc, err := tagService.Get(ctx, t)
+				desc, err := tagService.Get(lookupCtx, t)
 				if err != nil {
-					log.GetLogger(log.WithContext(ctx)).WithError(err).Error("reading tag details")
+					cancel()
+					// this log entry allows us to determine the root cause for the outer context cancellation error
+					l.WithFields(log.Fields{"tag": t}).WithError(err).Error("reading tag details, cancelling context")
 					return
 				}
 
@@ -439,23 +454,22 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 		fsTag := tRes.name
 		desc := tRes.desc
 
-		l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
-			"repository": dbRepo.Name,
-			"tag":        fsTag,
-			"count":      i,
-			"total":      total,
-			"digest":     desc.Digest,
+		l := l.WithFields(log.Fields{
+			"tag":    fsTag,
+			"count":  i,
+			"total":  total,
+			"digest": desc.Digest,
 		})
 		l.Info("importing tag")
 
 		// Find corresponding manifest in DB or filesystem.
 		var dbManifest *models.Manifest
-		dbManifest, err = imp.repositoryStore.FindManifestByDigest(ctx, dbRepo, desc.Digest)
+		dbManifest, err = imp.repositoryStore.FindManifestByDigest(lookupCtx, dbRepo, desc.Digest)
 		if err != nil {
 			return fmt.Errorf("finding tagged manifest in database: %w", err)
 		}
 		if dbManifest == nil {
-			m, err := manifestService.Get(ctx, desc.Digest)
+			m, err := manifestService.Get(lookupCtx, desc.Digest)
 			if err != nil {
 				return fmt.Errorf("retrieving manifest %q from filesystem: %w", desc.Digest, err)
 			}
@@ -463,10 +477,10 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 			switch fsManifest := m.(type) {
 			case *manifestlist.DeserializedManifestList:
 				l.Info("importing manifest list")
-				dbManifest, err = imp.importManifestList(ctx, fsRepo, dbRepo, fsManifest, desc.Digest)
+				dbManifest, err = imp.importManifestList(lookupCtx, fsRepo, dbRepo, fsManifest, desc.Digest)
 			default:
 				l.Info("importing manifest")
-				dbManifest, err = imp.importManifest(ctx, fsRepo, dbRepo, fsManifest, desc.Digest)
+				dbManifest, err = imp.importManifest(lookupCtx, fsRepo, dbRepo, fsManifest, desc.Digest)
 			}
 			if err != nil {
 				if errors.Is(err, distribution.ErrSchemaV1Unsupported) {
@@ -478,7 +492,7 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 		}
 
 		dbTag := &models.Tag{Name: fsTag, RepositoryID: dbRepo.ID, ManifestID: dbManifest.ID, NamespaceID: dbRepo.NamespaceID}
-		if err := imp.tagStore.CreateOrUpdate(ctx, dbTag); err != nil {
+		if err := imp.tagStore.CreateOrUpdate(lookupCtx, dbTag); err != nil {
 			l.WithError(err).Error("creating tag")
 		}
 	}
