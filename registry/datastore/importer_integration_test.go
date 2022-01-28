@@ -301,6 +301,16 @@ func TestImporter_ImportAll_DanglingManifests_BadManifestFormat(t *testing.T) {
 	require.EqualError(t, err, `importing manifests: retrieving manifest "sha256:a2490cec4484ee6c1068ba3a05f89934010c85242f736280b35343483b2264b6" from filesystem: failed to unmarshal manifest payload: invalid character 's' looking for beginning of value`)
 }
 
+func TestImporter_ImportAll_BadTagLink(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "bad-tag-link")
+	err := imp.ImportAll(suite.ctx)
+	// Depending on if there was time for the DB driver to be called, and in which stage that call was, we may get a
+	// "context canceled" error wrapped in a "timeout" error or not, so a full error string assertion would be flaky.
+	require.Regexp(t, `importing tags: finding tagged manifest in database: scanning manifest: (?:timeout:\s)?context canceled`, err)
+}
+
 func TestImporter_Import(t *testing.T) {
 	require.NoError(t, testutil.TruncateAllTables(suite.db))
 
@@ -357,6 +367,26 @@ func TestImporter_Import_DanglingManifests_BadManifestFormat(t *testing.T) {
 	imp := newImporterWithRoot(t, suite.db, "bad-manifest-format", datastore.WithImportDanglingManifests)
 	err := imp.Import(suite.ctx, "a-yaml-manifest")
 	require.EqualError(t, err, `importing manifests: retrieving manifest "sha256:a2490cec4484ee6c1068ba3a05f89934010c85242f736280b35343483b2264b6" from filesystem: failed to unmarshal manifest payload: invalid character 's' looking for beginning of value`)
+}
+
+func TestImporter_Import_BadTagLink(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "bad-tag-link")
+	err := imp.Import(suite.ctx, "alpine")
+	// Depending on if there was time for the DB driver to be called, and in which stage that call was, we may get a
+	// "context canceled" error wrapped in a "timeout" error or not, so a full error string assertion would be flaky.
+	require.Regexp(t, `importing tags: finding tagged manifest in database: scanning manifest: (?:timeout:\s)?context canceled`, err)
+}
+
+func TestImporter_Import_BadTagLink_WithConcurrency(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "bad-tag-link", datastore.WithTagConcurrency(5))
+	err := imp.Import(suite.ctx, "alpine")
+	// Depending on if there was time for the DB driver to be called, and in which stage that call was, we may get a
+	// "context canceled" error wrapped in a "timeout" error or not, so a full error string assertion would be flaky.
+	require.Regexp(t, `importing tags: finding tagged manifest in database: scanning manifest: (?:timeout:\s)?context canceled`, err)
 }
 
 func TestImporter_Import_AbortsIfDatabaseIsNotEmpty(t *testing.T) {
