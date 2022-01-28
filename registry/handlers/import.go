@@ -65,15 +65,20 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 	// * another import is currently in progress
 	// and communicate appropriately back to the client, as defined in the spec.
 	if dbRepo != nil {
-		if dbRepo.MigrationStatus.OnDatabase() {
+		switch status := dbRepo.MigrationStatus; {
+		case status.OnDatabase():
 			l.Info("repository already imported, skipping import")
 			w.WriteHeader(http.StatusOK)
 			return
-		}
 
-		if dbRepo.MigrationStatus == migration.RepositoryStatusPreImportInProgress {
+		case status == migration.RepositoryStatusPreImportInProgress:
 			detail := v1.ErrorCodePreImportInProgressErrorDetail(ih.Repository)
 			ih.Errors = append(ih.Errors, v1.ErrorCodePreImportInProgress.WithDetail(detail))
+			return
+
+		case status == migration.RepositoryStatusImportInProgress:
+			detail := v1.ErrorCodeImportInProgressErrorDetail(ih.Repository)
+			ih.Errors = append(ih.Errors, v1.ErrorCodeImportInProgress.WithDetail(detail))
 			return
 		}
 	}
