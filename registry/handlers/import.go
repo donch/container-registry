@@ -56,21 +56,25 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// Do not begin an import for a repository which has already been imported.
-	// TODO: When https://gitlab.com/gitlab-org/container-registry/-/issues/510 is
-	// complete, we should check the repository import status to determine if:
-	// * it's actually Migrated - DONE
-	// * a pre-import is currently in progress
-	// * a pre-import failed
-	// * another import is currently in progress
-	// and communicate appropriately back to the client, as defined in the spec.
+	// TODO: We should have a specific error for bad query values.
+	ih.preImport, err = getPreValue(r)
+	if err != nil {
+		ih.Errors = append(ih.Errors, errcode.FromUnknownError(err))
+		return
+	}
+
+	l = l.WithFields(log.Fields{"pre_import": ih.preImport})
+
 	if dbRepo != nil {
 		switch status := dbRepo.MigrationStatus; {
+		// Do not begin an import or pre import for a repository which has already been imported.
 		case status.OnDatabase():
 			l.Info("repository already imported, skipping import")
 			w.WriteHeader(http.StatusOK)
 			return
 
+		// Do not begin an import or pre import with a repository that already has
+		//	an import or pre import operation ongoing.
 		case status == migration.RepositoryStatusPreImportInProgress:
 			detail := v1.ErrorCodePreImportInProgressErrorDetail(ih.Repository)
 			ih.Errors = append(ih.Errors, v1.ErrorCodePreImportInProgress.WithDetail(detail))
@@ -79,6 +83,13 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 		case status == migration.RepositoryStatusImportInProgress:
 			detail := v1.ErrorCodeImportInProgressErrorDetail(ih.Repository)
 			ih.Errors = append(ih.Errors, v1.ErrorCodeImportInProgress.WithDetail(detail))
+			return
+
+		// Do not begin an import for a repository that failed to pre import, allow
+		// additional pre import attempts.
+		case status == migration.RepositoryStatusPreImportFailed && !ih.preImport:
+			detail := v1.ErrorCodePreImportFailedErrorDetail(ih.Repository)
+			ih.Errors = append(ih.Errors, v1.ErrorCodePreImportInFailed.WithDetail(detail))
 			return
 		}
 	}
@@ -100,15 +111,6 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 		ih.Errors = append(ih.Errors, v2.ErrorCodeNameUnknown)
 		return
 	}
-
-	// TODO: We should have a specific error for bad query values.
-	ih.preImport, err = getPreValue(r)
-	if err != nil {
-		ih.Errors = append(ih.Errors, errcode.FromUnknownError(err))
-		return
-	}
-
-	l = l.WithFields(log.Fields{"pre_import": ih.preImport})
 
 	dbRepo, err = ih.createOrUpdateRepo(ih.Context, dbRepo)
 	if err != nil {
