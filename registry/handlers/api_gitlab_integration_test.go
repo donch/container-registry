@@ -359,6 +359,75 @@ func TestGitlabAPI_RepositoryImport_Put_ImportInProgress(t *testing.T) {
 	require.Equal(t, http.StatusConflict, resp.StatusCode)
 }
 
+func TestGitlabAPI_RepositoryImport_Put_PreImportFailed(t *testing.T) {
+	rootDir := t.TempDir()
+	migrationDir := filepath.Join(rootDir, "/new")
+
+	env := newTestEnv(t, withFSDriver(rootDir))
+	defer env.Shutdown()
+
+	env.requireDB(t)
+
+	repoPath := "notags/repo"
+
+	// Push up a image to the old side of the registry, but do not push any tags,
+	// the pre import will start without error, but the actual pre import will fail.
+	seedRandomSchema2Manifest(t, env, repoPath, putByDigest, writeToFilesystemOnly)
+
+	env2 := newTestEnv(t, withFSDriver(rootDir), withMigrationEnabled, withMigrationRootDirectory(migrationDir))
+	defer env2.Shutdown()
+
+	repoRef, err := reference.WithName(repoPath)
+	require.NoError(t, err)
+
+	preImportURL, err := env2.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"pre": []string{"true"}})
+	require.NoError(t, err)
+
+	importURL, err := env2.builder.BuildGitlabV1RepositoryImportURL(repoRef)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPut, preImportURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	// TODO: Once the notification is done, we should listen for that, rather than sleeping.
+	time.Sleep(time.Second * 1)
+
+	// Subsequent import attempts fail.
+	req, err = http.NewRequest(http.MethodPut, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusFailedDependency, resp.StatusCode)
+
+	// TODO: Once the notification is done, we should listen for that, rather than sleeping.
+	time.Sleep(time.Second * 1)
+
+	// Starting a pre import after a failed pre import attempt should succeed.
+	req, err = http.NewRequest(http.MethodPut, preImportURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	// TODO: Once the notification is done, we should listen for that, rather than sleeping.
+	// It's good to wait here as well, otherwise the test env will close the
+	// connection to the database before the import goroutine is finished, logging
+	// an error that could be misleading.
+	time.Sleep(time.Second * 1)
+}
+
 func waitForImportSuccess(tb testing.TB, u string) {
 	require.Eventually(tb, func() bool {
 		// TODO: When https://gitlab.com/gitlab-org/container-registry/-/issues/529 is

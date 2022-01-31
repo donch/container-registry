@@ -46,3 +46,15 @@ var ErrorCodeImportInProgress = errcode.Register(errGroup, errcode.ErrorDescript
 func ErrorCodeImportInProgressErrorDetail(repo distribution.Repository) string {
 	return fmt.Sprintf("repository path %s", repo.Named().Name())
 }
+
+// ErrorCodePreImportFailed is returned when a repository failed a previous pre import.
+var ErrorCodePreImportInFailed = errcode.Register(errGroup, errcode.ErrorDescriptor{
+	Value:          "PRE_IMPORT_FAILED",
+	Message:        "a previous pre import failed",
+	Description:    "The repository failed to pre import",
+	HTTPStatusCode: http.StatusFailedDependency,
+})
+
+func ErrorCodePreImportFailedErrorDetail(repo distribution.Repository) string {
+	return fmt.Sprintf("repository path %s", repo.Named().Name())
+}
