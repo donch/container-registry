@@ -25,7 +25,7 @@ func TestNew(t *testing.T) {
 
 	for tn, tc := range tcs {
 		t.Run(tn, func(t *testing.T) {
-			got, err := New(tc.endpoint, tc.secret, time.Second)
+			got, err := NewNotifier(tc.endpoint, tc.secret, time.Second)
 			if tc.expectedErrMsg != "" {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tc.expectedErrMsg)
@@ -107,7 +107,7 @@ func TestNotify(t *testing.T) {
 
 	for tn, tc := range tcs {
 		t.Run(tn, func(t *testing.T) {
-			n, err := New(s.URL, tc.secret, tc.timeout)
+			n, err := NewNotifier(s.URL, tc.secret, tc.timeout)
 			require.NoError(t, err)
 
 			err = n.Notify(tc.ctx, notification)

@@ -727,6 +727,84 @@ migration:
 	testParameter(t, yml, "REGISTRY_MIGRATION_TAGCONCURRENCY", tt, validator)
 }
 
+func TestParseMigrationImportNotification_Enabled(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+migration:
+  importnotification:
+    enabled: %s
+`
+	tt := boolParameterTests(false)
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, strconv.FormatBool(got.Migration.ImportNotification.Enabled))
+	}
+
+	testParameter(t, yml, "REGISTRY_MIGRATION_IMPORTNOTIFICATION_ENABLED", tt, validator)
+}
+
+func TestParseMigrationImportNotification_URL(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+migration:
+  importnotification:
+    url: %s
+`
+	tt := stringParameterTests("")
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, got.Migration.ImportNotification.URL)
+	}
+
+	testParameter(t, yml, "REGISTRY_MIGRATION_IMPORTNOTIFICATION_URL", tt, validator)
+}
+
+func TestParseMigrationImportNotification_Timeout(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+migration:
+  importnotification:
+    timeout: %s
+`
+	tt := []parameterTest{
+		{
+			name:  "valid duration",
+			value: "1ms",
+			want:  time.Millisecond,
+		},
+		{
+			name: "empty",
+			want: time.Duration(0),
+		},
+	}
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, got.Migration.ImportNotification.Timeout)
+	}
+
+	testParameter(t, yml, "REGISTRY_MIGRATION_IMPORTNOTIFICATION_TIMEOUT", tt, validator)
+}
+
+func TestParseMigrationImportNotification_Secret(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+migration:
+  importnotification:
+    secret: %s
+`
+	tt := stringParameterTests("")
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, got.Migration.ImportNotification.Secret)
+	}
+
+	testParameter(t, yml, "REGISTRY_MIGRATION_IMPORTNOTIFICATION_SECRET", tt, validator)
+}
+
 // TestParseInvalidVersion validates that the parser will fail to parse a newer configuration
 // version than the CurrentVersion
 func (suite *ConfigSuite) TestParseInvalidVersion(c *C) {
@@ -832,6 +910,20 @@ func boolParameterTests(defaultValue bool) []parameterTest {
 		{
 			name: "default",
 			want: strconv.FormatBool(defaultValue),
+		},
+	}
+}
+
+func stringParameterTests(defaultValue string) []parameterTest {
+	return []parameterTest{
+		{
+			name:  "string",
+			value: "string",
+			want:  "string",
+		},
+		{
+			name: "default",
+			want: defaultValue,
 		},
 	}
 }

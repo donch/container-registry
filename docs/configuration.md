@@ -183,6 +183,11 @@ migration:
   disablemirrorfs: true
   rootdirectory: /migration/root
   tagconcurrency: 10
+  importnotification:
+    enabled: true
+    url: 'https://example.com/notification'
+    timeout: 10s
+    secret: 'registry-secret'
 auth:
   silly:
     realm: silly-realm
@@ -662,6 +667,11 @@ migration:
   rootdirectory: /migration/root
   autheligibilitydisabled: false
   tagconcurrency: 10
+  importnotification:
+    enabled: true
+    url: 'https://example.com/notification'
+    timeout: 10s
+    secret: 'registry-secret'
 ```
 
 | Parameter     | Required | Description                                                                                                                                                                                                                                          |
@@ -671,6 +681,19 @@ migration:
 | `rootdirectory`   | no       | RootDirectory allows repositories that have been migrated to the database to use separate object storage paths. Using a distinct rootdirectory from the main storage driver configuration allows online migrations.
 | `autheligibilitydisabled`   | no       | Allows disabling the evaluation of JWT tokens sent from Rails to determine the code path that _new_ repositories should follow. If disabled, all new repositories will follow the new code path. Defaults to `false`.
 | `tagconcurrency`   | no       | This parameter determines the number of concurrent tag details requests to the filesystem backend. This can greatly reduce the time spent importing a repository after a successful pre import has completed. Pre import is not affected by this parameter. Default `1`.
+| `importnotification` | no     | This defines the endpoint to use to notify when an import or pre-import has completed with a given status and details. See the [import notification subsection](#import-notification)
+
+### Import Notification
+
+The `importnotification` configuration can be set when the migration is enabled to send a 
+`PUT` request to the configured URL whenever a pre-import or import operation has completed.
+
+| Parameter | Required | Description                                                                                                                                                                                                                                                   |
+|-----------|----------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `enabled` | no       | When set to `true` the import notification feature will be enabled. This requires the following parameters to be configured. Defaults to false.                                                                                                               |
+| `url`     | no       | The URL endpoint where the notification will be sent to. Required when `importnotification` is enabled. Must be a valid URL, including scheme.                                                                                                                |
+| `timeout` | no       | A value for the HTTP timeout for the import notification. A positive integer and an optional suffix indicating the unit of time, which may be `ns`, `us`, `ms`, `s`, `m`, or `h`. If you omit the unit of time, `ns` is used. Defaults to `0` or no time out. |
+| `secret`  | no       | A random string that will be sent in the `Authorization` header to the configured URL endpoint                                                                                                                                                                |
 
 ## `auth`
 

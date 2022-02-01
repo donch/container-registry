@@ -534,6 +534,19 @@ func validate(config *configuration.Configuration) error {
 			errs = multierror.Append(errs,
 				errors.New("migration requires a 'migration.rootdirectory` distinct from the root directory of primary storage driver"))
 		}
+
+		if config.Migration.ImportNotification.Enabled {
+			_, err := url.Parse(config.Migration.ImportNotification.URL)
+			if err != nil {
+				errs = multierror.Append(errs, fmt.Errorf("invalid 'migration.importnotification.url' %q %w", config.Migration.ImportNotification.URL, err))
+			}
+			if config.Migration.ImportNotification.URL == "" {
+				errs = multierror.Append(errs, errors.New("'migration.importnotification.url` cannot be empty when import notification is enabled'"))
+			}
+			if config.Migration.ImportNotification.Secret == "" {
+				errs = multierror.Append(errs, errors.New("'migration.importnotification.secret` cannot be empty when import notification is enabled'"))
+			}
+		}
 	}
 
 	return errs.ErrorOrNil()

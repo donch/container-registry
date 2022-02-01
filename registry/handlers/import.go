@@ -143,6 +143,8 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 			l.WithError(err).Error("importing repository")
 			errortracking.Capture(err, errortracking.WithContext(ctx), errortracking.WithRequest(r))
 		}
+
+		ih.sendImportNotification(ctx, dbRepo, err)
 	}()
 
 	w.WriteHeader(http.StatusAccepted)
@@ -220,4 +222,35 @@ func getPreValue(r *http.Request) (bool, error) {
 	default:
 		return false, fmt.Errorf("pre value must be 'true' or 'false', got %s", preImportValue)
 	}
+}
+
+func (ih *importHandler) sendImportNotification(ctx context.Context, dbRepo *models.Repository, err error) {
+	if ih.App.importNotifier == nil {
+		return
+	}
+
+	importNotification := &migration.Notification{
+		Name:   dbRepo.Name,
+		Path:   dbRepo.Path,
+		Status: string(dbRepo.MigrationStatus),
+		// TODO: replace with migration_error when https://gitlab.com/gitlab-org/container-registry/-/issues/566 is done
+		Detail: getImportDetail(ih.preImport, err),
+	}
+
+	if err := ih.App.importNotifier.Notify(ctx, importNotification); err != nil {
+		log.GetLogger(log.WithContext(ih)).WithError(err).Error("failed to send import notification")
+		errortracking.Capture(err, errortracking.WithContext(ctx))
+	}
+}
+
+func getImportDetail(preImport bool, err error) string {
+	if err != nil {
+		return err.Error()
+	}
+
+	if preImport {
+		return "pre import completed successfully"
+	}
+
+	return "import completed successfully"
 }
