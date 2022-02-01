@@ -425,6 +425,19 @@ type Migration struct {
 	// repository after a successful pre import has completed. Pre import is not
 	// affected by this parameter. Default `1`.
 	TagConcurrency int `yaml:"tagconcurrency,omitempty"`
+	// ImportNotification defines the endpoint to use to notify when an import or pre-import
+	// has completed with a given status and details.
+	ImportNotification struct {
+		// Enabled enables the import notifier
+		Enabled bool `yaml:"enabled"`
+		// URL is the full URL of the endpoint to use to send an import notification
+		URL string `yaml:"url,omitempty"`
+		// Timeout is the duration to wait before timing out the import notification
+		Timeout time.Duration `yaml:"timeout,omitempty"`
+		// Secret specifies the API secret to be sent in the Authorization header as part of
+		// the import notification.
+		Secret string `yaml:"secret,omitempty"`
+	} `yaml:"importnotification,omitempty"`
 }
 
 // MailOptions provides the configuration sections to user, for specific handler.

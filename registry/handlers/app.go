@@ -82,6 +82,7 @@ type App struct {
 	registry           distribution.Namespace      // registry is the primary registry backend for the app instance.
 	migrationRegistry  distribution.Namespace      // migrationRegistry is the secondary registry backend for migration
 	migrationDriver    storagedriver.StorageDriver // migrationDriver is the secondary storage driver for migration
+	importNotifier     *migration.Notifier         // importNotifier used to send notifications when an import or pre-import is done
 
 	repoRemover      distribution.RepositoryRemover // repoRemover provides ability to delete repos
 	accessController auth.AccessController          // main access controller for application
@@ -155,11 +156,24 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 		panic(err)
 	}
 
+	log := dcontext.GetLogger(app)
+
 	if config.Migration.Enabled {
 		app.migrationDriver = migrationDriver(config)
-	}
 
-	log := dcontext.GetLogger(app)
+		if config.Migration.ImportNotification.Enabled {
+			notifier, err := migration.NewNotifier(
+				config.Migration.ImportNotification.URL,
+				config.Migration.ImportNotification.Secret,
+				config.Migration.ImportNotification.Timeout,
+			)
+			if err != nil {
+				log.WithError(err).Fatal("could not create import notifier")
+			}
+
+			app.importNotifier = notifier
+		}
+	}
 
 	purgeConfig := uploadPurgeDefaultConfig()
 	if mc, ok := config.Storage["maintenance"]; ok {

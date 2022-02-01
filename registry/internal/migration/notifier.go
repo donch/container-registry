@@ -31,14 +31,14 @@ type Notifier struct {
 type Notification struct {
 	Name   string `json:"name"`
 	Path   string `json:"path"`
-	Status string `json:"success"`
+	Status string `json:"status"`
 	Detail string `json:"detail"`
 }
 
-// New creates an instance of the Notifier with a given configuration.
+// NewNotifier creates an instance of the Notifier with a given configuration.
 // It returns an error if it cannot parse the endpoint into a valid URL, or
 // if the secret is empty.
-func New(endpoint, secret string, timeout time.Duration) (*Notifier, error) {
+func NewNotifier(endpoint, secret string, timeout time.Duration) (*Notifier, error) {
 	if endpoint == "" {
 		return nil, errMissingURL
 	}
@@ -65,7 +65,10 @@ func New(endpoint, secret string, timeout time.Duration) (*Notifier, error) {
 func (n *Notifier) Notify(ctx context.Context, notification *Notification) error {
 	l := log.GetLogger(log.WithContext(ctx)).
 		WithFields(log.Fields{
-			"name": notification.Name, "path": notification.Path, "status": notification.Status, "detail": notification.Detail,
+			"name":   notification.Name,
+			"path":   notification.Path,
+			"status": notification.Status,
+			"detail": notification.Detail,
 		})
 
 	l.Info("sending import notification")
