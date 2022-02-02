@@ -4,14 +4,19 @@ package handlers_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/reference"
+	"github.com/docker/distribution/registry/internal/migration"
 	"github.com/docker/distribution/testutil"
 	"github.com/opencontainers/go-digest"
 	"github.com/stretchr/testify/require"
@@ -278,4 +283,72 @@ func assertManifestDeleteResponse(t *testing.T, env *testEnv, repoName string, m
 
 	u := buildManifestDigestURL(t, env, repoName, m)
 	assertDeleteResponse(t, u, expectedStatus)
+}
+
+type mockImportNotification struct {
+	t             *testing.T
+	receivedNotif chan migration.Notification
+}
+
+func newMockImportNotification(t *testing.T) *mockImportNotification {
+	t.Helper()
+
+	min := &mockImportNotification{
+		t:             t,
+		receivedNotif: make(chan migration.Notification),
+	}
+	t.Cleanup(func() {
+		close(min.receivedNotif)
+	})
+
+	return min
+}
+
+func (min *mockImportNotification) handleNotificationRequest(w http.ResponseWriter, r *http.Request) {
+	t := min.t
+	t.Helper()
+
+	// PUT /api/:version/registry/repositories/:path/migration/status
+	require.Equal(t, http.MethodPut, r.Method, "method not allowed")
+
+	actualNotification := migration.Notification{}
+	err := json.NewDecoder(r.Body).Decode(&actualNotification)
+	require.NoError(t, err)
+
+	min.receivedNotif <- actualNotification
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func mockImportNotificationServer(t *testing.T, min *mockImportNotification) string {
+	t.Helper()
+
+	s := httptest.NewServer(http.HandlerFunc(min.handleNotificationRequest))
+
+	return s.URL
+}
+
+func (min *mockImportNotification) waitForImportNotification(t *testing.T, path, status, detail string, timeout time.Duration) {
+	t.Helper()
+
+	expectedNotif := migration.Notification{
+		Name:   repositoryName(path),
+		Path:   path,
+		Status: status,
+		Detail: detail,
+	}
+
+	select {
+	case receivedNotif := <-min.receivedNotif:
+		require.Equal(t, expectedNotif, receivedNotif)
+	case <-time.After(timeout):
+		t.Errorf("timed out waiting for import notification")
+	}
+}
+
+// repositoryName parses a repository path (e.g. `"a/b/c"`) and returns its name (e.g. `"c"`).
+// copied from registry/datastore/repository.go
+func repositoryName(path string) string {
+	segments := strings.Split(filepath.Clean(path), "/")
+	return segments[len(segments)-1]
 }

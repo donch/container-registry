@@ -19,7 +19,7 @@ import (
 	v1 "github.com/docker/distribution/registry/api/gitlab/v1"
 	v2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/docker/distribution/registry/handlers"
-	"github.com/stretchr/testify/assert"
+	"github.com/docker/distribution/registry/internal/migration"
 	"github.com/stretchr/testify/require"
 )
 
@@ -43,7 +43,13 @@ func TestGitlabAPI_RepositoryImport_Put(t *testing.T) {
 	// Push up a image to the old side of the registry, so we can migrate it below.
 	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
 
-	env2 := newTestEnv(t, withFSDriver(rootDir), withMigrationEnabled, withMigrationRootDirectory(migrationDir))
+	mockedImportNotifSrv := newMockImportNotification(t)
+
+	env2 := newTestEnv(t,
+		withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv), repoPath))
 	defer env2.Shutdown()
 
 	// Start Repository Import.
@@ -63,12 +69,9 @@ func TestGitlabAPI_RepositoryImport_Put(t *testing.T) {
 	// Import should start without error.
 	require.Equal(t, http.StatusAccepted, resp.StatusCode)
 
-	// Spin up a non-migartion mode env to test that the repository imported correctly.
-	env3 := newTestEnv(t, withFSDriver(migrationDir))
-	defer env3.Shutdown()
-
-	tagURL := buildManifestTagURL(t, env3, repoPath, tagName)
-	waitForImportSuccess(t, tagURL)
+	mockedImportNotifSrv.waitForImportNotification(
+		t, repoPath, string(migration.RepositoryStatusImportComplete), "import completed successfully", 2*time.Second,
+	)
 
 	// Subsequent calls to the same repository should not start another import.
 	req, err = http.NewRequest(http.MethodPut, importURL, nil)
@@ -104,11 +107,14 @@ func TestGitlabAPI_RepositoryImport_Put_ConcurrentTags(t *testing.T) {
 		seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
 	}
 
+	mockedImportNotifSrv := newMockImportNotification(t)
+
 	env2 := newTestEnv(
 		t, withFSDriver(rootDir),
 		withMigrationEnabled,
 		withMigrationRootDirectory(migrationDir),
 		withMigrationTagConcurrency(5),
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv), repoPath),
 	)
 	defer env2.Shutdown()
 
@@ -133,10 +139,9 @@ func TestGitlabAPI_RepositoryImport_Put_ConcurrentTags(t *testing.T) {
 	env3 := newTestEnv(t, withFSDriver(migrationDir))
 	defer env3.Shutdown()
 
-	for _, tag := range tags {
-		tagURL := buildManifestTagURL(t, env3, repoPath, tag)
-		waitForImportSuccess(t, tagURL)
-	}
+	mockedImportNotifSrv.waitForImportNotification(
+		t, repoPath, string(migration.RepositoryStatusImportComplete), "import completed successfully", 2*time.Second,
+	)
 
 	// Subsequent calls to the same repository should not start another import.
 	req, err = http.NewRequest(http.MethodPut, importURL, nil)
@@ -162,9 +167,12 @@ func TestGitlabAPI_RepositoryImport_Put_PreImport(t *testing.T) {
 	tagName := "import-tag"
 
 	// Push up a image to the old side of the registry, so we can migrate it below.
-	deserializedManifest := seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
+	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
 
-	env2 := newTestEnv(t, withFSDriver(rootDir), withMigrationEnabled, withMigrationRootDirectory(migrationDir))
+	mockedImportNotifSrv := newMockImportNotification(t)
+
+	env2 := newTestEnv(t, withFSDriver(rootDir), withMigrationEnabled, withMigrationRootDirectory(migrationDir),
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv), repoPath))
 	defer env2.Shutdown()
 
 	// Start repository pre import.
@@ -188,9 +196,9 @@ func TestGitlabAPI_RepositoryImport_Put_PreImport(t *testing.T) {
 	env3 := newTestEnv(t, withFSDriver(migrationDir))
 	defer env3.Shutdown()
 
-	// The manifest should only be reachable by digest.
-	digestURL := buildManifestDigestURL(t, env3, repoPath, deserializedManifest)
-	waitForImportSuccess(t, digestURL)
+	mockedImportNotifSrv.waitForImportNotification(
+		t, repoPath, string(migration.RepositoryStatusPreImportComplete), "pre import completed successfully", 2*time.Second,
+	)
 
 	// The tag should not have been imported.
 	tagURL := buildManifestTagURL(t, env3, repoPath, tagName)
@@ -210,8 +218,9 @@ func TestGitlabAPI_RepositoryImport_Put_PreImport(t *testing.T) {
 
 	require.Equal(t, http.StatusAccepted, resp.StatusCode)
 
-	// TODO: Once the notification is done, we should listen for that, rather than sleeping.
-	time.Sleep(time.Second * 1)
+	mockedImportNotifSrv.waitForImportNotification(
+		t, repoPath, string(migration.RepositoryStatusPreImportComplete), "pre import completed successfully", 2*time.Second,
+	)
 
 	// Importing after pre import should succeed.
 	importURL, err = env2.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"pre": []string{"false"}})
@@ -226,7 +235,9 @@ func TestGitlabAPI_RepositoryImport_Put_PreImport(t *testing.T) {
 
 	require.Equal(t, http.StatusAccepted, resp.StatusCode)
 
-	waitForImportSuccess(t, tagURL)
+	mockedImportNotifSrv.waitForImportNotification(
+		t, repoPath, string(migration.RepositoryStatusImportComplete), "import completed successfully", 2*time.Second,
+	)
 }
 
 func TestGitlabAPI_RepositoryImport_Put_PreImportInProgress(t *testing.T) {
@@ -374,7 +385,10 @@ func TestGitlabAPI_RepositoryImport_Put_PreImportFailed(t *testing.T) {
 	// the pre import will start without error, but the actual pre import will fail.
 	seedRandomSchema2Manifest(t, env, repoPath, putByDigest, writeToFilesystemOnly)
 
-	env2 := newTestEnv(t, withFSDriver(rootDir), withMigrationEnabled, withMigrationRootDirectory(migrationDir))
+	mockedImportNotifSrv := newMockImportNotification(t)
+
+	env2 := newTestEnv(t, withFSDriver(rootDir), withMigrationEnabled, withMigrationRootDirectory(migrationDir),
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv), repoPath))
 	defer env2.Shutdown()
 
 	repoRef, err := reference.WithName(repoPath)
@@ -395,8 +409,10 @@ func TestGitlabAPI_RepositoryImport_Put_PreImportFailed(t *testing.T) {
 
 	require.Equal(t, http.StatusAccepted, resp.StatusCode)
 
-	// TODO: Once the notification is done, we should listen for that, rather than sleeping.
-	time.Sleep(time.Second * 1)
+	mockedImportNotifSrv.waitForImportNotification(
+		t, repoPath, string(migration.RepositoryStatusPreImportFailed),
+		"pre importing tagged manifests: reading tags: unknown repository name=notags/repo", 2*time.Second,
+	)
 
 	// Subsequent import attempts fail.
 	req, err = http.NewRequest(http.MethodPut, importURL, nil)
@@ -408,9 +424,6 @@ func TestGitlabAPI_RepositoryImport_Put_PreImportFailed(t *testing.T) {
 
 	require.Equal(t, http.StatusFailedDependency, resp.StatusCode)
 
-	// TODO: Once the notification is done, we should listen for that, rather than sleeping.
-	time.Sleep(time.Second * 1)
-
 	// Starting a pre import after a failed pre import attempt should succeed.
 	req, err = http.NewRequest(http.MethodPut, preImportURL, nil)
 	require.NoError(t, err)
@@ -421,27 +434,12 @@ func TestGitlabAPI_RepositoryImport_Put_PreImportFailed(t *testing.T) {
 
 	require.Equal(t, http.StatusAccepted, resp.StatusCode)
 
-	// TODO: Once the notification is done, we should listen for that, rather than sleeping.
 	// It's good to wait here as well, otherwise the test env will close the
 	// connection to the database before the import goroutine is finished, logging
 	// an error that could be misleading.
-	time.Sleep(time.Second * 1)
-}
-
-func waitForImportSuccess(tb testing.TB, u string) {
-	require.Eventually(tb, func() bool {
-		// TODO: When https://gitlab.com/gitlab-org/container-registry/-/issues/529 is
-		// finished, we should listen for the completion notification instead.
-		resp, err := http.Get(u)
-		if !assert.NoError(tb, err) {
-			return false
-		}
-		defer resp.Body.Close()
-
-		return assert.Equal(tb, http.StatusOK, resp.StatusCode)
-	},
-		time.Second*10,
-		time.Millisecond*200,
+	mockedImportNotifSrv.waitForImportNotification(
+		t, repoPath, string(migration.RepositoryStatusPreImportFailed),
+		"pre importing tagged manifests: reading tags: unknown repository name=notags/repo", 2*time.Second,
 	)
 }
 

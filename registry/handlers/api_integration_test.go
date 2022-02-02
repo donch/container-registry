@@ -105,6 +105,15 @@ func withMigrationTagConcurrency(n int) configOpt {
 	}
 }
 
+func withImportNotification(serverURL, repoName string) configOpt {
+	return func(config *configuration.Configuration) {
+		config.Migration.ImportNotification.Enabled = true
+		config.Migration.ImportNotification.URL = fmt.Sprintf("%s/api/v4/registry/repositories/%s/migration/status", serverURL, repoName)
+		config.Migration.ImportNotification.Secret = "secret"
+		config.Migration.ImportNotification.Timeout = 2 * time.Second
+	}
+}
+
 func withEligibilityMockAuth(enabled, eligible bool) configOpt {
 	return func(config *configuration.Configuration) {
 		if config.Auth == nil {
