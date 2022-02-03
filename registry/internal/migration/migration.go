@@ -116,6 +116,7 @@ const (
 	StatusEligible = iota + eligibilityCutoff
 	StatusAuthEligibilityDisabled
 	StatusNewRepo
+	StatusOnDatabase
 )
 
 func (m Status) String() string {
@@ -130,6 +131,7 @@ func (m Status) String() string {
 		StatusNonRepositoryScopedRequest: "NonRepositoryScopedRequest",
 		StatusEligible:                   "Eligible",
 		StatusAuthEligibilityDisabled:    "AuthEligibilityDisabled",
+		StatusOnDatabase:                 "OnDatabase",
 	}
 
 	s, ok := msg[m]
@@ -153,6 +155,7 @@ func (m Status) Description() string {
 		StatusNonRepositoryScopedRequest: "request is not scoped to single repository",
 		StatusEligible:                   "new repository flagged as eligible for migration, serving via new code path",
 		StatusAuthEligibilityDisabled:    "migration auth eligibility is disabled in registry config, serving new repository via new code path",
+		StatusOnDatabase:                 "repository uses database metadata, serving via new code path",
 	}
 
 	s, ok := msg[m]
