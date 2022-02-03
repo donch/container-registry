@@ -453,3 +453,19 @@ func TestImporter_PreImport_BadTagLink(t *testing.T) {
 	err := imp.PreImport(suite.ctx, "alpine")
 	require.EqualError(t, err, `pre importing tagged manifests: reading tag "3.11.6" from filesystem: invalid checksum digest format`)
 }
+
+func TestImporter_PreImport_BadManifestListRef(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "bad-manifest-list-ref")
+	err := imp.PreImport(suite.ctx, "multi-arch")
+	require.EqualError(t, err, `pre importing tagged manifests: pre importing manifest: pre importing manifest list: retrieving referenced manifest "sha256:597bd5c319cc09d6bb295b4ef23cac50ec7c373fff5fe923cfd246ec09967b31" from filesystem: unknown manifest name=multi-arch revision=sha256:597bd5c319cc09d6bb295b4ef23cac50ec7c373fff5fe923cfd246ec09967b31`)
+}
+
+func TestImporter_Import_BadManifestListRef(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "bad-manifest-list-ref")
+	err := imp.Import(suite.ctx, "multi-arch")
+	require.EqualError(t, err, `importing tags: importing manifest: retrieving referenced manifest "sha256:597bd5c319cc09d6bb295b4ef23cac50ec7c373fff5fe923cfd246ec09967b31" from filesystem: unknown manifest name=multi-arch revision=sha256:597bd5c319cc09d6bb295b4ef23cac50ec7c373fff5fe923cfd246ec09967b31`)
+}

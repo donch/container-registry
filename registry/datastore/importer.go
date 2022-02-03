@@ -308,24 +308,22 @@ func (imp *Importer) importManifestList(ctx context.Context, fsRepo distribution
 		})
 		fsManifest, err := manifestService.Get(ctx, m.Digest)
 		if err != nil {
-			l.WithError(err).Error("retrieving manifest")
-			continue
+			return nil, fmt.Errorf("retrieving referenced manifest %q from filesystem: %w", m.Digest, err)
 		}
 
-		l.WithFields(log.Fields{"type": fmt.Sprintf("%T", fsManifest)}).Info("importing manifest from list")
+		l.WithFields(log.Fields{"type": fmt.Sprintf("%T", fsManifest)}).Info("importing manifest referenced in list")
 
 		dbManifest, err := imp.importManifest(ctx, fsRepo, dbRepo, fsManifest, m.Digest)
 		if err != nil {
 			if errors.Is(err, distribution.ErrSchemaV1Unsupported) {
-				l.WithError(err).Warn("skipping child manifest import")
+				l.WithError(err).Warn("skipping v1 manifest")
 				continue
 			}
 			return nil, err
 		}
 
 		if err := imp.manifestStore.AssociateManifest(ctx, dbManifestList, dbManifest); err != nil {
-			l.WithError(err).Error("associating manifest and manifest list")
-			continue
+			return nil, err
 		}
 	}
 
@@ -377,7 +375,7 @@ func (imp *Importer) importManifests(ctx context.Context, fsRepo distribution.Re
 			l.Info("importing manifest")
 			_, err = imp.importManifest(ctx, fsRepo, dbRepo, fsManifest, dgst)
 			if errors.Is(err, distribution.ErrSchemaV1Unsupported) {
-				l.WithError(err).Warn("skipping manifest import")
+				l.WithError(err).Warn("skipping v1 manifest import")
 				return nil
 			}
 		}
@@ -491,7 +489,7 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 			}
 			if err != nil {
 				if errors.Is(err, distribution.ErrSchemaV1Unsupported) {
-					l.WithError(err).Warn("skipping manifest import")
+					l.WithError(err).Warn("skipping v1 manifest import")
 					continue
 				}
 				return fmt.Errorf("importing manifest: %w", err)
@@ -597,7 +595,7 @@ func (imp *Importer) preImportManifest(ctx context.Context, fsRepo distribution.
 		l.Info("pre-importing manifest")
 		if _, err := imp.importManifest(ctx, fsRepo, dbRepo, fsManifest, dgst); err != nil {
 			if errors.Is(err, distribution.ErrSchemaV1Unsupported) {
-				l.WithError(err).Warn("skipping manifest import")
+				l.WithError(err).Warn("skipping v1 manifest import")
 				return nil
 			}
 			return fmt.Errorf("pre importing manifest: %w", err)
