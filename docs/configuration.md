@@ -185,7 +185,7 @@ migration:
   tagconcurrency: 10
   importnotification:
     enabled: true
-    url: 'https://example.com/notification'
+    url: 'https://example.com/notification/{path}/status'
     timeout: 10s
     secret: 'registry-secret'
 auth:
@@ -669,7 +669,7 @@ migration:
   tagconcurrency: 10
   importnotification:
     enabled: true
-    url: 'https://example.com/notification'
+    url: 'https://example.com/notification/{path}/status'
     timeout: 10s
     secret: 'registry-secret'
 ```
@@ -691,7 +691,7 @@ The `importnotification` configuration can be set when the migration is enabled 
 | Parameter | Required | Description                                                                                                                                                                                                                                                   |
 |-----------|----------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `enabled` | no       | When set to `true` the import notification feature will be enabled. This requires the following parameters to be configured. Defaults to false.                                                                                                               |
-| `url`     | no       | The URL endpoint where the notification will be sent to. Required when `importnotification` is enabled. Must be a valid URL, including scheme.                                                                                                                |
+| `url`     | no       | The URL endpoint where the notification will be sent to. Required when `importnotification` is enabled. Must be a valid URL, including scheme. A placeholder can be defined as `{path}` to add the repository path in the URL.                                |
 | `timeout` | no       | A value for the HTTP timeout for the import notification. A positive integer and an optional suffix indicating the unit of time, which may be `ns`, `us`, `ms`, `s`, `m`, or `h`. If you omit the unit of time, `ns` is used. Defaults to `0` or no time out. |
 | `secret`  | no       | A random string that will be sent in the `Authorization` header to the configured URL endpoint                                                                                                                                                                |
 

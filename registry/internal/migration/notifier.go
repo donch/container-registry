@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/docker/distribution/log"
@@ -16,6 +17,8 @@ import (
 var (
 	errMissingURL       = errors.New("missing URL for import notifier")
 	errMissingAPISecret = errors.New("missing API secret for import notifier")
+
+	pathPlaceholder = url.QueryEscape("{path}")
 )
 
 // Notifier holds the configuration needed to send an HTTP request
@@ -61,6 +64,13 @@ func NewNotifier(endpoint, secret string, timeout time.Duration) (*Notifier, err
 	}, nil
 }
 
+// insertPathInEndpoint will try to find the keyword `{path}` in the configured endpoint using a regular expression.
+// If it does, the `{path}` will be replaced with the passed variable path.
+// Otherwise, the string is returned as is.
+func (n *Notifier) insertPathInEndpoint(path string) string {
+	return strings.Replace(n.endpoint, pathPlaceholder, path, -1)
+}
+
 // Notify sends an HTTP request to the configured endpoint containing the specified body
 func (n *Notifier) Notify(ctx context.Context, notification *Notification) error {
 	l := log.GetLogger(log.WithContext(ctx)).
@@ -78,12 +88,15 @@ func (n *Notifier) Notify(ctx context.Context, notification *Notification) error
 		return fmt.Errorf("marshalling notification %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, n.endpoint, bytes.NewReader(b))
+	reqURLWithPath := n.insertPathInEndpoint(notification.Path)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, reqURLWithPath, bytes.NewReader(b))
 	if err != nil {
 		return fmt.Errorf("creating notification request %w", err)
 	}
 
 	req.Header.Set("Authorization", n.secret)
+	req.Header.Set("Content-Type", "application/json")
 
 	res, err := n.client.Do(req)
 	if err != nil {
