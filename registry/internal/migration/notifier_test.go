@@ -53,6 +53,11 @@ func TestNotify(t *testing.T) {
 			return
 		}
 
+		if r.Header.Get("Content-Type") != "application/json" {
+			w.WriteHeader(http.StatusUnsupportedMediaType)
+			return
+		}
+
 		time.Sleep(delay)
 
 		w.WriteHeader(http.StatusOK)
@@ -121,4 +126,33 @@ func TestNotify(t *testing.T) {
 		})
 	}
 
+}
+
+func TestNotifier_insertPathInEndpoint(t *testing.T) {
+	tests := map[string]struct {
+		endpoint string
+		path     string
+		want     string
+	}{
+		"match_path_placeholder": {
+			endpoint: "https://gitlab.com/api/v4/internal/registry/repositories/{path}/migration/status",
+			path:     "some/repository/path",
+			want:     "https://gitlab.com/api/v4/internal/registry/repositories/some/repository/path/migration/status",
+		},
+		"no_match": {
+			endpoint: "https://gitlab.com/api/v4/internal/registry/repositories/migration/status",
+			path:     "some/repository/path",
+			want:     "https://gitlab.com/api/v4/internal/registry/repositories/migration/status",
+		},
+	}
+
+	for tn, tt := range tests {
+		t.Run(tn, func(t *testing.T) {
+			n, err := NewNotifier(tt.endpoint, "secret", time.Second)
+			require.NoError(t, err)
+
+			got := n.insertPathInEndpoint(tt.path)
+			require.Equal(t, tt.want, got)
+		})
+	}
 }
