@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/docker/distribution/metrics"
@@ -9,6 +10,9 @@ import (
 
 var (
 	migrationRoutingCounter *prometheus.CounterVec
+	importDurationHist      *prometheus.HistogramVec
+	importCounter           *prometheus.CounterVec
+	inFlightImports         *prometheus.GaugeVec
 
 	timeSince = time.Since // for test purposes only
 )
@@ -20,8 +24,22 @@ const (
 	oldCodePathValue = "old"
 	newCodePathValue = "new"
 
+	errorLabel      = "error"
+	importTypeLabel = "type"
+	importAttempted = "attempted"
+
+	importTypeValue    = "import"
+	preImportTypeValue = "pre_import"
+
 	migrationRouteTotalName = "request_migration_route_total"
 	migrationRouteTotalDesc = "A counter for code path routing of requests during migration."
+
+	importDurationName  = "import_duration_seconds"
+	importDurationDesc  = "A histogram of durations for imports."
+	importTotalName     = "imports_total"
+	importTotalDesc     = "A counter for API triggered imports."
+	inFlightImportsName = "in_flight_imports"
+	inFlightImportsDesc = "A gauge of imports currently being undertaken by the registry."
 )
 
 func init() {
@@ -35,7 +53,41 @@ func init() {
 		[]string{codePathLabel},
 	)
 
+	importDurationHist = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: metrics.NamespacePrefix,
+			Subsystem: subsystem,
+			Name:      importDurationName,
+			Help:      importDurationDesc,
+			// 5ms to 6h
+			Buckets: []float64{.005, .01, .025, .5, 1, 5, 15, 30, 60, 300, 600, 900, 1800, 3600, 7200, 10800, 21600},
+		},
+		[]string{importTypeLabel, errorLabel, importAttempted},
+	)
+
+	importCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: metrics.NamespacePrefix,
+			Subsystem: subsystem,
+			Name:      importTotalName,
+			Help:      importTotalDesc,
+		},
+		[]string{importTypeLabel, errorLabel, importAttempted},
+	)
+
+	inFlightImports = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: metrics.NamespacePrefix,
+		Subsystem: subsystem,
+		Name:      inFlightImportsName,
+		Help:      inFlightImportsDesc,
+	},
+		[]string{importTypeLabel},
+	)
+
 	prometheus.MustRegister(migrationRoutingCounter)
+	prometheus.MustRegister(importDurationHist)
+	prometheus.MustRegister(importCounter)
+	prometheus.MustRegister(inFlightImports)
 }
 
 func MigrationRoute(newCodePath bool) {
@@ -46,4 +98,28 @@ func MigrationRoute(newCodePath bool) {
 		codePath = oldCodePathValue
 	}
 	migrationRoutingCounter.WithLabelValues(codePath).Inc()
+}
+
+func Import() func(importAttempted bool, err error) {
+	return doImport(importTypeValue)
+}
+
+func PreImport() func(importAttempted bool, err error) {
+	return doImport(preImportTypeValue)
+}
+
+func doImport(importType string) func(importAttempted bool, err error) {
+	g := inFlightImports.WithLabelValues(importType)
+
+	g.Inc()
+	start := time.Now()
+	return func(importAttempted bool, err error) {
+		g.Dec()
+
+		failed := strconv.FormatBool(err != nil)
+		attempted := strconv.FormatBool(importAttempted)
+
+		importDurationHist.WithLabelValues(importType, failed, attempted).Observe(timeSince(start).Seconds())
+		importCounter.WithLabelValues(importType, failed, attempted).Inc()
+	}
 }

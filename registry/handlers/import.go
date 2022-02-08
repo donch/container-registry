@@ -12,6 +12,7 @@ import (
 	v2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/docker/distribution/registry/datastore"
 	"github.com/docker/distribution/registry/datastore/models"
+	"github.com/docker/distribution/registry/handlers/internal/metrics"
 	"github.com/docker/distribution/registry/internal/migration"
 	"github.com/docker/distribution/registry/storage"
 	ghandlers "github.com/gorilla/handlers"
@@ -65,65 +66,47 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 
 	l = l.WithFields(log.Fields{"pre_import": ih.preImport})
 
-	if dbRepo != nil {
-		switch status := dbRepo.MigrationStatus; {
-		// Do not begin an import or pre import for a repository which has already been imported.
-		case status.OnDatabase():
-			l.Info("repository already imported, skipping import")
-			w.WriteHeader(http.StatusOK)
-			return
-
-		// Do not begin an import or pre import with a repository that already has
-		//	an import or pre import operation ongoing.
-		case status == migration.RepositoryStatusPreImportInProgress:
-			detail := v1.ErrorCodePreImportInProgressErrorDetail(ih.Repository)
-			ih.Errors = append(ih.Errors, v1.ErrorCodePreImportInProgress.WithDetail(detail))
-			return
-
-		case status == migration.RepositoryStatusImportInProgress:
-			detail := v1.ErrorCodeImportInProgressErrorDetail(ih.Repository)
-			ih.Errors = append(ih.Errors, v1.ErrorCodeImportInProgress.WithDetail(detail))
-			return
-
-		// Do not begin an import for a repository that failed to pre import, allow
-		// additional pre import attempts.
-		case status == migration.RepositoryStatusPreImportFailed && !ih.preImport:
-			detail := v1.ErrorCodePreImportFailedErrorDetail(ih.Repository)
-			ih.Errors = append(ih.Errors, v1.ErrorCodePreImportInFailed.WithDetail(detail))
-			return
-		}
+	// Set up metrics reporting
+	report := metrics.Import()
+	if ih.preImport {
+		report = metrics.PreImport()
 	}
 
-	validator, ok := ih.Repository.(storage.RepositoryValidator)
-	if !ok {
-		ih.Errors = append(ih.Errors, errcode.FromUnknownError(fmt.Errorf("repository does not implement RepositoryValidator interface")))
-		return
-	}
-
-	// check if repository exists in the old storage prefix before attempting import
-	exists, err := validator.Exists(ih)
+	shouldImport, err := ih.shouldImport(dbRepo)
 	if err != nil {
-		ih.Errors = append(ih.Errors, errcode.FromUnknownError(fmt.Errorf("unable to determine if repository exists on old storage prefix: %w", err)))
+		ih.Errors = append(ih.Errors, err)
+
+		report(false, err)
 		return
 	}
 
-	if !exists {
-		ih.Errors = append(ih.Errors, v2.ErrorCodeNameUnknown)
+	if !shouldImport {
+		l.Info("repository already imported, skipping import")
+		w.WriteHeader(http.StatusOK)
+
+		report(false, nil)
 		return
 	}
 
 	dbRepo, err = ih.createOrUpdateRepo(ih.Context, dbRepo)
 	if err != nil {
-		ih.Errors = append(ih.Errors, errcode.FromUnknownError(err))
+		err = errcode.FromUnknownError(err)
+		ih.Errors = append(ih.Errors, err)
+
+		report(false, err)
+		return
+	}
+
+	bts, err := storage.NewBlobTransferService(ih.App.driver, ih.App.migrationDriver)
+	if err != nil {
+		err = errcode.FromUnknownError(err)
+		ih.Errors = append(ih.Errors, err)
+
+		report(false, err)
 		return
 	}
 
 	go func() {
-		bts, err := storage.NewBlobTransferService(ih.App.driver, ih.App.migrationDriver)
-		if err != nil {
-			ih.Errors = append(ih.Errors, errcode.FromUnknownError(err))
-		}
-
 		importer := datastore.NewImporter(
 			ih.App.db,
 			ih.App.registry,
@@ -142,12 +125,58 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 		if err != nil {
 			l.WithError(err).Error("importing repository")
 			errortracking.Capture(err, errortracking.WithContext(ctx), errortracking.WithRequest(r))
+
+			report(true, err)
 		}
 
+		report(true, nil)
 		ih.sendImportNotification(ctx, dbRepo, err)
 	}()
 
 	w.WriteHeader(http.StatusAccepted)
+}
+
+func (ih *importHandler) shouldImport(dbRepo *models.Repository) (bool, error) {
+	if dbRepo != nil {
+		switch status := dbRepo.MigrationStatus; {
+		// Do not begin an import or pre import for a repository which has already been imported.
+		case status.OnDatabase():
+			return false, nil
+
+		// Do not begin an import or pre import with a repository that already has
+		//	an import or pre import operation ongoing.
+		case status == migration.RepositoryStatusPreImportInProgress:
+			detail := v1.ErrorCodePreImportInProgressErrorDetail(ih.Repository)
+			return false, v1.ErrorCodePreImportInProgress.WithDetail(detail)
+
+		case status == migration.RepositoryStatusImportInProgress:
+			detail := v1.ErrorCodeImportInProgressErrorDetail(ih.Repository)
+			return false, v1.ErrorCodeImportInProgress.WithDetail(detail)
+
+		// Do not begin an import for a repository that failed to pre import, allow
+		// additional pre import attempts.
+		case status == migration.RepositoryStatusPreImportFailed && !ih.preImport:
+			detail := v1.ErrorCodePreImportFailedErrorDetail(ih.Repository)
+			return false, v1.ErrorCodePreImportInFailed.WithDetail(detail)
+		}
+	}
+
+	validator, ok := ih.Repository.(storage.RepositoryValidator)
+	if !ok {
+		return false, errcode.FromUnknownError(fmt.Errorf("repository does not implement RepositoryValidator interface"))
+	}
+
+	// check if repository exists in the old storage prefix before attempting import
+	exists, err := validator.Exists(ih)
+	if err != nil {
+		return false, errcode.FromUnknownError(fmt.Errorf("unable to determine if repository exists on old storage prefix: %w", err))
+	}
+
+	if !exists {
+		return false, v2.ErrorCodeNameUnknown
+	}
+
+	return true, nil
 }
 
 func (ih *importHandler) createOrUpdateRepo(ctx context.Context, dbRepo *models.Repository) (*models.Repository, error) {
