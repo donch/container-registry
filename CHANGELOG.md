@@ -1,3 +1,30 @@
+# [3.24.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.23.0-gitlab...v3.24.0-gitlab) (2022-02-09)
+
+
+### Bug Fixes
+
+* **datastore:** importer: do not pass on manifest errors ([37b7db2](https://gitlab.com/gitlab-org/container-registry/commit/37b7db22934335ab50e23197161696e8b565f861))
+* **datastore:** remove unnecessary transaction for manifest pre import ([1dd2e30](https://gitlab.com/gitlab-org/container-registry/commit/1dd2e306af4a3e599eed33332df4a8896b8e1130))
+* **datastore:** repositorystore Update updates migration status ([2c1e96f](https://gitlab.com/gitlab-org/container-registry/commit/2c1e96f4e5b369baabca11e42f3bb7169fc6b5fa))
+* halt (pre)import on invalid manifest referenced by list ([1567594](https://gitlab.com/gitlab-org/container-registry/commit/15675942972e50f8adb345826de65cd62d3a28d9))
+* halt import on tag lookup failure ([c10f2e5](https://gitlab.com/gitlab-org/container-registry/commit/c10f2e548910bfb9eda19990d66c0cbe15917688))
+* halt pre-import on tag lookup failure ([002dab7](https://gitlab.com/gitlab-org/container-registry/commit/002dab7749a9fab1cbd70233fa75babb3f525c55))
+* **handlers:** handle runImport error ([f292acd](https://gitlab.com/gitlab-org/container-registry/commit/f292acd568e3ef18ba503dc3fe99b6ce1e0a9dc9))
+* **migration:** parse placeholder for path in import notifier endpoint ([621dc4e](https://gitlab.com/gitlab-org/container-registry/commit/621dc4eb104709c563c8e16a66c766510d5b93da))
+* **migration:** typo in import failed status ([7fbd392](https://gitlab.com/gitlab-org/container-registry/commit/7fbd392eac7fb1bd77fad1435524dc4df9141aec))
+
+
+### Features
+
+* **datastore:** use context fields for importer logging ([83e783c](https://gitlab.com/gitlab-org/container-registry/commit/83e783c8dc45a45007d3654f96b5a442b02ad642))
+* **handlers:** import route: return 409 conflict if repository is importing ([c11fd43](https://gitlab.com/gitlab-org/container-registry/commit/c11fd43a3f7f095138472d5fb3c0ec8430583ee0))
+* **handlers:** import route: return 424 failed dependency if repository failed previous pre import ([9d7c3b4](https://gitlab.com/gitlab-org/container-registry/commit/9d7c3b4b3b2e17b0b003927bb89fa48fd958141d))
+* **handlers:** import route: return 425 too early if repository is pre importing ([13b67de](https://gitlab.com/gitlab-org/container-registry/commit/13b67de8a6289c2ca966b1eabb2613c16b6c5bf7))
+* **handlers:** metrics for API import route ([55fb814](https://gitlab.com/gitlab-org/container-registry/commit/55fb81431d7bf1ad928867dd32f93a2975b79739))
+* **handlers:** send import notifications ([9827815](https://gitlab.com/gitlab-org/container-registry/commit/9827815f408c19bc8b2e6e2106ad58a05b55d255))
+* **handlers:** update repository migration status during import ([062a47c](https://gitlab.com/gitlab-org/container-registry/commit/062a47c26e6f5dacbf60c2bf6799e3e6d3a21c33))
+* make the importer row count logging opt in ([a1c476a](https://gitlab.com/gitlab-org/container-registry/commit/a1c476a4d3c724bf7df6f1ba907172d6315f027a))
+
 # [3.23.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.22.0-gitlab...v3.23.0-gitlab) (2022-01-20)
 
 
