@@ -951,65 +951,13 @@ func splitRepositoryPath(path string) []string {
 	return strings.Split(filepath.Clean(path), "/")
 }
 
-// repositoryParentPaths parses a repository path (e.g. `"a/b/c"`) and returns its parents path(s) (e.g.
-// `["a", "a/b", "a/b/c"]`) starting from the root repository.
-func repositoryParentPaths(path string) []string {
-	segments := splitRepositoryPath(path)
-	names := segments[:len(segments)-1]
-
-	paths := make([]string, 0, len(names))
-	for i := 0; i < len(names); i++ {
-		paths = append(paths, strings.Join(names[:i+1], "/"))
-	}
-
-	return paths
-}
-
 // repositoryName parses a repository path (e.g. `"a/b/c"`) and returns its name (e.g. `"c"`).
 func repositoryName(path string) string {
 	segments := splitRepositoryPath(path)
 	return segments[len(segments)-1]
 }
 
-// createOrFindParentByPath creates parent repositories for a given path, if any (e.g. `a` and `b` for path `"a/b/c"`),
-// preserving their hierarchical relationship. Returns the immediate parent repository, if any (e.g. `b`). No error is
-// raised if a repository already exists.
-func (s *repositoryStore) createOrFindParentByPath(ctx context.Context, path string, n *models.Namespace) (*models.Repository, error) {
-	parentsPath := repositoryParentPaths(path)
-	if len(parentsPath) == 0 {
-		return nil, nil
-	}
-
-	var currParentID int64
-	var r *models.Repository
-
-	for _, parentPath := range parentsPath {
-		r = &models.Repository{
-			NamespaceID: n.ID,
-			Name:        repositoryName(parentPath),
-			Path:        parentPath,
-			ParentID: sql.NullInt64{
-				Int64: currParentID,
-				Valid: currParentID > 0,
-			},
-		}
-		err := s.CreateOrFind(ctx, r)
-		if err != nil {
-			return nil, fmt.Errorf("finding parent repository: %w", err)
-		}
-
-		// track ID to continue linking the chain of repositories
-		currParentID = r.ID
-	}
-
-	s.cache.Set(r)
-
-	return r, nil
-}
-
-// CreateByPath creates the repositories for a given path (e.g. `"a/b/c"`), preserving their hierarchical relationship.
-// Returns the leaf repository (e.g. `c`). No error is raised if a parent repository already exists, only if the leaf
-// repository does.
+// CreateByPath creates the repository for a given path. An error is returned if the repository already exists.
 func (s *repositoryStore) CreateByPath(ctx context.Context, path string) (*models.Repository, error) {
 	if cached := s.cache.Get(path); cached != nil {
 		return cached, nil
@@ -1022,15 +970,7 @@ func (s *repositoryStore) CreateByPath(ctx context.Context, path string) (*model
 	}
 
 	defer metrics.InstrumentQuery("repository_create_by_path")()
-	p, err := s.createOrFindParentByPath(ctx, path, n)
-	if err != nil {
-		return nil, fmt.Errorf("creating or finding parent repository: %w", err)
-	}
-
 	r := &models.Repository{NamespaceID: n.ID, Name: repositoryName(path), Path: path}
-	if p != nil {
-		r.ParentID = sql.NullInt64{Int64: p.ID, Valid: true}
-	}
 	if err := s.Create(ctx, r); err != nil {
 		return nil, err
 	}
@@ -1040,7 +980,7 @@ func (s *repositoryStore) CreateByPath(ctx context.Context, path string) (*model
 	return r, nil
 }
 
-// CreateOrFindByPath is the fully idempotent version of CreateByPath, where no error is returned if the leaf repository
+// CreateOrFindByPath is the fully idempotent version of CreateByPath, where no error is returned if the repository
 // already exists.
 func (s *repositoryStore) CreateOrFindByPath(ctx context.Context, path string) (*models.Repository, error) {
 	if cached := s.cache.Get(path); cached != nil {
@@ -1054,15 +994,7 @@ func (s *repositoryStore) CreateOrFindByPath(ctx context.Context, path string) (
 	}
 
 	defer metrics.InstrumentQuery("repository_create_or_find_by_path")()
-	p, err := s.createOrFindParentByPath(ctx, path, n)
-	if err != nil {
-		return nil, fmt.Errorf("creating or finding parent repository: %w", err)
-	}
-
 	r := &models.Repository{NamespaceID: n.ID, Name: repositoryName(path), Path: path}
-	if p != nil {
-		r.ParentID = sql.NullInt64{Int64: p.ID, Valid: true}
-	}
 	if err := s.CreateOrFind(ctx, r); err != nil {
 		return nil, err
 	}
