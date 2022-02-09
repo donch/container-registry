@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -287,22 +288,31 @@ func assertManifestDeleteResponse(t *testing.T, env *testEnv, repoName string, m
 
 type mockImportNotification struct {
 	t             *testing.T
-	receivedNotif chan migration.Notification
+	receivedNotif map[string]chan migration.Notification
 }
 
-func newMockImportNotification(t *testing.T) *mockImportNotification {
+func newMockImportNotification(t *testing.T, paths ...string) *mockImportNotification {
 	t.Helper()
 
 	min := &mockImportNotification{
 		t:             t,
-		receivedNotif: make(chan migration.Notification),
+		receivedNotif: make(map[string]chan migration.Notification),
 	}
+
+	for _, path := range paths {
+		min.receivedNotif[path] = make(chan migration.Notification)
+	}
+
 	t.Cleanup(func() {
-		close(min.receivedNotif)
+		for _, c := range min.receivedNotif {
+			close(c)
+		}
 	})
 
 	return min
 }
+
+var pathRegex = regexp.MustCompile("/repositories/(.*)/migration/status")
 
 func (min *mockImportNotification) handleNotificationRequest(w http.ResponseWriter, r *http.Request) {
 	t := min.t
@@ -315,7 +325,11 @@ func (min *mockImportNotification) handleNotificationRequest(w http.ResponseWrit
 	err := json.NewDecoder(r.Body).Decode(&actualNotification)
 	require.NoError(t, err)
 
-	min.receivedNotif <- actualNotification
+	match := pathRegex.FindStringSubmatch(r.RequestURI)
+	require.Len(t, match, 2)
+	require.NotEmpty(t, match[1])
+
+	min.receivedNotif[match[1]] <- actualNotification
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -339,10 +353,10 @@ func (min *mockImportNotification) waitForImportNotification(t *testing.T, path,
 	}
 
 	select {
-	case receivedNotif := <-min.receivedNotif:
+	case receivedNotif := <-min.receivedNotif[path]:
 		require.Equal(t, expectedNotif, receivedNotif)
 	case <-time.After(timeout):
-		t.Errorf("timed out waiting for import notification")
+		t.Errorf("timed out waiting for import notification for path: %q", path)
 	}
 }
 

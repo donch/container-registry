@@ -105,10 +105,10 @@ func withMigrationTagConcurrency(n int) configOpt {
 	}
 }
 
-func withImportNotification(serverURL, repoName string) configOpt {
+func withImportNotification(serverURL string) configOpt {
 	return func(config *configuration.Configuration) {
 		config.Migration.ImportNotification.Enabled = true
-		config.Migration.ImportNotification.URL = fmt.Sprintf("%s/api/v4/registry/repositories/%s/migration/status", serverURL, repoName)
+		config.Migration.ImportNotification.URL = fmt.Sprintf("%s/api/v4/registry/repositories/{path}/migration/status", serverURL)
 		config.Migration.ImportNotification.Secret = "secret"
 		config.Migration.ImportNotification.Timeout = 2 * time.Second
 	}

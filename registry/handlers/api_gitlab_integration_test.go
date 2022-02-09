@@ -43,13 +43,13 @@ func TestGitlabAPI_RepositoryImport_Put(t *testing.T) {
 	// Push up a image to the old side of the registry, so we can migrate it below.
 	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
 
-	mockedImportNotifSrv := newMockImportNotification(t)
+	mockedImportNotifSrv := newMockImportNotification(t, repoPath)
 
 	env2 := newTestEnv(t,
 		withFSDriver(rootDir),
 		withMigrationEnabled,
 		withMigrationRootDirectory(migrationDir),
-		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv), repoPath))
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)))
 	defer env2.Shutdown()
 
 	// Start Repository Import.
@@ -107,14 +107,14 @@ func TestGitlabAPI_RepositoryImport_Put_ConcurrentTags(t *testing.T) {
 		seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
 	}
 
-	mockedImportNotifSrv := newMockImportNotification(t)
+	mockedImportNotifSrv := newMockImportNotification(t, repoPath)
 
 	env2 := newTestEnv(
 		t, withFSDriver(rootDir),
 		withMigrationEnabled,
 		withMigrationRootDirectory(migrationDir),
 		withMigrationTagConcurrency(5),
-		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv), repoPath),
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)),
 	)
 	defer env2.Shutdown()
 
@@ -169,10 +169,10 @@ func TestGitlabAPI_RepositoryImport_Put_PreImport(t *testing.T) {
 	// Push up a image to the old side of the registry, so we can migrate it below.
 	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
 
-	mockedImportNotifSrv := newMockImportNotification(t)
+	mockedImportNotifSrv := newMockImportNotification(t, repoPath)
 
 	env2 := newTestEnv(t, withFSDriver(rootDir), withMigrationEnabled, withMigrationRootDirectory(migrationDir),
-		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv), repoPath))
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)))
 	defer env2.Shutdown()
 
 	// Start repository pre import.
@@ -385,10 +385,10 @@ func TestGitlabAPI_RepositoryImport_Put_PreImportFailed(t *testing.T) {
 	// the pre import will start without error, but the actual pre import will fail.
 	seedRandomSchema2Manifest(t, env, repoPath, putByDigest, writeToFilesystemOnly)
 
-	mockedImportNotifSrv := newMockImportNotification(t)
+	mockedImportNotifSrv := newMockImportNotification(t, repoPath)
 
 	env2 := newTestEnv(t, withFSDriver(rootDir), withMigrationEnabled, withMigrationRootDirectory(migrationDir),
-		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv), repoPath))
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)))
 	defer env2.Shutdown()
 
 	repoRef, err := reference.WithName(repoPath)
