@@ -1,3 +1,10 @@
+## [3.24.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.24.0-gitlab...v3.24.1-gitlab) (2022-02-09)
+
+
+### Bug Fixes
+
+* stop creating intermediate repositories and parent/child links ([f49eae4](https://gitlab.com/gitlab-org/container-registry/commit/f49eae424252d839fdaf851fbcdc989af955e396))
+
 # [3.24.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.23.0-gitlab...v3.24.0-gitlab) (2022-02-09)
 
 
