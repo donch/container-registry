@@ -805,6 +805,70 @@ migration:
 	testParameter(t, yml, "REGISTRY_MIGRATION_IMPORTNOTIFICATION_SECRET", tt, validator)
 }
 
+func TestParseMigrationImportTimeout(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+migration:
+  enabled: true
+  importtimeout: %s
+`
+	tt := []parameterTest{
+		{
+			name:  "sample",
+			value: "20m",
+			want:  time.Minute * 20,
+		},
+		{
+			name: "default",
+			want: time.Minute * 10,
+		},
+		{
+			name:  "negative",
+			value: "-1",
+			want:  time.Minute * 10,
+		},
+	}
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, got.Migration.ImportTimeout)
+	}
+
+	testParameter(t, yml, "REGISTRY_MIGRATION_IMPORTTIMEOUT", tt, validator)
+}
+
+func TestParseMigrationPreImportTimeout(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+migration:
+  enabled: true
+  preimporttimeout: %s
+`
+	tt := []parameterTest{
+		{
+			name:  "sample",
+			value: "20m",
+			want:  time.Minute * 20,
+		},
+		{
+			name: "default",
+			want: time.Hour * 2,
+		},
+		{
+			name:  "negative",
+			value: "-1",
+			want:  time.Hour * 2,
+		},
+	}
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, got.Migration.PreImportTimeout)
+	}
+
+	testParameter(t, yml, "REGISTRY_MIGRATION_PREIMPORTTIMEOUT", tt, validator)
+}
+
 // TestParseInvalidVersion validates that the parser will fail to parse a newer configuration
 // version than the CurrentVersion
 func (suite *ConfigSuite) TestParseInvalidVersion(c *C) {

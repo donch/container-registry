@@ -425,6 +425,12 @@ type Migration struct {
 	// repository after a successful pre import has completed. Pre import is not
 	// affected by this parameter. Default `1`.
 	TagConcurrency int `yaml:"tagconcurrency,omitempty"`
+	// ImportTimeout is the maximum duration that an import job may take to
+	// complete before it is aborted. Defaults to 10 minutes.
+	ImportTimeout time.Duration `yaml:"importtimeout,omitempty"`
+	// PreImportTimeout is the maximum duration that a pre import job may take to
+	// complete before it is aborted. Defaults to 2 hours.
+	PreImportTimeout time.Duration `yaml:"preimporttimeout,omitempty"`
 	// ImportNotification defines the endpoint to use to notify when an import or pre-import
 	// has completed with a given status and details.
 	ImportNotification struct {
@@ -1067,5 +1073,11 @@ func ApplyDefaults(config *Configuration) {
 	}
 	if config.Migration.Enabled && config.Migration.TagConcurrency < 1 {
 		config.Migration.TagConcurrency = 1
+	}
+	if config.Migration.Enabled && config.Migration.ImportTimeout < 1 {
+		config.Migration.ImportTimeout = 10 * time.Minute
+	}
+	if config.Migration.Enabled && config.Migration.PreImportTimeout < 1 {
+		config.Migration.PreImportTimeout = 2 * time.Hour
 	}
 }

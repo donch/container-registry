@@ -182,6 +182,8 @@ migration:
   enabled: true
   disablemirrorfs: true
   rootdirectory: /migration/root
+  importtimeout: 5m
+  preimporttimeout: 1h
   tagconcurrency: 10
   importnotification:
     enabled: true
@@ -666,6 +668,8 @@ migration:
   disablemirrorfs: true
   rootdirectory: /migration/root
   autheligibilitydisabled: false
+  importtimeout: 5m
+  preimporttimeout: 1h
   tagconcurrency: 10
   importnotification:
     enabled: true
@@ -682,6 +686,8 @@ migration:
 | `autheligibilitydisabled`   | no       | Allows disabling the evaluation of JWT tokens sent from Rails to determine the code path that _new_ repositories should follow. If disabled, all new repositories will follow the new code path. Defaults to `false`.
 | `tagconcurrency`   | no       | This parameter determines the number of concurrent tag details requests to the filesystem backend. This can greatly reduce the time spent importing a repository after a successful pre import has completed. Pre import is not affected by this parameter. Default `1`.
 | `importnotification` | no     | This defines the endpoint to use to notify when an import or pre-import has completed with a given status and details. See the [import notification subsection](#import-notification)
+| `importtimeout`      | no     | The maximum duration that an import job may take to complete before it is aborted. Defaults to 10 minutes.
+| `preimporttimeout`   | no     | The maximum duration that a pre import job may take to complete before it is aborted. Defaults to 2 hours.
 
 ### Import Notification
 
