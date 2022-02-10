@@ -25,6 +25,7 @@ type importHandler struct {
 
 	datastore.RepositoryStore
 	preImport bool
+	timeout   time.Duration
 }
 
 // importDispatcher takes the request context and builds the
@@ -33,6 +34,7 @@ func importDispatcher(ctx *Context, r *http.Request) http.Handler {
 	ih := &importHandler{
 		Context:         ctx,
 		RepositoryStore: datastore.NewRepositoryStore(ctx.App.db),
+		timeout:         ctx.App.Config.Migration.ImportTimeout,
 	}
 
 	ihandler := ghandlers.MethodHandler{}
@@ -64,7 +66,11 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	l = l.WithFields(log.Fields{"pre_import": ih.preImport})
+	if ih.preImport {
+		ih.timeout = ih.App.Config.Migration.PreImportTimeout
+	}
+
+	l = l.WithFields(log.Fields{"pre_import": ih.preImport, "timeout_s": ih.timeout.Seconds()})
 
 	// Set up metrics reporting
 	report := metrics.Import()
@@ -114,7 +120,7 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 			datastore.WithTagConcurrency(ih.App.Config.Migration.TagConcurrency),
 		)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), ih.timeout)
 		defer cancel()
 
 		// Add parent logger to worker context to preserve request-specific fields.

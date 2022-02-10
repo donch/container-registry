@@ -417,6 +417,10 @@ func newConfig(opts ...configOpt) configuration.Configuration {
 		}
 	}
 
+	// Default to sensibly short timeout values for testing.
+	config.Migration.ImportTimeout = 5 * time.Second
+	config.Migration.PreImportTimeout = 5 * time.Second
+
 	for _, o := range opts {
 		o(config)
 	}
