@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sync"
 	"testing"
 	"time"
 
@@ -564,4 +565,290 @@ func TestGitlabAPI_Repository_Get(t *testing.T) {
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	checkBodyHasErrorCodes(t, "wrong response body error code", resp, v1.ErrorCodeInvalidQueryParamValue)
+}
+
+func TestGitlabAPI_RepositoryImport_MaxConcurrentImports(t *testing.T) {
+	rootDir := t.TempDir()
+
+	migrationDir := filepath.Join(rootDir, "/new")
+
+	repoPathTemplate := "old/repo-%d"
+	tagName := "import-tag"
+	repoCount := 5
+
+	allRepoPaths := generateOldRepoPaths(t, repoPathTemplate, repoCount)
+
+	mockedImportNotifSrv := newMockImportNotification(t, allRepoPaths...)
+
+	env := newTestEnv(t,
+		withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)),
+		// only allow a maximum of 3 imports at a time
+		withMigrationMaxConcurrentImports(3))
+
+	env.requireDB(t)
+
+	seedMultipleFSManifestsWithTag(t, env, tagName, allRepoPaths)
+
+	attemptImportFn := func(count int, expectedStatus int, waitForNotif bool) {
+		repoPath := fmt.Sprintf(repoPathTemplate, count)
+		// Start Repository Import.
+		repoRef, err := reference.WithName(repoPath)
+		require.NoError(t, err)
+
+		importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"pre": []string{"true"}})
+		require.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodPut, importURL, nil)
+		require.NoError(t, err)
+
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+
+		require.Equalf(t, expectedStatus, resp.StatusCode, "repo path: %q", repoPath)
+
+		if waitForNotif {
+			mockedImportNotifSrv.waitForImportNotification(
+				t, repoPath, string(migration.RepositoryStatusPreImportComplete), "pre import completed successfully", 5*time.Second,
+			)
+		}
+	}
+
+	wg := &sync.WaitGroup{}
+
+	for i := 0; i < repoCount; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			if i < 3 {
+				// expect first 3 imports to succeed
+				attemptImportFn(i, http.StatusAccepted, true)
+			} else {
+				// let the first 3 request go first
+				time.Sleep(10 * time.Millisecond)
+				attemptImportFn(i, http.StatusTooManyRequests, false)
+			}
+		}(i)
+	}
+
+	wg.Wait()
+
+	wg2 := &sync.WaitGroup{}
+
+	// attempt to pre import again should succeed
+	for i := 3; i < 5; i++ {
+		wg2.Add(1)
+		go func(i int) {
+			defer wg2.Done()
+
+			attemptImportFn(i, http.StatusAccepted, true)
+		}(i)
+	}
+
+	wg2.Wait()
+}
+
+func TestGitlabAPI_RepositoryImport_MaxConcurrentImports_IsZero(t *testing.T) {
+	rootDir := t.TempDir()
+
+	migrationDir := filepath.Join(rootDir, "/new")
+
+	env := newTestEnv(t,
+		withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+		// Explicitly set to 0 so no imports would be allowed.
+		withMigrationMaxConcurrentImports(0),
+	)
+	t.Cleanup(env.Shutdown)
+
+	env.requireDB(t)
+
+	repoPath := "old/repo"
+	tagName := "import-tag"
+
+	// Push up a image to the old side of the registry, so we can migrate it below.
+	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
+
+	repoRef, err := reference.WithName(repoPath)
+	require.NoError(t, err)
+
+	attemptImportFn := func(preImport bool) {
+		urlValues := url.Values{}
+		if preImport {
+			urlValues.Set("pre", "true")
+		}
+
+		importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef, urlValues)
+		require.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodPut, importURL, nil)
+		require.NoError(t, err)
+
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+
+		// should be rate limited
+		require.Equal(t, http.StatusTooManyRequests, resp.StatusCode)
+	}
+
+	// attempt pre import
+	attemptImportFn(true)
+
+	// attempt import
+	attemptImportFn(false)
+}
+
+func TestGitlabAPI_RepositoryImport_MaxConcurrentImports_OneByOne(t *testing.T) {
+	rootDir := t.TempDir()
+
+	migrationDir := filepath.Join(rootDir, "/new")
+
+	repoPathTemplate := "old/repo-%d"
+	tagName := "import-tag"
+
+	allRepoPaths := generateOldRepoPaths(t, repoPathTemplate, 2)
+
+	mockedImportNotifSrv := newMockImportNotification(t, allRepoPaths...)
+
+	env := newTestEnv(t,
+		withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)),
+		// only allow 1 import at a time
+		withMigrationMaxConcurrentImports(1))
+	t.Cleanup(env.Shutdown)
+
+	env.requireDB(t)
+
+	seedMultipleFSManifestsWithTag(t, env, tagName, allRepoPaths)
+
+	repoPath1 := fmt.Sprintf(repoPathTemplate, 0)
+	repoRef1, err := reference.WithName(repoPath1)
+	require.NoError(t, err)
+
+	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef1, url.Values{"pre": []string{"true"}})
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPut, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// repoPath1 should be accepted
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	repoPath2 := fmt.Sprintf(repoPathTemplate, 1)
+
+	repoRef2, err := reference.WithName(repoPath2)
+	require.NoError(t, err)
+
+	importURL2, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef2, url.Values{"pre": []string{"true"}})
+	require.NoError(t, err)
+
+	req2, err := http.NewRequest(http.MethodPut, importURL2, nil)
+	require.NoError(t, err)
+
+	resp2, err := http.DefaultClient.Do(req2)
+	require.NoError(t, err)
+	defer resp2.Body.Close()
+
+	// repoPath2 should be rate limited
+	require.Equal(t, http.StatusTooManyRequests, resp2.StatusCode)
+
+	// wait for repoPath1 import notification
+	mockedImportNotifSrv.waitForImportNotification(
+		t, repoPath1, string(migration.RepositoryStatusPreImportComplete), "pre import completed successfully", 2*time.Second,
+	)
+
+	// attempt second import for repoPath2 should succeed
+	req3, err := http.NewRequest(http.MethodPut, importURL2, nil)
+	require.NoError(t, err)
+
+	resp3, err := http.DefaultClient.Do(req3)
+	require.NoError(t, err)
+	defer resp3.Body.Close()
+
+	// should be accepted
+	require.Equal(t, http.StatusAccepted, resp3.StatusCode)
+
+	// second import should succeed
+	mockedImportNotifSrv.waitForImportNotification(
+		t, repoPath2, string(migration.RepositoryStatusPreImportComplete), "pre import completed successfully", 2*time.Second,
+	)
+}
+
+func TestGitlabAPI_RepositoryImport_MaxConcurrentImports_ErrorShouldNotBlockLimits(t *testing.T) {
+	rootDir := t.TempDir()
+
+	migrationDir := filepath.Join(rootDir, "/new")
+
+	repoPathTemplate := "old/repo-%d"
+	tagName := "import-tag"
+
+	allRepoPaths := generateOldRepoPaths(t, repoPathTemplate, 2)
+
+	mockedImportNotifSrv := newMockImportNotification(t, allRepoPaths...)
+
+	env := newTestEnv(t,
+		withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)),
+		// only allow 1 import at a time
+		withMigrationMaxConcurrentImports(1))
+	t.Cleanup(env.Shutdown)
+
+	env.requireDB(t)
+
+	seedMultipleFSManifestsWithTag(t, env, tagName, allRepoPaths)
+
+	repoPath1 := fmt.Sprintf(repoPathTemplate, 0)
+	repoRef1, err := reference.WithName(repoPath1)
+	require.NoError(t, err)
+
+	// using an invalid value for `pre` should raise an error and not allow the import to proceed
+	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef1, url.Values{"pre": []string{"invalid"}})
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPut, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// repoPath1 fail
+	// TODO: replace with http.StatusBadRequest once https://gitlab.com/gitlab-org/container-registry/-/issues/587 is done
+	require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+
+	repoPath2 := fmt.Sprintf(repoPathTemplate, 1)
+
+	repoRef2, err := reference.WithName(repoPath2)
+	require.NoError(t, err)
+
+	importURL2, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef2, url.Values{"pre": []string{"true"}})
+	require.NoError(t, err)
+
+	req2, err := http.NewRequest(http.MethodPut, importURL2, nil)
+	require.NoError(t, err)
+
+	resp2, err := http.DefaultClient.Do(req2)
+	require.NoError(t, err)
+	defer resp2.Body.Close()
+
+	// repoPath2 should be accepted because the first request failed
+	require.Equal(t, http.StatusAccepted, resp2.StatusCode)
+
+	// second import should succeed
+	mockedImportNotifSrv.waitForImportNotification(
+		t, repoPath2, string(migration.RepositoryStatusPreImportComplete), "pre import completed successfully", 2*time.Second,
+	)
 }

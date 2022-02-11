@@ -58,3 +58,15 @@ var ErrorCodePreImportInFailed = errcode.Register(errGroup, errcode.ErrorDescrip
 func ErrorCodePreImportFailedErrorDetail(repo distribution.Repository) string {
 	return fmt.Sprintf("repository path %s", repo.Named().Name())
 }
+
+// ErrorCodeImportRateLimited is returned when a repository failed to begin a (pre)import due to maxconcurrentimports
+var ErrorCodeImportRateLimited = errcode.Register(errGroup, errcode.ErrorDescriptor{
+	Value:          "IMPORT_RATE_LIMIT",
+	Message:        "failed to begin (pre)import",
+	Description:    "This instance of the container registry has reached its limit for (pre)import operations",
+	HTTPStatusCode: http.StatusTooManyRequests,
+})
+
+func ErrorCodeImportRateLimitedDetail(repo distribution.Repository) string {
+	return fmt.Sprintf("repository path %s", repo.Named().Name())
+}

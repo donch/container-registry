@@ -185,6 +185,7 @@ migration:
   importtimeout: 5m
   preimporttimeout: 1h
   tagconcurrency: 10
+  maxconcurrentimports: 10
   importnotification:
     enabled: true
     url: 'https://example.com/notification/{path}/status'
@@ -671,6 +672,7 @@ migration:
   importtimeout: 5m
   preimporttimeout: 1h
   tagconcurrency: 10
+  maxconcurrentimports: 10
   importnotification:
     enabled: true
     url: 'https://example.com/notification/{path}/status'
@@ -685,6 +687,7 @@ migration:
 | `rootdirectory`   | no       | RootDirectory allows repositories that have been migrated to the database to use separate object storage paths. Using a distinct rootdirectory from the main storage driver configuration allows online migrations.
 | `autheligibilitydisabled`   | no       | Allows disabling the evaluation of JWT tokens sent from Rails to determine the code path that _new_ repositories should follow. If disabled, all new repositories will follow the new code path. Defaults to `false`.
 | `tagconcurrency`   | no       | This parameter determines the number of concurrent tag details requests to the filesystem backend. This can greatly reduce the time spent importing a repository after a successful pre import has completed. Pre import is not affected by this parameter. Default `1`.
+| `maxconcurrentimports`    | no       | This parameter determines the maximum number of concurrent imports allowed per instance of the registry. This can help reduce the number of resources that the registry needs when the migration mode is enabled. Default `1`.
 | `importnotification` | no     | This defines the endpoint to use to notify when an import or pre-import has completed with a given status and details. See the [import notification subsection](#import-notification)
 | `importtimeout`      | no     | The maximum duration that an import job may take to complete before it is aborted. Defaults to 10 minutes.
 | `preimporttimeout`   | no     | The maximum duration that a pre import job may take to complete before it is aborted. Defaults to 2 hours.

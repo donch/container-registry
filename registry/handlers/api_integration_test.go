@@ -105,6 +105,12 @@ func withMigrationTagConcurrency(n int) configOpt {
 	}
 }
 
+func withMigrationMaxConcurrentImports(n int) configOpt {
+	return func(config *configuration.Configuration) {
+		config.Migration.MaxConcurrentImports = n
+	}
+}
+
 func withImportNotification(serverURL string) configOpt {
 	return func(config *configuration.Configuration) {
 		config.Migration.ImportNotification.Enabled = true
@@ -420,6 +426,8 @@ func newConfig(opts ...configOpt) configuration.Configuration {
 	// Default to sensibly short timeout values for testing.
 	config.Migration.ImportTimeout = 5 * time.Second
 	config.Migration.PreImportTimeout = 5 * time.Second
+	// default to 2 max concurrent imports, or some tests may be rate limited
+	config.Migration.MaxConcurrentImports = 2
 
 	for _, o := range opts {
 		o(config)

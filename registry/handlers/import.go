@@ -40,7 +40,7 @@ func importDispatcher(ctx *Context, r *http.Request) http.Handler {
 	ihandler := ghandlers.MethodHandler{}
 
 	if !ctx.readOnly {
-		ihandler[http.MethodPut] = http.HandlerFunc(ih.StartRepositoryImport)
+		ihandler[http.MethodPut] = ih.maxConcurrentImportsMiddleware(http.HandlerFunc(ih.StartRepositoryImport))
 	}
 
 	return ihandler
@@ -50,7 +50,21 @@ const preImportQueryParamKey = "pre"
 
 // StartRepository begins a repository import.
 func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Request) {
-	l := log.GetLogger(log.WithContext(ih)).WithFields(log.Fields{"repository": ih.Repository.Named().Name()})
+	// acquire semaphore
+	ih.acquireImportSemaphore()
+
+	defer func() {
+		if len(ih.Errors) > 0 {
+			// make sure we release the resource if this handler returned an error
+			ih.releaseImportSemaphore()
+		}
+	}()
+
+	l := log.GetLogger(log.WithContext(ih)).WithFields(log.Fields{
+		"repository":             ih.Repository.Named().Name(),
+		"current_import_count":   len(ih.importSemaphore),
+		"max_concurrent_imports": cap(ih.importSemaphore),
+	})
 	l.Debug("ImportRepository")
 
 	dbRepo, err := ih.FindByPath(ih.Context, ih.Repository.Named().Name())
@@ -60,6 +74,7 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 	}
 
 	// TODO: We should have a specific error for bad query values.
+	// https://gitlab.com/gitlab-org/container-registry/-/issues/587
 	ih.preImport, err = getPreValue(r)
 	if err != nil {
 		ih.Errors = append(ih.Errors, errcode.FromUnknownError(err))
@@ -113,6 +128,8 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 	}
 
 	go func() {
+		defer ih.releaseImportSemaphore()
+
 		importer := datastore.NewImporter(
 			ih.App.db,
 			ih.App.registry,
@@ -288,4 +305,38 @@ func getImportDetail(preImport bool, err error) string {
 	}
 
 	return "import completed successfully"
+}
+
+// maxConcurrentImportsMiddleware is a middleware that checks the configured `maxconcurrentimports`
+// and does not allow requests to begin an import if the limit has been reached.
+func (ih *importHandler) maxConcurrentImportsMiddleware(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// TODO: add saturation metrics https://gitlab.com/gitlab-org/container-registry/-/issues/586
+		// the capacity is equivalent to the `maxconcurrentimports` value
+		capacity := cap(ih.importSemaphore)
+		// the length of the semaphore tells us how many resources are being currently used
+		length := len(ih.importSemaphore)
+
+		if length < capacity {
+			handler.ServeHTTP(w, r)
+			return
+		}
+
+		log.GetLogger(log.WithContext(ih.Context)).WithFields(log.Fields{
+			"repository":             ih.Repository.Named().Name(),
+			"max_concurrent_imports": capacity,
+		}).Warn("import has been rate limited")
+
+		detail := v1.ErrorCodeImportRateLimitedDetail(ih.Repository)
+		ih.Errors = append(ih.Errors, v1.ErrorCodeImportRateLimited.WithDetail(detail))
+		return
+	})
+}
+
+func (ih *importHandler) acquireImportSemaphore() {
+	ih.importSemaphore <- struct{}{}
+}
+
+func (ih *importHandler) releaseImportSemaphore() {
+	<-ih.importSemaphore
 }
