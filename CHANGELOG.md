@@ -1,3 +1,15 @@
+# [3.25.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.24.1-gitlab...v3.25.0-gitlab) (2022-02-11)
+
+
+### Bug Fixes
+
+* ignore soft-deleted repositories on reads and undo soft-delete on writes ([47045dd](https://gitlab.com/gitlab-org/container-registry/commit/47045dd557694fb1490d87f87f07b176b6c6fc35))
+
+
+### Features
+
+* **configuration:** enable setting (pre) import timeoutes for the API import route ([319b04a](https://gitlab.com/gitlab-org/container-registry/commit/319b04a145af8c4001965cf53b0ef64b8015487b))
+
 ## [3.24.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.24.0-gitlab...v3.24.1-gitlab) (2022-02-09)
 
 
