@@ -37,6 +37,9 @@ type Repository struct {
 	MigrationStatus migration.RepositoryStatus
 	CreatedAt       time.Time
 	UpdatedAt       sql.NullTime
+	// This is a temporary attribute for the duration of https://gitlab.com/gitlab-org/container-registry/-/issues/570,
+	// and is only here to allow us to test selects and inserts for soft-deleted repositories:
+	DeletedAt sql.NullTime
 }
 
 // Repositories is a slice of Repository pointers.

@@ -7017,6 +7017,7 @@ CREATE TABLE public.repositories (
     name text NOT NULL,
     path text NOT NULL,
     migration_status text DEFAULT 'native' ::text NOT NULL,
+    deleted_at timestamp with time zone,
     CONSTRAINT check_repositories_migration_status_length CHECK ((char_length(migration_status) <= 255)),
     CONSTRAINT check_repositories_name_length CHECK ((char_length(name) <= 255)),
     CONSTRAINT check_repositories_path_length CHECK ((char_length(path) <= 255))
@@ -15536,9 +15537,6 @@ ALTER TABLE public.manifests
 
 ALTER TABLE ONLY public.repositories
     ADD CONSTRAINT fk_repositories_top_level_namespace_id_top_level_namespaces FOREIGN KEY (top_level_namespace_id) REFERENCES public.top_level_namespaces (id) ON DELETE CASCADE;
-
-ALTER TABLE ONLY public.repositories
-    ADD CONSTRAINT fk_repositories_top_lvl_namespace_id_and_parent_id_repositories FOREIGN KEY (top_level_namespace_id, parent_id) REFERENCES public.repositories (top_level_namespace_id, id) ON DELETE CASCADE;
 
 ALTER TABLE public.repository_blobs
     ADD CONSTRAINT fk_repository_blobs_blob_digest_blobs FOREIGN KEY (blob_digest) REFERENCES public.blobs (digest) ON DELETE CASCADE;

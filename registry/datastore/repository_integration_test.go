@@ -4,7 +4,9 @@
 package datastore_test
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -1691,4 +1693,79 @@ func TestRepositoryStore_Delete_SingleRepositoryCache(t *testing.T) {
 	err = s.Delete(suite.ctx, r.ID)
 	require.NoError(t, err)
 	require.Nil(t, c.Get("gitlab-org/gitlab-test/backend"))
+}
+
+func softDeleteRepository(ctx context.Context, db *datastore.DB, r *models.Repository) error {
+	q := `UPDATE
+			repositories
+		SET
+			deleted_at = now()
+		WHERE
+			top_level_namespace_id = $1
+			AND id = $2
+		RETURNING
+			deleted_at` // Return deleted_at here for validation purposes
+
+	row := db.QueryRowContext(ctx, q, r.NamespaceID, r.ID)
+	if err := row.Scan(&r.DeletedAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("repository not found")
+		}
+		return fmt.Errorf("soft deleting repository: %w", err)
+	}
+
+	return nil
+}
+
+func TestSoftDeleteRepository(t *testing.T) {
+	reloadRepositoryFixtures(t)
+
+	// grab a random repository and soft delete it
+	s := datastore.NewRepositoryStore(suite.db)
+	r, err := s.FindByPath(suite.ctx, "gitlab-org/gitlab-test")
+	require.NoError(t, err)
+	require.NotNil(t, r)
+
+	err = softDeleteRepository(suite.ctx, suite.db, r)
+	require.NoError(t, err)
+	require.True(t, r.DeletedAt.Valid)
+	require.NotZero(t, r.DeletedAt.Time)
+}
+
+func TestRepositoryStore_FindByPath_SoftDeleted(t *testing.T) {
+	reloadRepositoryFixtures(t)
+
+	// grab a random repository and soft delete it
+	s := datastore.NewRepositoryStore(suite.db)
+	r, err := s.FindByPath(suite.ctx, "gitlab-org/gitlab-test")
+	require.NoError(t, err)
+	require.NotNil(t, r)
+
+	err = softDeleteRepository(suite.ctx, suite.db, r)
+	require.NoError(t, err)
+
+	// confirm that attempting to read the soft-deleted repositories yields nothing
+	r, err = s.FindByPath(suite.ctx, "gitlab-org/gitlab-test")
+	require.NoError(t, err)
+	require.Nil(t, r)
+}
+
+func TestRepositoryStore_CreateOrFindByPath_SoftDeleted(t *testing.T) {
+	reloadRepositoryFixtures(t)
+
+	// grab a random repository and soft delete it
+	s := datastore.NewRepositoryStore(suite.db)
+	r, err := s.FindByPath(suite.ctx, "gitlab-org/gitlab-test")
+	require.NoError(t, err)
+	require.NotNil(t, r)
+
+	err = softDeleteRepository(suite.ctx, suite.db, r)
+	require.NoError(t, err)
+
+	// attempt to create repository, there should be no error and the soft delete must be reverted
+	r, err = s.CreateOrFindByPath(suite.ctx, "gitlab-org/gitlab-test")
+	require.NoError(t, err)
+	require.NotNil(t, r)
+	require.False(t, r.DeletedAt.Valid)
+	require.Zero(t, r.DeletedAt.Time)
 }
