@@ -27,9 +27,9 @@ A list of methods and URIs are covered in the table below:
 | Method | Path                          | Description                                                   |
 | ------ | ----------------------------- | ------------------------------------------------------------- |
 | `GET`  | `/gitlab/v1/`                    | Check that the registry implements this API specification. |
-| `GET`  | `/gitlab/v1/repositories/<path>` | Obtain details about the repository identified by `path`.  |
-| `PUT`  | `/gitlab/v1/import/<path>` | Move the repository identified by `path` from filesystem metadata to the database.  |
-| `GET`  | `/gitlab/v1/import/<path>` | Query import status of the repository identified by `path`.  |
+| `GET`  | `/gitlab/v1/repositories/<path>/` | Obtain details about the repository identified by `path`.  |
+| `PUT`  | `/gitlab/v1/import/<path>/` | Move the repository identified by `path` from filesystem metadata to the database.  |
+| `GET`  | `/gitlab/v1/import/<path>/` | Query import status of the repository identified by `path`.  |
 
 By design, any feature that incurs additional processing time, such as query parameters that allow obtaining additional data, is opt-*in*.
 
@@ -40,6 +40,10 @@ The same authentication mechanism is shared by this and the `/v2/` API. Therefor
 Considering the above, and unless stated otherwise, all `HEAD` and `GET` requests require a token with `pull` permissions for the target repository(ies), `POST`, `PUT`, and `PATCH` requests require  `push` permissions, and `DELETE` requests require `delete` permissions.
 
 Please refer to the original [documentation](https://docs.docker.com/registry/spec/auth/) from Docker for more details about authentication.
+
+### Strict Slash
+
+We enforce a strict slash policy for all endpoints on this API. This means that all paths must end with a forward slash `/`. A `301 Moved Permanently` response will be issued to redirect the client if the request is sent without the trailing slash. The need to maintain the strict slash policy wil be reviewed on [gitlab-org/container-registry#562](https://gitlab.com/gitlab-org/container-registry/-/issues/562).
 
 ## Compliance check
 
@@ -82,7 +86,7 @@ Obtain details about a repository.
 ### Request
 
 ```shell
-GET /gitlab/v1/repositories/<path>
+GET /gitlab/v1/repositories/<path>/
 ```
 
 | Attribute     | Type    | Required | Default | Description                                                  |
@@ -142,7 +146,7 @@ code path, and will cause the import process to be cancelled.
 ### Request
 
 ```shell
-PUT /gitlab/v1/import/<path>
+PUT /gitlab/v1/import/<path>/
 ```
 
 | Attribute     | Type    | Required | Default   | Description                                                  |
@@ -241,7 +245,7 @@ Query import status of a repository.
 ### Request
 
 ```shell
-GET /gitlab/v1/import/<path>
+GET /gitlab/v1/import/<path>/
 ```
 
 | Attribute     | Type    | Required | Default   | Description                                                  |
