@@ -726,6 +726,37 @@ migration:
 
 	testParameter(t, yml, "REGISTRY_MIGRATION_TAGCONCURRENCY", tt, validator)
 }
+func TestParseMigrationMaxConcurrentImports(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+migration:
+  enabled: true
+  maxconcurrentimports: %s
+`
+	tt := []parameterTest{
+		{
+			name:  "sample",
+			value: "100",
+			want:  100,
+		},
+		{
+			name: "default",
+			want: 1,
+		},
+		{
+			name:  "negative",
+			value: "-1",
+			want:  1,
+		},
+	}
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, got.Migration.MaxConcurrentImports)
+	}
+
+	testParameter(t, yml, "REGISTRY_MIGRATION_MAXCONCURRENTIMPORTS", tt, validator)
+}
 
 func TestParseMigrationImportNotification_Enabled(t *testing.T) {
 	yml := `

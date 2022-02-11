@@ -431,6 +431,10 @@ type Migration struct {
 	// PreImportTimeout is the maximum duration that a pre import job may take to
 	// complete before it is aborted. Defaults to 2 hours.
 	PreImportTimeout time.Duration `yaml:"preimporttimeout,omitempty"`
+	// MaxConcurrentImports determines the maximum number of concurrent imports
+	// allowed per instance of the registry. This can help reduce the number of
+	// resources that the registry needs when the migration mode is enabled. Default `1`.
+	MaxConcurrentImports int `yaml:"maxconcurrentimports,omitempty"`
 	// ImportNotification defines the endpoint to use to notify when an import or pre-import
 	// has completed with a given status and details.
 	ImportNotification struct {
@@ -1079,5 +1083,8 @@ func ApplyDefaults(config *Configuration) {
 	}
 	if config.Migration.Enabled && config.Migration.PreImportTimeout < 1 {
 		config.Migration.PreImportTimeout = 2 * time.Hour
+	}
+	if config.Migration.Enabled && config.Migration.MaxConcurrentImports < 1 {
+		config.Migration.MaxConcurrentImports = 1
 	}
 }

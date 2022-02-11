@@ -5,6 +5,7 @@ package handlers_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -365,4 +366,25 @@ func (min *mockImportNotification) waitForImportNotification(t *testing.T, path,
 func repositoryName(path string) string {
 	segments := strings.Split(filepath.Clean(path), "/")
 	return segments[len(segments)-1]
+}
+
+func generateOldRepoPaths(t *testing.T, template string, count int) []string {
+	t.Helper()
+
+	var repoPaths []string
+
+	for i := 0; i < count; i++ {
+		path := fmt.Sprintf(template, i)
+		repoPaths = append(repoPaths, path)
+	}
+
+	return repoPaths
+}
+
+func seedMultipleFSManifestsWithTag(t *testing.T, env *testEnv, tagName string, repoPaths []string) {
+	t.Helper()
+
+	for _, path := range repoPaths {
+		seedRandomSchema2Manifest(t, env, path, putByTag(tagName), writeToFilesystemOnly)
+	}
 }

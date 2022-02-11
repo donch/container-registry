@@ -83,6 +83,7 @@ type App struct {
 	migrationRegistry  distribution.Namespace      // migrationRegistry is the secondary registry backend for migration
 	migrationDriver    storagedriver.StorageDriver // migrationDriver is the secondary storage driver for migration
 	importNotifier     *migration.Notifier         // importNotifier used to send notifications when an import or pre-import is done
+	importSemaphore    chan struct{}               //importSemaphore is used to limit the maximum number of concurrent imports
 
 	repoRemover      distribution.RepositoryRemover // repoRemover provides ability to delete repos
 	accessController auth.AccessController          // main access controller for application
@@ -160,6 +161,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 
 	if config.Migration.Enabled {
 		app.migrationDriver = migrationDriver(config)
+		app.importSemaphore = make(chan struct{}, config.Migration.MaxConcurrentImports)
 
 		if config.Migration.ImportNotification.Enabled {
 			notifier, err := migration.NewNotifier(
