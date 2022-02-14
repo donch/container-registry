@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/docker/distribution/version"
 	"github.com/sirupsen/logrus"
 )
 
@@ -137,6 +138,8 @@ func getLogrusLogger(ctx context.Context, keys ...interface{}) *logrus.Entry {
 		}
 
 		fields["go_version"] = runtime.Version()
+		fields["version"] = version.Version
+
 		// If no logger is found, just return the standard logger.
 		logger = logrus.StandardLogger().WithFields(fields)
 	}
