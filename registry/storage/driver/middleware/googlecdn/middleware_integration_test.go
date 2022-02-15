@@ -105,11 +105,7 @@ func TestURLFor(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// During the gradual rollout of this feature on GitLab.com, redirections to Google Cloud CDN will be bypassed
-	// unless the context has a flag to enable it for a given request. For this reason, we have to add the flag to all
-	// tests here by default. This will be reverted as part of https://gitlab.com/gitlab-org/gitlab/-/issues/349419.
-	ctx := dcontext.WithCDNRedirect(context.Background())
-	cdnURL, err := cdnDriver.URLFor(ctx, objectPath, nil)
+	cdnURL, err := cdnDriver.URLFor(context.Background(), objectPath, nil)
 	require.NoError(t, err)
 
 	expectedURL := signURL(
@@ -131,7 +127,7 @@ func TestURLFor(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	cdnURL, err = cdnDriver.URLFor(ctx, objectPath, nil)
+	cdnURL, err = cdnDriver.URLFor(context.Background(), objectPath, nil)
 	require.NoError(t, err)
 
 	expectedURL = signURL(
@@ -162,16 +158,14 @@ func TestURLFor(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.RemoteAddr = "10.0.0.1"
-	ctx = dcontext.WithCDNRedirect(context.Background())
-	ctx = dcontext.WithRequest(ctx, req)
+	ctx := dcontext.WithRequest(context.Background(), req)
 	gcsURL, err := cdnDriver.URLFor(ctx, objectPath, nil)
 	require.NoError(t, err)
 	require.Regexp(t, "^https://storage.googleapis.com/.*", gcsURL)
 
 	// IP filter ON - generate CDN URL if IP does not match
 	req.RemoteAddr = "11.0.0.1"
-	ctx = dcontext.WithCDNRedirect(context.Background())
-	ctx = dcontext.WithRequest(ctx, req)
+	ctx = dcontext.WithRequest(context.Background(), req)
 
 	cdnURL, err = cdnDriver.URLFor(ctx, objectPath, nil)
 	require.NoError(t, err)
@@ -194,8 +188,7 @@ func TestURLFor(t *testing.T) {
 	require.NoError(t, err)
 
 	req.RemoteAddr = "10.0.0.1"
-	ctx = dcontext.WithCDNRedirect(context.Background())
-	ctx = dcontext.WithRequest(ctx, req)
+	ctx = dcontext.WithRequest(context.Background(), req)
 
 	cdnURL, err = cdnDriver.URLFor(ctx, objectPath, nil)
 	require.NoError(t, err)
@@ -210,8 +203,7 @@ func TestURLFor(t *testing.T) {
 
 	// IP filter OFF - generate CDN URL if IP does not match
 	req.RemoteAddr = "11.0.0.1"
-	ctx = dcontext.WithCDNRedirect(context.Background())
-	ctx = dcontext.WithRequest(ctx, req)
+	ctx = dcontext.WithRequest(context.Background(), req)
 
 	cdnURL, err = cdnDriver.URLFor(ctx, objectPath, nil)
 	require.NoError(t, err)
@@ -223,20 +215,6 @@ func TestURLFor(t *testing.T) {
 		clockMock.Now().Add(defaultDuration),
 	)
 	require.Equal(t, expectedURL, cdnURL)
-
-	// generate GCS URL if context has no CDN redirect flag
-	cdnDriver, err = newGoogleCDNStorageMiddleware(gcsDriver, map[string]interface{}{
-		"baseurl":    baseURL,
-		"privatekey": keyFile,
-		"keyname":    keyName,
-	})
-	require.NoError(t, err)
-
-	req = httptest.NewRequest(http.MethodGet, "/", nil)
-	ctx = dcontext.WithRequest(context.Background(), req)
-	gcsURL, err = cdnDriver.URLFor(ctx, objectPath, nil)
-	require.NoError(t, err)
-	require.Regexp(t, "^https://storage.googleapis.com/.*", gcsURL)
 }
 
 func TestURLFor_Download(t *testing.T) {
@@ -250,7 +228,8 @@ func TestURLFor_Download(t *testing.T) {
 	objContent := []byte("content")
 	objChecksum := sha256.Sum256(objContent)
 
-	ctx := dcontext.WithCDNRedirect(context.Background())
+	ctx := dcontext.Background()
+
 	err := gcsDriver.PutContent(ctx, objPath, objContent)
 	require.NoError(t, err)
 
