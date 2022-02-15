@@ -1,3 +1,17 @@
+# [3.26.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.25.0-gitlab...v3.26.0-gitlab) (2022-02-15)
+
+
+### Bug Fixes
+
+* soft delete empty repository records (batch 1) ([8e58b4d](https://gitlab.com/gitlab-org/container-registry/commit/8e58b4de799894cd2a2a0d40f93cad341a2f5b41))
+
+
+### Features
+
+* do not limit redirections to Google Cloud CDN ([ec64f51](https://gitlab.com/gitlab-org/container-registry/commit/ec64f51faf49d785083f6d74fca054d33a1ac9a9))
+* **handlers:** add support for maxconcurrentimports in the import handler ([3b789ae](https://gitlab.com/gitlab-org/container-registry/commit/3b789aeaca05c10d2a5b316290b60a09d4c0b98c))
+* **log/context:** log registry version everywhere ([bdd2844](https://gitlab.com/gitlab-org/container-registry/commit/bdd284460ef703bdaf3988862cfe5e6765ee2d60))
+
 # [3.25.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.24.1-gitlab...v3.25.0-gitlab) (2022-02-11)
 
 
