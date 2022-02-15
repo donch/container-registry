@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
-	dcontext "github.com/docker/distribution/context"
 	"github.com/docker/distribution/log"
 	"github.com/docker/distribution/registry/internal"
 	"github.com/docker/distribution/registry/storage/driver"
@@ -163,11 +162,6 @@ type gcsBucketKeyer interface {
 func (lh *googleCDNStorageMiddleware) URLFor(ctx context.Context, path string, options map[string]interface{}) (string, error) {
 	l := log.GetLogger(log.WithContext(ctx))
 
-	if !dcontext.ShouldRedirectToCDN(ctx) {
-		l.Info("the request was not marked as eligible for Google CDN redirection, bypassing")
-		metrics.CDNRedirect("gcs", true, "non_eligible")
-		return lh.StorageDriver.URLFor(ctx, path, options)
-	}
 	keyer, ok := lh.StorageDriver.(gcsBucketKeyer)
 	if !ok {
 		l.Warn("the Google CDN middleware does not support this backend storage driver, bypassing")
