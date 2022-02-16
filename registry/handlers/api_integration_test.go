@@ -111,6 +111,12 @@ func withMigrationMaxConcurrentImports(n int) configOpt {
 	}
 }
 
+func withMigrationTestSlowImport(d time.Duration) configOpt {
+	return func(config *configuration.Configuration) {
+		config.Migration.TestSlowImport = d
+	}
+}
+
 func withImportNotification(serverURL string) configOpt {
 	return func(config *configuration.Configuration) {
 		config.Migration.ImportNotification.Enabled = true
@@ -422,6 +428,10 @@ func newConfig(opts ...configOpt) configuration.Configuration {
 			SSLRootCert: dsn.SSLRootCert,
 		}
 	}
+
+	// Default to a tag concurrency of 1, or imports will hang without
+	// an explicit configuration.
+	config.Migration.TagConcurrency = 1
 
 	// Default to sensibly short timeout values for testing.
 	config.Migration.ImportTimeout = 5 * time.Second
@@ -6369,9 +6379,6 @@ func newTestEnvWithConfig(t *testing.T, config *configuration.Configuration) *te
 				withEligibilityMockAuth(true, true)(config)
 			}
 
-			// Default to a tag concurrency of 1, or imports will hang without
-			// an explicit configuration.
-			config.Migration.TagConcurrency = 1
 		}
 	}
 

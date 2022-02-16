@@ -900,6 +900,40 @@ migration:
 	testParameter(t, yml, "REGISTRY_MIGRATION_PREIMPORTTIMEOUT", tt, validator)
 }
 
+func TestParseMigrationTestSlowImport(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+migration:
+  enabled: true
+  testslowimport: %s
+`
+	// TestSlowImport should not be exposed to users. Its value is forced to zero
+	// if the configuration is being parsed, but developers have access internally.
+	tt := []parameterTest{
+		{
+			name:  "sample",
+			value: "20m",
+			want:  time.Duration(0),
+		},
+		{
+			name: "default",
+			want: time.Duration(0),
+		},
+		{
+			name:  "negative",
+			value: "-1",
+			want:  time.Duration(0),
+		},
+	}
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, got.Migration.TestSlowImport)
+	}
+
+	testParameter(t, yml, "REGISTRY_MIGRATION_TESTSLOWIMPORT", tt, validator)
+}
+
 // TestParseInvalidVersion validates that the parser will fail to parse a newer configuration
 // version than the CurrentVersion
 func (suite *ConfigSuite) TestParseInvalidVersion(c *C) {

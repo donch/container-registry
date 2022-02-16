@@ -35,6 +35,7 @@ type Importer struct {
 	dryRun                  bool
 	tagConcurrency          int
 	rowCount                bool
+	testingDelay            time.Duration
 }
 
 // ImporterOption provides functional options for the Importer.
@@ -82,6 +83,15 @@ func WithBlobTransferService(bts distribution.BlobTransferService) ImporterOptio
 func WithTagConcurrency(n int) ImporterOption {
 	return func(imp *Importer) {
 		imp.tagConcurrency = n
+	}
+}
+
+// WithTestSlowImport configures the Importer to sleep at the end of the import
+// for the given duration. This is useful for testing, but should never be
+// enabled on production environments.
+func WithTestSlowImport(d time.Duration) ImporterOption {
+	return func(imp *Importer) {
+		imp.testingDelay = d
 	}
 }
 
@@ -760,6 +770,9 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 		return err
 	}
 
+	// This should only delay during testing.
+	time.Sleep(imp.testingDelay)
+
 	if !imp.dryRun {
 		// reset stores to use the main connection handler instead of the last (committed/rolled back) transaction
 		imp.loadStores(imp.db)
@@ -815,6 +828,9 @@ func (imp *Importer) Import(ctx context.Context, path string) error {
 		l.WithError(err).Error("error importing repository")
 		return err
 	}
+
+	// This should only delay during testing.
+	time.Sleep(imp.testingDelay)
 
 	if imp.rowCount {
 		counters, err := imp.countRows(ctx)
@@ -893,6 +909,9 @@ func (imp *Importer) PreImport(ctx context.Context, path string) error {
 	if err = imp.preImportTaggedManifests(ctx, fsRepo, dbRepo); err != nil {
 		return fmt.Errorf("pre importing tagged manifests: %w", err)
 	}
+
+	// This should only delay during testing.
+	time.Sleep(imp.testingDelay)
 
 	if !imp.dryRun {
 		// reset stores to use the main connection handler instead of the last (committed/rolled back) transaction
