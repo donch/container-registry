@@ -1,3 +1,15 @@
+# [3.27.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.26.0-gitlab...v3.27.0-gitlab) (2022-02-16)
+
+
+### Bug Fixes
+
+* soft delete empty repository records (batch 2) ([b176df0](https://gitlab.com/gitlab-org/container-registry/commit/b176df0823882f96e87c3b36f33d5ad631b0b6d5))
+
+
+### Features
+
+* **datastore:** add support for repository options on creation ([fbb7753](https://gitlab.com/gitlab-org/container-registry/commit/fbb77531f684c0cac88493a464621612fa445bb2))
+
 # [3.26.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.25.0-gitlab...v3.26.0-gitlab) (2022-02-15)
 
 
