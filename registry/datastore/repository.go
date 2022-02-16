@@ -11,6 +11,7 @@ import (
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/registry/datastore/metrics"
 	"github.com/docker/distribution/registry/datastore/models"
+	"github.com/docker/distribution/registry/internal/migration"
 
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
@@ -45,9 +46,9 @@ type RepositoryReader interface {
 // RepositoryWriter is the interface that defines write operations for a repository store.
 type RepositoryWriter interface {
 	Create(ctx context.Context, r *models.Repository) error
-	CreateByPath(ctx context.Context, path string) (*models.Repository, error)
+	CreateByPath(ctx context.Context, path string, opts ...repositoryOption) (*models.Repository, error)
 	CreateOrFind(ctx context.Context, r *models.Repository) error
-	CreateOrFindByPath(ctx context.Context, path string) (*models.Repository, error)
+	CreateOrFindByPath(ctx context.Context, path string, opts ...repositoryOption) (*models.Repository, error)
 	Update(ctx context.Context, r *models.Repository) error
 	UntagManifest(ctx context.Context, r *models.Repository, m *models.Manifest) error
 	LinkBlob(ctx context.Context, r *models.Repository, d digest.Digest) error
@@ -55,6 +56,16 @@ type RepositoryWriter interface {
 	DeleteTagByName(ctx context.Context, r *models.Repository, name string) (bool, error)
 	DeleteManifest(ctx context.Context, r *models.Repository, d digest.Digest) (bool, error)
 	Delete(ctx context.Context, id int64) error
+}
+
+type repositoryOption func(*models.Repository)
+
+// WithMigrationStatus instantiates the repository with the provided
+// migration status.
+func WithMigrationStatus(status migration.RepositoryStatus) repositoryOption {
+	return func(r *models.Repository) {
+		r.MigrationStatus = status
+	}
 }
 
 type repositoryStoreOption func(*repositoryStore)
@@ -805,13 +816,18 @@ func (s *repositoryStore) ExistsBlob(ctx context.Context, r *models.Repository, 
 // Create saves a new repository.
 func (s *repositoryStore) Create(ctx context.Context, r *models.Repository) error {
 	defer metrics.InstrumentQuery("repository_create")()
-	q := `INSERT INTO repositories (top_level_namespace_id, name, path, parent_id)
-			VALUES ($1, $2, $3, $4)
-		RETURNING
-			id, migration_status, created_at`
 
-	row := s.db.QueryRowContext(ctx, q, r.NamespaceID, r.Name, r.Path, r.ParentID)
-	if err := row.Scan(&r.ID, &r.MigrationStatus, &r.CreatedAt); err != nil {
+	if r.MigrationStatus == "" {
+		r.MigrationStatus = migration.RepositoryStatusNative
+	}
+
+	q := `INSERT INTO repositories (top_level_namespace_id, name, path, parent_id, migration_status)
+			VALUES ($1, $2, $3, $4, $5)
+		RETURNING
+			id, created_at`
+
+	row := s.db.QueryRowContext(ctx, q, r.NamespaceID, r.Name, r.Path, r.ParentID, r.MigrationStatus)
+	if err := row.Scan(&r.ID, &r.CreatedAt); err != nil {
 		return fmt.Errorf("creating repository: %w", err)
 	}
 
@@ -923,20 +939,24 @@ func (s *repositoryStore) CreateOrFind(ctx context.Context, r *models.Repository
 		return nil
 	}
 
+	if r.MigrationStatus == "" {
+		r.MigrationStatus = migration.RepositoryStatusNative
+	}
+
 	// if not, proceed with creation attempt...
 	// DO UPDATE SET deleted_at = NULL is a temporary measure for the duration of
 	// https://gitlab.com/gitlab-org/container-registry/-/issues/570. If a repo record already exists for `path` but is
 	// marked as soft deleted, we should undo the soft delete and proceed gracefully.
-	q := `INSERT INTO repositories (top_level_namespace_id, name, path, parent_id)
-			VALUES ($1, $2, $3, $4)
+	q := `INSERT INTO repositories (top_level_namespace_id, name, path, parent_id, migration_status)
+			VALUES ($1, $2, $3, $4, $5)
 		ON CONFLICT (path)
 			DO UPDATE SET
 				deleted_at = NULL
 		RETURNING
-			id, migration_status, created_at, deleted_at` // deleted_at returned for test validation purposes only
+			id, created_at, deleted_at` // deleted_at returned for test validation purposes only
 
-	row := s.db.QueryRowContext(ctx, q, r.NamespaceID, r.Name, r.Path, r.ParentID)
-	if err := row.Scan(&r.ID, &r.MigrationStatus, &r.CreatedAt, &r.DeletedAt); err != nil {
+	row := s.db.QueryRowContext(ctx, q, r.NamespaceID, r.Name, r.Path, r.ParentID, r.MigrationStatus)
+	if err := row.Scan(&r.ID, &r.CreatedAt, &r.DeletedAt); err != nil {
 		if err != sql.ErrNoRows {
 			return fmt.Errorf("creating repository: %w", err)
 		}
@@ -963,7 +983,7 @@ func repositoryName(path string) string {
 }
 
 // CreateByPath creates the repository for a given path. An error is returned if the repository already exists.
-func (s *repositoryStore) CreateByPath(ctx context.Context, path string) (*models.Repository, error) {
+func (s *repositoryStore) CreateByPath(ctx context.Context, path string, opts ...repositoryOption) (*models.Repository, error) {
 	if cached := s.cache.Get(path); cached != nil {
 		return cached, nil
 	}
@@ -976,6 +996,11 @@ func (s *repositoryStore) CreateByPath(ctx context.Context, path string) (*model
 
 	defer metrics.InstrumentQuery("repository_create_by_path")()
 	r := &models.Repository{NamespaceID: n.ID, Name: repositoryName(path), Path: path}
+
+	for _, opt := range opts {
+		opt(r)
+	}
+
 	if err := s.Create(ctx, r); err != nil {
 		return nil, err
 	}
@@ -987,7 +1012,7 @@ func (s *repositoryStore) CreateByPath(ctx context.Context, path string) (*model
 
 // CreateOrFindByPath is the fully idempotent version of CreateByPath, where no error is returned if the repository
 // already exists.
-func (s *repositoryStore) CreateOrFindByPath(ctx context.Context, path string) (*models.Repository, error) {
+func (s *repositoryStore) CreateOrFindByPath(ctx context.Context, path string, opts ...repositoryOption) (*models.Repository, error) {
 	if cached := s.cache.Get(path); cached != nil {
 		return cached, nil
 	}
@@ -1000,6 +1025,11 @@ func (s *repositoryStore) CreateOrFindByPath(ctx context.Context, path string) (
 
 	defer metrics.InstrumentQuery("repository_create_or_find_by_path")()
 	r := &models.Repository{NamespaceID: n.ID, Name: repositoryName(path), Path: path}
+
+	for _, opt := range opts {
+		opt(r)
+	}
+
 	if err := s.CreateOrFind(ctx, r); err != nil {
 		return nil, err
 	}

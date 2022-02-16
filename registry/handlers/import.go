@@ -211,23 +211,24 @@ func (ih *importHandler) shouldImport(dbRepo *models.Repository) (bool, error) {
 }
 
 func (ih *importHandler) createOrUpdateRepo(ctx context.Context, dbRepo *models.Repository) (*models.Repository, error) {
-	// TODO: We should set the migration status in one step if the repository does not exist.
+	var status migration.RepositoryStatus
+	if ih.preImport {
+		status = migration.RepositoryStatusPreImportInProgress
+	} else {
+		status = migration.RepositoryStatusImportInProgress
+	}
+
 	var err error
 	if dbRepo == nil {
-		dbRepo, err = ih.CreateByPath(ih.Context, ih.Repository.Named().Name())
+		dbRepo, err = ih.CreateByPath(ih.Context, ih.Repository.Named().Name(), datastore.WithMigrationStatus(status))
 		if err != nil {
 			return dbRepo, fmt.Errorf("creating repository for import: %w", err)
 		}
-	}
-
-	if ih.preImport {
-		dbRepo.MigrationStatus = migration.RepositoryStatusPreImportInProgress
 	} else {
-		dbRepo.MigrationStatus = migration.RepositoryStatusImportInProgress
-	}
-
-	if err := ih.Update(ih.Context, dbRepo); err != nil {
-		return dbRepo, fmt.Errorf("updating migration status before import: %w", err)
+		dbRepo.MigrationStatus = status
+		if err := ih.Update(ih.Context, dbRepo); err != nil {
+			return dbRepo, fmt.Errorf("updating migration status before import: %w", err)
+		}
 	}
 
 	return dbRepo, nil
