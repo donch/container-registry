@@ -435,6 +435,9 @@ type Migration struct {
 	// allowed per instance of the registry. This can help reduce the number of
 	// resources that the registry needs when the migration mode is enabled. Default `1`.
 	MaxConcurrentImports int `yaml:"maxconcurrentimports,omitempty"`
+	// TestSlowImport configures the importer to sleep for the given amount of time
+	// and the end of the import. Never use this outside of testing.
+	TestSlowImport time.Duration `yaml:"testslowimport,omitempty"`
 	// ImportNotification defines the endpoint to use to notify when an import or pre-import
 	// has completed with a given status and details.
 	ImportNotification struct {
@@ -1087,4 +1090,7 @@ func ApplyDefaults(config *Configuration) {
 	if config.Migration.Enabled && config.Migration.MaxConcurrentImports < 1 {
 		config.Migration.MaxConcurrentImports = 1
 	}
+
+	// Prevent this from being configured by users.
+	config.Migration.TestSlowImport = 0
 }

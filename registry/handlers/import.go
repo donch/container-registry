@@ -64,8 +64,14 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 		"repository":             ih.Repository.Named().Name(),
 		"current_import_count":   len(ih.importSemaphore),
 		"max_concurrent_imports": cap(ih.importSemaphore),
+		"delay_s":                ih.App.Config.Migration.TestSlowImport.Seconds(),
+		"tag_concurrency":        ih.App.Config.Migration.TagConcurrency,
 	})
 	l.Debug("ImportRepository")
+
+	if ih.App.Config.Migration.TestSlowImport > 0 {
+		l.Warn("testing slow import, this should never happen in production")
+	}
 
 	dbRepo, err := ih.FindByPath(ih.Context, ih.Repository.Named().Name())
 	if err != nil {
@@ -135,6 +141,8 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 			ih.App.registry,
 			datastore.WithBlobTransferService(bts),
 			datastore.WithTagConcurrency(ih.App.Config.Migration.TagConcurrency),
+			// This should ALWAYS be set to zero during production.
+			datastore.WithTestSlowImport(ih.App.Config.Migration.TestSlowImport),
 		)
 
 		ctx, cancel := context.WithTimeout(context.Background(), ih.timeout)

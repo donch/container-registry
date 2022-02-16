@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
@@ -23,6 +24,8 @@ import (
 	"github.com/docker/distribution/registry/internal/migration"
 	"github.com/stretchr/testify/require"
 )
+
+var waitForever = time.Duration(math.MaxInt64)
 
 func TestGitlabAPI_RepositoryImport_Put(t *testing.T) {
 	rootDir, err := os.MkdirTemp("", "api-repository-import-")
@@ -260,8 +263,8 @@ func TestGitlabAPI_RepositoryImport_Put_PreImportInProgress(t *testing.T) {
 		t, withFSDriver(rootDir),
 		withMigrationEnabled,
 		withMigrationRootDirectory(migrationDir),
-		// Zero causes the importer to block, simulating a long running pre import.
-		withMigrationTagConcurrency(0),
+		// Simulate a long running import.
+		withMigrationTestSlowImport(waitForever),
 	)
 	defer env2.Shutdown()
 
@@ -325,8 +328,8 @@ func TestGitlabAPI_RepositoryImport_Put_ImportInProgress(t *testing.T) {
 		t, withFSDriver(rootDir),
 		withMigrationEnabled,
 		withMigrationRootDirectory(migrationDir),
-		// Zero causes the importer to block, simulating a long running import.
-		withMigrationTagConcurrency(0),
+		// Simulate a long running import.
+		withMigrationTestSlowImport(waitForever),
 	)
 	defer env2.Shutdown()
 
