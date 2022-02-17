@@ -1,3 +1,15 @@
+# [3.28.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.27.1-gitlab...v3.28.0-gitlab) (2022-02-17)
+
+
+### Bug Fixes
+
+* soft delete empty repository records (batch 4) ([e6e3252](https://gitlab.com/gitlab-org/container-registry/commit/e6e32528159d8b86009c09212d884d0d876c2d84))
+
+
+### Features
+
+* **notifier:** forward correlation ID for import notification ([b99cb86](https://gitlab.com/gitlab-org/container-registry/commit/b99cb86b117b7943ca8023c85b571b644d59e786))
+
 ## [3.27.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.27.0-gitlab...v3.27.1-gitlab) (2022-02-16)
 
 
