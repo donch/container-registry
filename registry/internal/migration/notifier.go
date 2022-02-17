@@ -12,6 +12,11 @@ import (
 	"time"
 
 	"github.com/docker/distribution/log"
+	"gitlab.com/gitlab-org/labkit/correlation"
+)
+
+const (
+	NotifierClientName = "gitlab-container-registry"
 )
 
 var (
@@ -59,7 +64,8 @@ func NewNotifier(endpoint, secret string, timeout time.Duration) (*Notifier, err
 		endpoint: u.String(),
 		secret:   secret,
 		client: &http.Client{
-			Timeout: timeout,
+			Transport: correlation.NewInstrumentedRoundTripper(http.DefaultTransport, correlation.WithClientName(NotifierClientName)),
+			Timeout:   timeout,
 		},
 	}, nil
 }

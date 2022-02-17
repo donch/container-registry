@@ -16,6 +16,7 @@ import (
 	"github.com/docker/distribution/registry/internal/migration"
 	"github.com/docker/distribution/registry/storage"
 	ghandlers "github.com/gorilla/handlers"
+	"gitlab.com/gitlab-org/labkit/correlation"
 	"gitlab.com/gitlab-org/labkit/errortracking"
 )
 
@@ -147,6 +148,9 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 
 		ctx, cancel := context.WithTimeout(context.Background(), ih.timeout)
 		defer cancel()
+
+		// ensure correlation ID is forwarded to the notifier
+		ctx = correlation.ContextWithCorrelation(ctx, correlation.ExtractFromContext(ih.Context))
 
 		// Add parent logger to worker context to preserve request-specific fields.
 		l := log.GetLogger(log.WithContext(ih.Context))

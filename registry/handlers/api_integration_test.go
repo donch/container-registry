@@ -56,6 +56,7 @@ import (
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/labkit/correlation"
 	"gitlab.com/gitlab-org/labkit/metrics/sqlmetrics"
 )
 
@@ -6383,6 +6384,7 @@ func newTestEnvWithConfig(t *testing.T, config *configuration.Configuration) *te
 	}
 
 	app := registryhandlers.NewApp(ctx, config)
+	handler := correlation.InjectCorrelationID(app, correlation.WithPropagation())
 
 	var out io.Writer
 	if config.Log.AccessLog.Disabled {
@@ -6390,7 +6392,7 @@ func newTestEnvWithConfig(t *testing.T, config *configuration.Configuration) *te
 	} else {
 		out = os.Stderr
 	}
-	server := httptest.NewServer(handlers.CombinedLoggingHandler(out, app))
+	server := httptest.NewServer(handlers.CombinedLoggingHandler(out, handler))
 	builder, err := urls.NewBuilderFromString(server.URL+config.HTTP.Prefix, false)
 	require.NoError(t, err)
 

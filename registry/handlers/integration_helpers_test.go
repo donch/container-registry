@@ -330,6 +330,9 @@ func (min *mockImportNotification) handleNotificationRequest(w http.ResponseWrit
 	require.Len(t, match, 2)
 	require.NotEmpty(t, match[1])
 
+	require.NotEmpty(t, r.Header.Get("X-Request-Id"))
+	require.Equal(t, r.Header.Get("X-Gitlab-Client-Name"), migration.NotifierClientName)
+
 	min.receivedNotif[match[1]] <- actualNotification
 
 	w.WriteHeader(http.StatusOK)
