@@ -1,3 +1,11 @@
+## [3.28.2](https://gitlab.com/gitlab-org/container-registry/compare/v3.28.1-gitlab...v3.28.2-gitlab) (2022-02-18)
+
+
+### Bug Fixes
+
+* soft delete empty repository records (batch 6) ([415d83d](https://gitlab.com/gitlab-org/container-registry/commit/415d83d146e6f43d684aca559ce827cbd9413cd4))
+* **storage:** refuse to start offline garbage collection with database metadata enabled ([805f21c](https://gitlab.com/gitlab-org/container-registry/commit/805f21c0a7bdfbd5785ada4979d3136658a93539))
+
 ## [3.28.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.28.0-gitlab...v3.28.1-gitlab) (2022-02-18)
 
 
