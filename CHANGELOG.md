@@ -1,3 +1,10 @@
+## [3.28.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.28.0-gitlab...v3.28.1-gitlab) (2022-02-18)
+
+
+### Bug Fixes
+
+* soft delete empty repository records (batch 5) ([8d0d36d](https://gitlab.com/gitlab-org/container-registry/commit/8d0d36df94769dd44a88aa2504e3c366c2bc0081))
+
 # [3.28.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.27.1-gitlab...v3.28.0-gitlab) (2022-02-17)
 
 
