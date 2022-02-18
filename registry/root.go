@@ -143,6 +143,11 @@ var GCCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		if config.Database.Enabled {
+			fmt.Fprintf(os.Stderr, "the garbage-collect command is not compatible with database metadata, please use online garbage collection instead")
+			os.Exit(1)
+		}
+
 		maxParallelManifestGets := 1
 		parameters := config.Storage.Parameters()
 		if parameters[parallelwalkKey] == true {
