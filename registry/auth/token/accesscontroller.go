@@ -14,7 +14,6 @@ import (
 
 	dcontext "github.com/docker/distribution/context"
 	"github.com/docker/distribution/registry/auth"
-	"github.com/docker/distribution/registry/internal/migration"
 	"github.com/docker/libtrust"
 )
 
@@ -284,69 +283,8 @@ func (ac *accessController) Authorized(ctx context.Context, accessItems ...auth.
 	}
 
 	ctx = auth.WithResources(ctx, token.resources())
-	ctx = injectMigrationEligibility(ctx, accessItems, token.Claims)
 
 	return auth.WithUser(ctx, auth.UserInfo{Name: token.Claims.Subject}), nil
-}
-
-// In this function we determine the target repository and then parse its eligibility flag from
-// the JWT token (if any) at `access[name=<target repo>].migration_eligible`.
-//
-// Usually, there is only one repository involved in each request, but for cross-repository blob
-// mounts, there will be two. For example, when mounting a blob from A to B, the JWT token will
-// look like this:
-// {
-//  "access": [
-//    {
-//      "actions": [
-//        "pull"
-//      ],
-//      "name": "A",
-//      "type": "repository",
-//      "migration_eligible": <does not matter>
-//    },
-//    {
-//      "actions": [
-//        "pull",
-//        "push"
-//      ],
-//      "name": "B",
-//      "type": "repository",
-//      "migration_eligible": <matters>
-//    }
-//  ],
-//  ...
-// }
-// In the example above, we don't really care about access for A. We only care about B, as that is
-// the target (and potentially new) repository.
-//
-// We determine the target repository not by looking at the token (which is generated outside the
-// registry) but rather at `requiredPerms`, which are assembled by us and define the _required_
-// permissions to perform a given request (regardless of the claims present in the token, which
-// ideally will match).
-//
-// In summary, if this is a simple POST/PUT, there will be a single access object with the `push`
-// action, and that's our target repository. If this is a cross repository blob mount, there will
-// be one access object with `pull` and another with `push`. The target repository is the one with
-// `push`. If this is a HEAD/GET/DELETE, there is a single access object and that points to our
-// target repository.
-func injectMigrationEligibility(ctx context.Context, requiredPerms []auth.Access, claims *ClaimSet) context.Context {
-	var targetRepo string
-	for _, a := range requiredPerms {
-		targetRepo = a.Name
-		if a.Action == "push" {
-			break
-		}
-	}
-
-	// locate migration flag sent from Rails, and wrap context
-	for _, a := range claims.Access {
-		if a.Name == targetRepo && a.MigrationEligible != nil {
-			return migration.WithEligibility(ctx, *a.MigrationEligible)
-		}
-	}
-
-	return ctx
 }
 
 // init handles registering the token auth backend.

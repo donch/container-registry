@@ -679,22 +679,6 @@ migration:
 	testParameter(t, yml, "REGISTRY_MIGRATION_DISABLEMIRRORFS", tt, validator)
 }
 
-func TestParseMigrationAuthEligibilityDisabled(t *testing.T) {
-	yml := `
-version: 0.1
-storage: inmemory
-migration:
-  autheligibilitydisabled: %s
-`
-	tt := boolParameterTests(false)
-
-	validator := func(t *testing.T, want interface{}, got *Configuration) {
-		require.Equal(t, want, strconv.FormatBool(got.Migration.AuthEligibilityDisabled))
-	}
-
-	testParameter(t, yml, "REGISTRY_MIGRATION_AUTHELIGIBILITYDISABLED", tt, validator)
-}
-
 func TestParseMigrationTagConcurrency(t *testing.T) {
 	yml := `
 version: 0.1
