@@ -1,3 +1,11 @@
+# [3.29.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.28.2-gitlab...v3.29.0-gitlab) (2022-02-22)
+
+
+### Features
+
+* **handlers:** rename pre parameter on import route ([4540965](https://gitlab.com/gitlab-org/container-registry/commit/45409652bbccf167f015f89dabca732fb8cf6c71))
+* serve requests for all new repositories using the new code path ([e4a1472](https://gitlab.com/gitlab-org/container-registry/commit/e4a14726eecae0628f16d615c4df265bdb70ccc8))
+
 ## [3.28.2](https://gitlab.com/gitlab-org/container-registry/compare/v3.28.1-gitlab...v3.28.2-gitlab) (2022-02-18)
 
 
