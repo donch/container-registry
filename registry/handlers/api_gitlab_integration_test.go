@@ -74,7 +74,7 @@ func TestGitlabAPI_RepositoryImport_Put(t *testing.T) {
 	require.Equal(t, http.StatusAccepted, resp.StatusCode)
 
 	mockedImportNotifSrv.waitForImportNotification(
-		t, repoPath, string(migration.RepositoryStatusImportComplete), "import completed successfully", 2*time.Second,
+		t, repoPath, string(migration.RepositoryStatusImportComplete), "final import completed successfully", 2*time.Second,
 	)
 
 	// Subsequent calls to the same repository should not start another import.
@@ -144,7 +144,7 @@ func TestGitlabAPI_RepositoryImport_Put_ConcurrentTags(t *testing.T) {
 	defer env3.Shutdown()
 
 	mockedImportNotifSrv.waitForImportNotification(
-		t, repoPath, string(migration.RepositoryStatusImportComplete), "import completed successfully", 2*time.Second,
+		t, repoPath, string(migration.RepositoryStatusImportComplete), "final import completed successfully", 2*time.Second,
 	)
 
 	// Subsequent calls to the same repository should not start another import.
@@ -183,7 +183,7 @@ func TestGitlabAPI_RepositoryImport_Put_PreImport(t *testing.T) {
 	repoRef, err := reference.WithName(repoPath)
 	require.NoError(t, err)
 
-	importURL, err := env2.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"pre": []string{"true"}})
+	importURL, err := env2.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"pre"}})
 	require.NoError(t, err)
 
 	req, err := http.NewRequest(http.MethodPut, importURL, nil)
@@ -226,8 +226,8 @@ func TestGitlabAPI_RepositoryImport_Put_PreImport(t *testing.T) {
 		t, repoPath, string(migration.RepositoryStatusPreImportComplete), "pre import completed successfully", 2*time.Second,
 	)
 
-	// Importing after pre import should succeed.
-	importURL, err = env2.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"pre": []string{"false"}})
+	// Final import after pre import should succeed.
+	importURL, err = env2.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"final"}})
 	require.NoError(t, err)
 
 	req, err = http.NewRequest(http.MethodPut, importURL, nil)
@@ -240,7 +240,7 @@ func TestGitlabAPI_RepositoryImport_Put_PreImport(t *testing.T) {
 	require.Equal(t, http.StatusAccepted, resp.StatusCode)
 
 	mockedImportNotifSrv.waitForImportNotification(
-		t, repoPath, string(migration.RepositoryStatusImportComplete), "import completed successfully", 2*time.Second,
+		t, repoPath, string(migration.RepositoryStatusImportComplete), "final import completed successfully", 2*time.Second,
 	)
 }
 
@@ -272,7 +272,7 @@ func TestGitlabAPI_RepositoryImport_Put_PreImportInProgress(t *testing.T) {
 	repoRef, err := reference.WithName(repoPath)
 	require.NoError(t, err)
 
-	importURL, err := env2.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"pre": []string{"true"}})
+	importURL, err := env2.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"pre"}})
 	require.NoError(t, err)
 
 	req, err := http.NewRequest(http.MethodPut, importURL, nil)
@@ -361,7 +361,7 @@ func TestGitlabAPI_RepositoryImport_Put_ImportInProgress(t *testing.T) {
 	require.Equal(t, http.StatusConflict, resp.StatusCode)
 
 	// Pre import attemps should fail as well
-	importURL, err = env2.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"pre": []string{"true"}})
+	importURL, err = env2.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"pre"}})
 	require.NoError(t, err)
 
 	req, err = http.NewRequest(http.MethodPut, importURL, nil)
@@ -398,7 +398,7 @@ func TestGitlabAPI_RepositoryImport_Put_PreImportFailed(t *testing.T) {
 	repoRef, err := reference.WithName(repoPath)
 	require.NoError(t, err)
 
-	preImportURL, err := env2.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"pre": []string{"true"}})
+	preImportURL, err := env2.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"pre"}})
 	require.NoError(t, err)
 
 	importURL, err := env2.builder.BuildGitlabV1RepositoryImportURL(repoRef)
@@ -601,7 +601,7 @@ func TestGitlabAPI_RepositoryImport_MaxConcurrentImports(t *testing.T) {
 		repoRef, err := reference.WithName(repoPath)
 		require.NoError(t, err)
 
-		importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"pre": []string{"true"}})
+		importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"pre"}})
 		require.NoError(t, err)
 
 		req, err := http.NewRequest(http.MethodPut, importURL, nil)
@@ -682,7 +682,7 @@ func TestGitlabAPI_RepositoryImport_MaxConcurrentImports_IsZero(t *testing.T) {
 	attemptImportFn := func(preImport bool) {
 		urlValues := url.Values{}
 		if preImport {
-			urlValues.Set("pre", "true")
+			urlValues.Set("import_type", "pre")
 		}
 
 		importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef, urlValues)
@@ -735,7 +735,7 @@ func TestGitlabAPI_RepositoryImport_MaxConcurrentImports_OneByOne(t *testing.T) 
 	repoRef1, err := reference.WithName(repoPath1)
 	require.NoError(t, err)
 
-	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef1, url.Values{"pre": []string{"true"}})
+	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef1, url.Values{"import_type": []string{"pre"}})
 	require.NoError(t, err)
 
 	req, err := http.NewRequest(http.MethodPut, importURL, nil)
@@ -753,7 +753,7 @@ func TestGitlabAPI_RepositoryImport_MaxConcurrentImports_OneByOne(t *testing.T) 
 	repoRef2, err := reference.WithName(repoPath2)
 	require.NoError(t, err)
 
-	importURL2, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef2, url.Values{"pre": []string{"true"}})
+	importURL2, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef2, url.Values{"import_type": []string{"pre"}})
 	require.NoError(t, err)
 
 	req2, err := http.NewRequest(http.MethodPut, importURL2, nil)
@@ -817,8 +817,8 @@ func TestGitlabAPI_RepositoryImport_MaxConcurrentImports_ErrorShouldNotBlockLimi
 	repoRef1, err := reference.WithName(repoPath1)
 	require.NoError(t, err)
 
-	// using an invalid value for `pre` should raise an error and not allow the import to proceed
-	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef1, url.Values{"pre": []string{"invalid"}})
+	// using an invalid value for `import_type` should raise an error and not allow the import to proceed
+	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef1, url.Values{"import_type": []string{"invalid"}})
 	require.NoError(t, err)
 
 	req, err := http.NewRequest(http.MethodPut, importURL, nil)
@@ -837,7 +837,7 @@ func TestGitlabAPI_RepositoryImport_MaxConcurrentImports_ErrorShouldNotBlockLimi
 	repoRef2, err := reference.WithName(repoPath2)
 	require.NoError(t, err)
 
-	importURL2, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef2, url.Values{"pre": []string{"true"}})
+	importURL2, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef2, url.Values{"import_type": []string{"pre"}})
 	require.NoError(t, err)
 
 	req2, err := http.NewRequest(http.MethodPut, importURL2, nil)

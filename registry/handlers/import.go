@@ -47,7 +47,7 @@ func importDispatcher(ctx *Context, r *http.Request) http.Handler {
 	return ihandler
 }
 
-const preImportQueryParamKey = "pre"
+const importTypeQueryParamKey = "import_type"
 
 // StartRepository begins a repository import.
 func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Request) {
@@ -82,7 +82,7 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 
 	// TODO: We should have a specific error for bad query values.
 	// https://gitlab.com/gitlab-org/container-registry/-/issues/587
-	ih.preImport, err = getPreValue(r)
+	ih.preImport, err = isImportTypePre(r)
 	if err != nil {
 		ih.Errors = append(ih.Errors, errcode.FromUnknownError(err))
 		return
@@ -174,12 +174,12 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 func (ih *importHandler) shouldImport(dbRepo *models.Repository) (bool, error) {
 	if dbRepo != nil {
 		switch status := dbRepo.MigrationStatus; {
-		// Do not begin an import or pre import for a repository which has already been imported.
+		// Do not begin an import for a repository which has already completed final import.
 		case status.OnDatabase():
 			return false, nil
 
-		// Do not begin an import or pre import with a repository that already has
-		//	an import or pre import operation ongoing.
+		// Do not begin an import with a repository that already has
+		//	an import operation ongoing.
 		case status == migration.RepositoryStatusPreImportInProgress:
 			detail := v1.ErrorCodePreImportInProgressErrorDetail(ih.Repository)
 			return false, v1.ErrorCodePreImportInProgress.WithDetail(detail)
@@ -188,7 +188,7 @@ func (ih *importHandler) shouldImport(dbRepo *models.Repository) (bool, error) {
 			detail := v1.ErrorCodeImportInProgressErrorDetail(ih.Repository)
 			return false, v1.ErrorCodeImportInProgress.WithDetail(detail)
 
-		// Do not begin an import for a repository that failed to pre import, allow
+		// Do not begin a final import for a repository that failed to pre import, allow
 		// additional pre import attempts.
 		case status == migration.RepositoryStatusPreImportFailed && !ih.preImport:
 			detail := v1.ErrorCodePreImportFailedErrorDetail(ih.Repository)
@@ -260,7 +260,7 @@ func (ih *importHandler) runImport(ctx context.Context, importer *datastore.Impo
 	if err := importer.Import(ctx, dbRepo.Path); err != nil {
 		dbRepo.MigrationStatus = migration.RepositoryStatusImportFailed
 		if err := ih.Update(ctx, dbRepo); err != nil {
-			return fmt.Errorf("updating migration status after failed import: %w", err)
+			return fmt.Errorf("updating migration status after failed final import: %w", err)
 		}
 
 		return err
@@ -268,24 +268,23 @@ func (ih *importHandler) runImport(ctx context.Context, importer *datastore.Impo
 
 	dbRepo.MigrationStatus = migration.RepositoryStatusImportComplete
 	if err := ih.Update(ctx, dbRepo); err != nil {
-		return fmt.Errorf("updating migration status after successful import: %w", err)
+		return fmt.Errorf("updating migration status after successful final import: %w", err)
 	}
 
 	return nil
 }
 
-// The API spec for this route only specifies 'true' or 'false', while
-// strconv.ParseBool accepts a greater range of string values.
-func getPreValue(r *http.Request) (bool, error) {
-	preImportValue := r.URL.Query().Get(preImportQueryParamKey)
+// The API spec for this route only specifies 'pre' or 'final'.
+func isImportTypePre(r *http.Request) (bool, error) {
+	importTypeValue := r.URL.Query().Get(importTypeQueryParamKey)
 
-	switch preImportValue {
-	case "true":
+	switch importTypeValue {
+	case "pre":
 		return true, nil
-	case "false", "":
+	case "final", "":
 		return false, nil
 	default:
-		return false, fmt.Errorf("pre value must be 'true' or 'false', got %s", preImportValue)
+		return false, fmt.Errorf("import_type value must be 'pre' or 'final', got %s", importTypeValue)
 	}
 }
 
@@ -317,7 +316,7 @@ func getImportDetail(preImport bool, err error) string {
 		return "pre import completed successfully"
 	}
 
-	return "import completed successfully"
+	return "final import completed successfully"
 }
 
 // maxConcurrentImportsMiddleware is a middleware that checks the configured `maxconcurrentimports`
