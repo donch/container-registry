@@ -152,12 +152,12 @@ PUT /gitlab/v1/import/<path>/
 | Attribute     | Type    | Required | Default   | Description                                                  |
 | ------------- | ------- | -------- | --------- | ------------------------------------------------------------ |
 | `path`        | String  | Yes      |           | The full path of the target repository. Equivalent to the `name` parameter in the `/v2/` API, described in the [OCI Distribution Spec](https://github.com/opencontainers/distribution-spec/blob/main/spec.md). The same pattern validation applies. |
-| `pre`    | Bool    | No       |  `false`  | Only import manifests and their associated blobs, without importing tags. Once the pre import is complete, performing an import should take far less time, reducing the amount of time required during which writes will cancel the import. |
+| `import_type` | Bool    | No       | `final`   | When `import_type=pre`, only import manifests and their associated blobs, without importing tags. Once the pre import is complete, performing a final import (default) should take far less time, reducing the amount of time required during which writes will be blocked. |
 
 #### Example
 
 ```shell
-curl -X PUT --header "Authorization: Bearer <token>" "https://registry.gitlab.com/gitlab/v1/import/gitlab-org/build/cng/gitlab-container-registry/?pre=true"
+curl -X PUT --header "Authorization: Bearer <token>" "https://registry.gitlab.com/gitlab/v1/import/gitlab-org/build/cng/gitlab-container-registry/?import_type=pre"
 ```
 
 #### Authentication
@@ -189,7 +189,7 @@ This endpoint requires an auth token with the `registry` resource type, name set
 | `401 Unauthorized`        | The client should take action based on the contents of the `WWW-Authenticate` header and try the endpoint again. |
 | `404 Not Found`           | The repository was not found. |
 | `409 Conflict`            | The repository is already being imported. |
-| `424 Failed Dependency`   | The repository failed to pre import. This error only affects the import request when `pre=false`, when `pre=true` the pre import will be retried.|
+| `424 Failed Dependency`   | The repository failed to pre import. This error only affects the import request when `import_type=final`, when `import_type=pre` the pre import will be retried.|
 | `425 Too Early`           | The Repository is currently being pre imported. |
 | `429 Too Many Requests`   | The registry is already running the maximum configured import jobs. |
 
@@ -224,7 +224,7 @@ Once an import completes, the registry will send a synchronous notification in t
   "name": "gitlab-container-registry",
   "path": "gitlab-org/build/cng/gitlab-container-registry",
   "status": "import_complete",
-  "detail": "import completed successfully"
+  "detail": "final import completed successfully"
 }
 ```
 

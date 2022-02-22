@@ -43,7 +43,7 @@ func TestNotify(t *testing.T) {
 		Name:   "name",
 		Path:   "path",
 		Status: "success",
-		Detail: "import completed successfully",
+		Detail: "final import completed successfully",
 	}
 
 	delay := 50 * time.Millisecond
