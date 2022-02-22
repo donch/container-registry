@@ -589,44 +589,7 @@ func (app *App) getMigrationStatus(ctx context.Context, repo distribution.Reposi
 		return migration.StatusOldRepo, nil
 	}
 
-	// this is used to bypass the JWT token validation, currently only used for testing purposes (defaults to false)
-	if app.Config.Migration.AuthEligibilityDisabled {
-		return migration.StatusAuthEligibilityDisabled, nil
-	}
-
-	// validate eligibility flag set by Rails to determine which code path this _new_ repository should follow
-	if !migration.HasEligibilityFlag(ctx) {
-		// the registry is in migration mode but Rails is not sending the eligibility flag along, this _may_ not be
-		// expected and should be noted
-		dcontext.GetLogger(ctx).WithField("repository", repo.Named()).Warn("migration eligibility flag not set")
-
-		// check if repository exists in the new storage prefix, if so, we should signal
-		// to use to the database and the migration storage prefix.
-		migrationRepo, err := app.migrationRegistry.Repository(ctx, repo.Named())
-		if err != nil {
-			return migration.StatusError, err
-		}
-
-		validator, ok := migrationRepo.(storage.RepositoryValidator)
-		if !ok {
-			return migration.StatusError, errors.New("repository does not implement RepositoryValidator interface")
-		}
-
-		exists, err := validator.Exists(ctx)
-		if err != nil {
-			return migration.StatusError, fmt.Errorf("unable to determine if repository exists: %w", err)
-		}
-
-		if exists {
-			return migration.StatusNewRepo, nil
-		}
-
-		return migration.StatusAuthEligibilityNotSet, nil
-	}
-	if !migration.IsEligible(ctx) {
-		return migration.StatusNotEligible, nil
-	}
-	return migration.StatusEligible, nil
+	return migration.StatusNewRepo, nil
 }
 
 var (
@@ -1395,9 +1358,7 @@ func (app *App) authorized(w http.ResponseWriter, r *http.Request, context *Cont
 		return err
 	}
 
-	// This is the very first log entry for all authorized requests, so by logging the `migration_eligible=bool` KV pair
-	// here, we can correlate this entry with the subsequent access/app entries using their `correlation_id`.
-	dcontext.GetLogger(ctx, auth.UserNameKey, migration.EligibilityKey).Info("authorized request")
+	dcontext.GetLogger(ctx, auth.UserNameKey).Info("authorized request")
 	// TODO(stevvooe): This pattern needs to be cleaned up a bit. One context
 	// should be replaced by another, rather than replacing the context on a
 	// mutable object.

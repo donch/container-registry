@@ -7,8 +7,6 @@ package migration
 import "context"
 
 const (
-	// EligibilityKey is used to get the migration eligibility flag from a context.
-	EligibilityKey = "migration.eligible"
 	// CodePathKey is used to get the migration code path from a context.
 	CodePathKey = "migration.path"
 	// CodePathHeader is used to set/get the migration code path HTTP response header.
@@ -46,37 +44,11 @@ type migrationContext struct {
 // Value implements context.Context.
 func (mc migrationContext) Value(key interface{}) interface{} {
 	switch key {
-	case EligibilityKey:
-		return mc.eligible
 	case CodePathKey:
 		return mc.path
 	default:
 		return mc.Context.Value(key)
 	}
-}
-
-// WithEligibility returns a context with the migration eligibility info.
-func WithEligibility(ctx context.Context, eligible bool) context.Context {
-	return migrationContext{
-		Context:  ctx,
-		eligible: eligible,
-	}
-}
-
-// HasEligibilityFlag determines if the context has the eligibility flag set.
-func HasEligibilityFlag(ctx context.Context) bool {
-	if ctx.Value(EligibilityKey) != nil {
-		return true
-	}
-	return false
-}
-
-// IsEligible determines whether the given request context was marked as eligible for migration or not.
-func IsEligible(ctx context.Context) bool {
-	if v, ok := ctx.Value(EligibilityKey).(bool); ok {
-		return v
-	}
-	return false
 }
 
 // WithCodePath returns a context with the migration code path info.
@@ -104,8 +76,6 @@ const (
 	StatusMigrationDisabled
 	StatusError
 	StatusOldRepo
-	StatusAuthEligibilityNotSet
-	StatusNotEligible
 	StatusNonRepositoryScopedRequest
 )
 
@@ -113,9 +83,7 @@ const eligibilityCutoff = 1000
 
 // Eligible statuses.
 const (
-	StatusEligible = iota + eligibilityCutoff
-	StatusAuthEligibilityDisabled
-	StatusNewRepo
+	StatusNewRepo = iota + eligibilityCutoff
 	StatusOnDatabase
 )
 
@@ -126,11 +94,7 @@ func (m Status) String() string {
 		StatusError:                      "Error",
 		StatusOldRepo:                    "OldRepo",
 		StatusNewRepo:                    "NewRepo",
-		StatusAuthEligibilityNotSet:      "AuthEligibilityNotSet",
-		StatusNotEligible:                "NotEligible",
 		StatusNonRepositoryScopedRequest: "NonRepositoryScopedRequest",
-		StatusEligible:                   "Eligible",
-		StatusAuthEligibilityDisabled:    "AuthEligibilityDisabled",
 		StatusOnDatabase:                 "OnDatabase",
 	}
 
@@ -150,11 +114,7 @@ func (m Status) Description() string {
 		StatusError:                      "error determining migration status",
 		StatusOldRepo:                    "repository is old, serving via old code path",
 		StatusNewRepo:                    "repository is new, serving via new code path",
-		StatusAuthEligibilityNotSet:      "migration eligibility not set, serving new repository via old code path",
-		StatusNotEligible:                "new repository flagged as not eligible for migration, serving via old code path",
 		StatusNonRepositoryScopedRequest: "request is not scoped to single repository",
-		StatusEligible:                   "new repository flagged as eligible for migration, serving via new code path",
-		StatusAuthEligibilityDisabled:    "migration auth eligibility is disabled in registry config, serving new repository via new code path",
 		StatusOnDatabase:                 "repository uses database metadata, serving via new code path",
 	}
 
