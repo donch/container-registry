@@ -1,3 +1,10 @@
+# [3.30.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.29.0-gitlab...v3.30.0-gitlab) (2022-02-23)
+
+
+### Features
+
+* **handlers:** use phase 2 code routing for API requests ([3e3b9c3](https://gitlab.com/gitlab-org/container-registry/commit/3e3b9c3eec80b14f4c9260751a1fc12c988b8b1c))
+
 # [3.29.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.28.2-gitlab...v3.29.0-gitlab) (2022-02-22)
 
 
