@@ -40,6 +40,7 @@ import (
 	metricskit "github.com/docker/distribution/registry/handlers/internal/metrics/labkit"
 	"github.com/docker/distribution/registry/internal"
 	"github.com/docker/distribution/registry/internal/migration"
+	mrouter "github.com/docker/distribution/registry/internal/migration/router"
 	registrymiddleware "github.com/docker/distribution/registry/middleware/registry"
 	repositorymiddleware "github.com/docker/distribution/registry/middleware/repository"
 	"github.com/docker/distribution/registry/proxy"
@@ -573,23 +574,10 @@ func (app *App) getMigrationStatus(ctx context.Context, repo distribution.Reposi
 		return migration.StatusMigrationDisabled, nil
 	}
 
-	validator, ok := repo.(storage.RepositoryValidator)
-	if !ok {
-		return migration.StatusError, errors.New("repository does not implement RepositoryValidator interface")
-	}
+	rStore := datastore.NewRepositoryStore(app.db)
+	migrationRouter := &mrouter.Router{RepoFinder: rStore}
 
-	// check if repository exists in the old storage prefix, if not we should signal
-	// to use to the database and the migration storage prefix.
-	exists, err := validator.Exists(ctx)
-	if err != nil {
-		return migration.StatusError, fmt.Errorf("unable to determine if repository exists: %w", err)
-	}
-
-	if exists {
-		return migration.StatusOldRepo, nil
-	}
-
-	return migration.StatusNewRepo, nil
+	return migrationRouter.MigrationStatus(ctx, repo)
 }
 
 var (

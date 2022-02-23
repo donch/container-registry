@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/docker/distribution/manifest/schema2"
 	"github.com/docker/distribution/reference"
 	v1 "github.com/docker/distribution/registry/api/gitlab/v1"
 	v2 "github.com/docker/distribution/registry/api/v2"
@@ -480,6 +481,264 @@ func TestGitlabAPI_RepositoryImport_Put_RepositoryNotPresentOnOldSide(t *testing
 	// We should get a repository not found error
 	require.Equal(t, http.StatusNotFound, resp.StatusCode)
 	checkBodyHasErrorCodes(t, "repository not found", resp, v2.ErrorCodeNameUnknown)
+}
+
+func TestGitlabAPI_RepositoryImport_Migration_PreImportInProgress(t *testing.T) {
+	rootDir := t.TempDir()
+	migrationDir := filepath.Join(rootDir, "/new")
+
+	env := newTestEnv(
+		t, withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+		// Simulate a long running pre import.
+		withMigrationTestSlowImport(waitForever),
+	)
+	defer env.Shutdown()
+
+	env.requireDB(t)
+
+	repoPath := "old/repo"
+	tagName := "import-tag"
+
+	// Push up a image to the old side of the registry, so we can migrate it below.
+	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
+
+	// Start repository pre import.
+	repoRef, err := reference.WithName(repoPath)
+	require.NoError(t, err)
+
+	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"pre": []string{"true"}})
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPut, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Pre import should start without error.
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	// Pull the Manifest and ensure that the migration path header indicates
+	// that the old code path is still taken during pre import for reads.
+	tagURL := buildManifestTagURL(t, env, repoPath, tagName)
+	require.NoError(t, err)
+
+	resp, err = http.Get(tagURL)
+	require.NoError(t, err)
+
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, migration.OldCodePath.String(), resp.Header.Get("Gitlab-Migration-Path"))
+
+	// Push up a image to the same repository and ensure that the migration path header
+	// indicates that the old code path is still taken during pre import for writes.
+	deserializedManifest := seedRandomSchema2Manifest(t, env, repoPath)
+	manifestDigestURL := buildManifestDigestURL(t, env, repoPath, deserializedManifest)
+
+	resp = putManifest(t, "putting manifest no error", manifestDigestURL, schema2.MediaTypeManifest, deserializedManifest.Manifest)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	require.Equal(t, migration.OldCodePath.String(), resp.Header.Get("Gitlab-Migration-Path"))
+}
+
+func TestGitlabAPI_RepositoryImport_Migration_ImportInProgress(t *testing.T) {
+	rootDir := t.TempDir()
+	migrationDir := filepath.Join(rootDir, "/new")
+
+	env := newTestEnv(
+		t, withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+		// Simulate a long running import.
+		withMigrationTestSlowImport(waitForever),
+	)
+	defer env.Shutdown()
+
+	env.requireDB(t)
+
+	repoPath := "old/repo"
+	tagName := "import-tag"
+
+	// Push up a image to the old side of the registry, so we can migrate it below.
+	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
+
+	// Start repository import.
+	repoRef, err := reference.WithName(repoPath)
+	require.NoError(t, err)
+
+	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPut, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Import should start without error.
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	// Pull the Manifest and ensure that the migration path header indicates
+	// that the old code path is still taken during import for reads.
+	tagURL := buildManifestTagURL(t, env, repoPath, tagName)
+	require.NoError(t, err)
+
+	resp, err = http.Get(tagURL)
+	require.NoError(t, err)
+
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, migration.OldCodePath.String(), resp.Header.Get("Gitlab-Migration-Path"))
+
+	// Push up a image to the same repository and ensure that the migration path header
+	// indicates that the old code path is still taken during import for writes.
+	deserializedManifest := seedRandomSchema2Manifest(t, env, repoPath)
+	manifestDigestURL := buildManifestDigestURL(t, env, repoPath, deserializedManifest)
+
+	resp = putManifest(t, "putting manifest no error", manifestDigestURL, schema2.MediaTypeManifest, deserializedManifest.Manifest)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	require.Equal(t, migration.OldCodePath.String(), resp.Header.Get("Gitlab-Migration-Path"))
+}
+
+func TestGitlabAPI_RepositoryImport_Migration_PreImportComplete(t *testing.T) {
+	rootDir := t.TempDir()
+	migrationDir := filepath.Join(rootDir, "/new")
+
+	repoPath := "old/repo"
+	tagName := "import-tag"
+
+	mockedImportNotifSrv := newMockImportNotification(t, repoPath)
+
+	env := newTestEnv(t,
+		withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)),
+	)
+	defer env.Shutdown()
+
+	env.requireDB(t)
+
+	// Push up a image to the old side of the registry, so we can migrate it below.
+	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
+
+	// Start repository pre import.
+	repoRef, err := reference.WithName(repoPath)
+	require.NoError(t, err)
+
+	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"pre"}})
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPut, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Pre import should complete without error.
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	mockedImportNotifSrv.waitForImportNotification(
+		t, repoPath, string(migration.RepositoryStatusPreImportComplete), "pre import completed successfully", 2*time.Second,
+	)
+
+	// Pull the Manifest and ensure that the migration path header indicates
+	// that the old code path is still taken after pre import for reads.
+	tagURL := buildManifestTagURL(t, env, repoPath, tagName)
+	require.NoError(t, err)
+
+	resp, err = http.Get(tagURL)
+	require.NoError(t, err)
+
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, migration.OldCodePath.String(), resp.Header.Get("Gitlab-Migration-Path"))
+
+	// Push up a image to the same repository and ensure that the migration path header
+	// indicates that the old code path is still taken after pre import for writes.
+	deserializedManifest := seedRandomSchema2Manifest(t, env, repoPath)
+	manifestDigestURL := buildManifestDigestURL(t, env, repoPath, deserializedManifest)
+
+	resp = putManifest(t, "putting manifest no error", manifestDigestURL, schema2.MediaTypeManifest, deserializedManifest.Manifest)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	require.Equal(t, migration.OldCodePath.String(), resp.Header.Get("Gitlab-Migration-Path"))
+}
+
+func TestGitlabAPI_RepositoryImport_Migration_ImportComplete(t *testing.T) {
+	rootDir := t.TempDir()
+	migrationDir := filepath.Join(rootDir, "/new")
+
+	repoPath := "old/repo"
+	tagName := "import-tag"
+
+	mockedImportNotifSrv := newMockImportNotification(t, repoPath)
+
+	env := newTestEnv(t,
+		withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)),
+	)
+	defer env.Shutdown()
+
+	env.requireDB(t)
+
+	// Push up a image to the old side of the registry, so we can migrate it below.
+	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
+
+	// Start repository import.
+	repoRef, err := reference.WithName(repoPath)
+	require.NoError(t, err)
+
+	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPut, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Import should complete without error.
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	mockedImportNotifSrv.waitForImportNotification(
+		t, repoPath, string(migration.RepositoryStatusImportComplete), "final import completed successfully", 2*time.Second,
+	)
+
+	// Pull the Manifest and ensure that the migration path header indicates
+	// that the new code path is taken after import for reads.
+	tagURL := buildManifestTagURL(t, env, repoPath, tagName)
+	require.NoError(t, err)
+
+	resp, err = http.Get(tagURL)
+	require.NoError(t, err)
+
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, migration.NewCodePath.String(), resp.Header.Get("Gitlab-Migration-Path"))
+
+	// Push up a image to the same repository and ensure that the migration path header
+	// indicates that the new code path is taken after import for writes.
+	deserializedManifest := seedRandomSchema2Manifest(t, env, repoPath)
+	manifestDigestURL := buildManifestDigestURL(t, env, repoPath, deserializedManifest)
+
+	resp = putManifest(t, "putting manifest no error", manifestDigestURL, schema2.MediaTypeManifest, deserializedManifest.Manifest)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	require.Equal(t, migration.NewCodePath.String(), resp.Header.Get("Gitlab-Migration-Path"))
 }
 
 // iso8601MsFormat is a regular expression to validate ISO8601 timestamps with millisecond precision.
