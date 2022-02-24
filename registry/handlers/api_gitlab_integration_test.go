@@ -27,6 +27,85 @@ import (
 
 var waitForever = time.Duration(math.MaxInt64)
 
+func TestGitlabAPI_RepositoryImport_Get(t *testing.T) {
+	rootDir := t.TempDir()
+	migrationDir := filepath.Join(rootDir, "/new")
+
+	repoPath := "old/repo"
+	tagName := "import-tag"
+
+	mockedImportNotifSrv := newMockImportNotification(t, repoPath)
+
+	env := newTestEnv(t,
+		withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)))
+	defer env.Shutdown()
+
+	env.requireDB(t)
+
+	// Push up a image to the old side of the registry, so we can migrate it below.
+	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
+
+	repoRef, err := reference.WithName(repoPath)
+	require.NoError(t, err)
+
+	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef)
+	require.NoError(t, err)
+
+	// Before starting the import.
+	req, err := http.NewRequest(http.MethodGet, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Import should return 404.
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+
+	// Start Repository Import.
+	req, err = http.NewRequest(http.MethodPut, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Import should start without error.
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	mockedImportNotifSrv.waitForImportNotification(
+		t, repoPath, string(migration.RepositoryStatusImportComplete), "final import completed successfully", 2*time.Second,
+	)
+
+	req, err = http.NewRequest(http.MethodGet, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Import completed successfully.
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	b, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var s handlers.RepositoryImportStatus
+	err = json.Unmarshal(b, &s)
+	require.NoError(t, err)
+
+	expectedStatus := handlers.RepositoryImportStatus{
+		Name:   repositoryName(repoPath),
+		Path:   repoPath,
+		Status: migration.RepositoryStatusImportComplete,
+	}
+
+	require.Equal(t, expectedStatus, s)
+}
+
 func TestGitlabAPI_RepositoryImport_Put(t *testing.T) {
 	rootDir, err := os.MkdirTemp("", "api-repository-import-")
 	require.NoError(t, err)
@@ -244,7 +323,7 @@ func TestGitlabAPI_RepositoryImport_Put_PreImport(t *testing.T) {
 	)
 }
 
-func TestGitlabAPI_RepositoryImport_Put_PreImportInProgress(t *testing.T) {
+func TestGitlabAPI_RepositoryImport_PreImportInProgress(t *testing.T) {
 	rootDir := t.TempDir()
 	migrationDir := filepath.Join(rootDir, "/new")
 
@@ -307,9 +386,34 @@ func TestGitlabAPI_RepositoryImport_Put_PreImportInProgress(t *testing.T) {
 	defer resp.Body.Close()
 
 	require.Equal(t, http.StatusTooEarly, resp.StatusCode)
+
+	// Import GET should return appropriate status
+	req, err = http.NewRequest(http.MethodGet, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	b, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var s handlers.RepositoryImportStatus
+	err = json.Unmarshal(b, &s)
+	require.NoError(t, err)
+
+	expectedStatus := handlers.RepositoryImportStatus{
+		Name:   repositoryName(repoPath),
+		Path:   repoPath,
+		Status: migration.RepositoryStatusPreImportInProgress,
+	}
+
+	require.Equal(t, expectedStatus, s)
 }
 
-func TestGitlabAPI_RepositoryImport_Put_ImportInProgress(t *testing.T) {
+func TestGitlabAPI_RepositoryImport_ImportInProgress(t *testing.T) {
 	rootDir := t.TempDir()
 	migrationDir := filepath.Join(rootDir, "/new")
 
@@ -372,6 +476,31 @@ func TestGitlabAPI_RepositoryImport_Put_ImportInProgress(t *testing.T) {
 	defer resp.Body.Close()
 
 	require.Equal(t, http.StatusConflict, resp.StatusCode)
+
+	// Import GET should return appropriate status
+	req, err = http.NewRequest(http.MethodGet, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	b, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var s handlers.RepositoryImportStatus
+	err = json.Unmarshal(b, &s)
+	require.NoError(t, err)
+
+	expectedStatus := handlers.RepositoryImportStatus{
+		Name:   repositoryName(repoPath),
+		Path:   repoPath,
+		Status: migration.RepositoryStatusImportInProgress,
+	}
+
+	require.Equal(t, expectedStatus, s)
 }
 
 func TestGitlabAPI_RepositoryImport_Put_PreImportFailed(t *testing.T) {
@@ -445,6 +574,30 @@ func TestGitlabAPI_RepositoryImport_Put_PreImportFailed(t *testing.T) {
 		t, repoPath, string(migration.RepositoryStatusPreImportFailed),
 		"pre importing tagged manifests: reading tags: unknown repository name=notags/repo", 2*time.Second,
 	)
+
+	req, err = http.NewRequest(http.MethodGet, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	b, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var s handlers.RepositoryImportStatus
+	err = json.Unmarshal(b, &s)
+	require.NoError(t, err)
+
+	expectedStatus := handlers.RepositoryImportStatus{
+		Name:   repositoryName(repoPath),
+		Path:   repoPath,
+		Status: migration.RepositoryStatusPreImportFailed,
+	}
+
+	require.Equal(t, expectedStatus, s)
 }
 
 func TestGitlabAPI_RepositoryImport_Put_RepositoryNotPresentOnOldSide(t *testing.T) {

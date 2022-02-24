@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -38,13 +39,49 @@ func importDispatcher(ctx *Context, r *http.Request) http.Handler {
 		timeout:         ctx.App.Config.Migration.ImportTimeout,
 	}
 
-	ihandler := ghandlers.MethodHandler{}
+	ihandler := ghandlers.MethodHandler{
+		http.MethodGet: http.HandlerFunc(ih.GetImport),
+	}
 
 	if !ctx.readOnly {
 		ihandler[http.MethodPut] = ih.maxConcurrentImportsMiddleware(http.HandlerFunc(ih.StartRepositoryImport))
 	}
 
 	return ihandler
+}
+
+type RepositoryImportStatus struct {
+	Name   string                     `json:"name"`
+	Path   string                     `json:"path"`
+	Status migration.RepositoryStatus `json:"status"`
+	Detail string                     `json:"detail"`
+}
+
+func (ih *importHandler) GetImport(w http.ResponseWriter, r *http.Request) {
+	dbRepo, err := ih.FindByPath(ih.Context, ih.Repository.Named().Name())
+	if err != nil {
+		ih.Errors = append(ih.Errors, errcode.FromUnknownError(err))
+		return
+	}
+
+	if dbRepo == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	rs := RepositoryImportStatus{
+		Name:   dbRepo.Name,
+		Path:   dbRepo.Path,
+		Status: dbRepo.MigrationStatus,
+	}
+
+	b, err := json.Marshal(rs)
+	if err != nil {
+		ih.Errors = append(ih.Errors, errcode.FromUnknownError(err))
+		return
+	}
+
+	w.Write(b)
 }
 
 const importTypeQueryParamKey = "import_type"
