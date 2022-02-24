@@ -168,6 +168,99 @@ func TestGitlabAPI_RepositoryImport_Put(t *testing.T) {
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
+func TestGitlabAPI_RepositoryPreImport_Put_PreImportTimeout(t *testing.T) {
+	rootDir := t.TempDir()
+
+	migrationDir := filepath.Join(rootDir, "/new")
+
+	repoPath := "old/repo"
+	tagName := "import-tag"
+
+	mockedImportNotifSrv := newMockImportNotification(t, repoPath)
+
+	env := newTestEnv(t,
+		withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+		withMigrationPreImportTimeout(time.Millisecond),
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)))
+	defer env.Shutdown()
+
+	env.requireDB(t)
+
+	// Push up a image to the old side of the registry, so we can migrate it below.
+	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
+
+	// Start Repository Import.
+	repoRef, err := reference.WithName(repoPath)
+	require.NoError(t, err)
+
+	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"pre"}})
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPut, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Import should start without error.
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	// pre import timed out but notification is sent anyway.
+	mockedImportNotifSrv.waitForImportNotification(
+		t, repoPath, string(migration.RepositoryStatusPreImportFailed),
+		"updating migration status after failed pre import: updating repository: context deadline exceeded", 2*time.Second,
+	)
+}
+
+func TestGitlabAPI_RepositoryImport_Put_ImportTimeout(t *testing.T) {
+	rootDir := t.TempDir()
+
+	migrationDir := filepath.Join(rootDir, "/new")
+
+	repoPath := "old/repo"
+	tagName := "import-tag"
+
+	mockedImportNotifSrv := newMockImportNotification(t, repoPath)
+
+	env := newTestEnv(t,
+		withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+		withMigrationImportTimeout(time.Millisecond),
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)))
+	defer env.Shutdown()
+
+	env.requireDB(t)
+
+	// Push up a image to the old side of the registry, so we can migrate it below.
+	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
+
+	// Start Repository Import.
+	repoRef, err := reference.WithName(repoPath)
+	require.NoError(t, err)
+
+	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPut, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Import should start without error.
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	// final import timed out but notification is sent anyway.
+	mockedImportNotifSrv.waitForImportNotification(
+		t, repoPath, string(migration.RepositoryStatusImportFailed),
+		"updating migration status after failed final import: updating repository: context deadline exceeded", 2*time.Second,
+	)
+}
 func TestGitlabAPI_RepositoryImport_Put_ConcurrentTags(t *testing.T) {
 	rootDir := t.TempDir()
 	migrationDir := filepath.Join(rootDir, "/new")
