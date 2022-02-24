@@ -2078,14 +2078,27 @@ func randomBranchingFiles(root string, n int) []string {
 
 // randomBytes pre-allocates all of the memory sizes needed for the test. If
 // anything panics while accessing randomBytes, just make this number bigger.
-var randomBytes = make([]byte, 128<<23)
+var randomBytes []byte
 
-func init() {
-	/* #nosec G404*/
-	_, _ = rand.Read(randomBytes) // always returns len(randomBytes) and nil error
-}
+var once sync.Once
 
 func randomContents(length int64) []byte {
+	once.Do(func() {
+		if testing.Short() {
+			randomBytes = make([]byte, 10*1024*1024)
+		} else {
+			randomBytes = make([]byte, 128<<23)
+		}
+
+		/* #nosec G404*/
+		_, _ = rand.Read(randomBytes) // always returns len(randomBytes) and nil error
+	})
+
+	if length > int64(len(randomBytes)) {
+		message := fmt.Sprintf("out of bounds: please bump randomBytes size to at least %d bytes", length)
+		panic(message)
+	}
+
 	return randomBytes[:length]
 }
 
