@@ -111,6 +111,18 @@ func withMigrationMaxConcurrentImports(n int) configOpt {
 	}
 }
 
+func withMigrationPreImportTimeout(d time.Duration) configOpt {
+	return func(config *configuration.Configuration) {
+		config.Migration.PreImportTimeout = d
+	}
+}
+
+func withMigrationImportTimeout(d time.Duration) configOpt {
+	return func(config *configuration.Configuration) {
+		config.Migration.ImportTimeout = d
+	}
+}
+
 func withMigrationTestSlowImport(d time.Duration) configOpt {
 	return func(config *configuration.Configuration) {
 		config.Migration.TestSlowImport = d

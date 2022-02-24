@@ -183,26 +183,35 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 			datastore.WithTestSlowImport(ih.App.Config.Migration.TestSlowImport),
 		)
 
-		ctx, cancel := context.WithTimeout(context.Background(), ih.timeout)
+		correlationID := correlation.ExtractFromContext(ih.Context)
+
+		importCtx, cancel := context.WithTimeout(context.Background(), ih.timeout)
 		defer cancel()
 
-		// ensure correlation ID is forwarded to the notifier
-		ctx = correlation.ContextWithCorrelation(ctx, correlation.ExtractFromContext(ih.Context))
+		// ensure correlation ID is forwarded to the import
+		importCtx = correlation.ContextWithCorrelation(importCtx, correlationID)
 
 		// Add parent logger to worker context to preserve request-specific fields.
 		l := log.GetLogger(log.WithContext(ih.Context))
-		ctx = log.WithLogger(ctx, l)
+		importCtx = log.WithLogger(importCtx, l)
 
-		err = ih.runImport(ctx, importer, dbRepo)
+		err = ih.runImport(importCtx, importer, dbRepo)
 		if err != nil {
 			l.WithError(err).Error("importing repository")
-			errortracking.Capture(err, errortracking.WithContext(ctx), errortracking.WithRequest(r))
+			errortracking.Capture(err, errortracking.WithContext(importCtx), errortracking.WithRequest(r))
 
 			report(true, err)
 		}
 
 		report(true, nil)
-		ih.sendImportNotification(ctx, dbRepo, err)
+
+		notificationCtx, cancel := context.WithTimeout(context.Background(), ih.Config.Migration.ImportNotification.Timeout)
+		defer cancel()
+
+		// ensure correlation ID is forwarded to the notifier
+		notificationCtx = correlation.ContextWithCorrelation(notificationCtx, correlationID)
+
+		ih.sendImportNotification(notificationCtx, dbRepo, err)
 	}()
 
 	w.WriteHeader(http.StatusAccepted)
