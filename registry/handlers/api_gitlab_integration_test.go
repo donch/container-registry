@@ -1088,8 +1088,8 @@ func TestGitlabAPI_RepositoryImport_MaxConcurrentImports_ErrorShouldNotBlockLimi
 	defer resp.Body.Close()
 
 	// repoPath1 fail
-	// TODO: replace with http.StatusBadRequest once https://gitlab.com/gitlab-org/container-registry/-/issues/587 is done
-	require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	checkBodyHasErrorCodes(t, "wrong response body error code", resp, v1.ErrorCodeInvalidQueryParamValue)
 
 	repoPath2 := fmt.Sprintf(repoPathTemplate, 1)
 

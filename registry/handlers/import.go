@@ -80,11 +80,10 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// TODO: We should have a specific error for bad query values.
-	// https://gitlab.com/gitlab-org/container-registry/-/issues/587
 	ih.preImport, err = isImportTypePre(r)
 	if err != nil {
-		ih.Errors = append(ih.Errors, errcode.FromUnknownError(err))
+		detail := v1.InvalidQueryParamValueErrorDetail(importTypeQueryParamKey, []string{"pre", "final"})
+		ih.Errors = append(ih.Errors, v1.ErrorCodeInvalidQueryParamValue.WithDetail(detail))
 		return
 	}
 
