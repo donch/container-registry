@@ -842,7 +842,7 @@ func (app *App) registerGitlab(route v1.Route, dispatch dispatchFunc) {
 	if app.Config.HTTP.Debug.Prometheus.Enabled {
 		handler = routeMetricsMiddleware(
 			handler,
-			metricskit.WithLabelValues(map[string]string{"route": route.Name}),
+			metricskit.WithLabelValues(map[string]string{"route": route.ID}),
 		)
 	}
 
