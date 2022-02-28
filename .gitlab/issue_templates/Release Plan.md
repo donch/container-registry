@@ -51,11 +51,11 @@ Generate a new release ([documentation](../../docs-gitlab/README.md#releases)).
     - [ ] Update `GITLAB_CONTAINER_REGISTRY_VERSION` in [`ci_files/variables.yml`](https://gitlab.com/gitlab-org/build/CNG/blob/master/ci_files/variables.yml)
     - [ ] Update `REGISTRY_VERSION` in [`gitlab-container-registry/Dockerfile`](https://gitlab.com/gitlab-org/build/CNG/blob/master/gitlab-container-registry/Dockerfile)
     - [ ] Update `REGISTRY_VERSION` in [`gitlab-container-registry/Dockerfile.build.ubi8`](https://gitlab.com/gitlab-org/build/CNG/blob/master/gitlab-container-registry/Dockerfile.build.ubi8)
-    - [ ] Label merge request with: `/label ~"group::distribution" ~"devops::enablement" ~"workflow::ready for review" ~"feature::maintenance"`
+    - [ ] Label merge request with: `/label ~"group::distribution" ~"devops::enablement" ~"workflow::ready for review" ~"type::maintenance"`
 1. [ ] Version bumps for specific distribution paths:
     - [ ] Version bump in [Omnibus](https://gitlab.com/gitlab-org/omnibus-gitlab):
         - [ ] Update `version` in [`config/software/registry.rb`](https://gitlab.com/gitlab-org/omnibus-gitlab/blob/master/config/software/registry.rb) and use the `Changelog: changed` commit trailer in the commit message
-        - [ ] Label merge request with: `/label ~"workflow::ready for review" ~"feature::maintenance"`
+        - [ ] Label merge request with: `/label ~"workflow::ready for review" ~"type::maintenance"`
     - [ ] Version bump in [Charts](https://gitlab.com/gitlab-org/charts). If the change is not time sensitive and we are not close to the monthly GitLab release date (more than a week before), you may wait for the [Gitlab Dependency Bot](https://gitlab.com/gitlab-dependency-bot) to create a version bump MR ([example](https://gitlab.com/gitlab-org/charts/gitlab/-/merge_requests/2123)). You should then associate that MR with this release issue for visibility. Otherwise, please proceed as follows:
         - [ ] Update `appVersion` in [`charts/registry/Chart.yaml`](https://gitlab.com/gitlab-org/charts/gitlab/-/blob/master/charts/registry/Chart.yaml)
         - [ ] Update `image.tag` in [`charts/registry/values.yaml`](https://gitlab.com/gitlab-org/charts/gitlab/-/blob/master/charts/registry/values.yaml)
