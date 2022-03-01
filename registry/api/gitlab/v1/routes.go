@@ -12,23 +12,31 @@ import (
 )
 
 // Route is the name and path pair of a GitLab v1 API route.
-type Route struct{ Name, Path string }
+type Route struct {
+	Name string
+	Path string
+	// ID is the unique identifier for this route. Used for metrics purposes.
+	ID string
+}
 
 var (
 	// Base is the API route under which all other GitLab v1 API routes are found.
 	Base = Route{
 		Name: "base",
 		Path: "/gitlab/v1/",
+		ID:   "/gitlab/v1",
 	}
 	// Repositories is the API route for the repositories' entity.
 	Repositories = Route{
 		Name: "repositories",
 		Path: Base.Path + "repositories/{name:" + reference.NameRegexp.String() + "}/",
+		ID:   Base.Path + "repositories/{name}",
 	}
 	// RepositoryImport is the API route that triggers a repository import.
 	RepositoryImport = Route{
 		Name: "import-repository",
 		Path: Base.Path + "import/{name:" + reference.NameRegexp.String() + "}/",
+		ID:   Base.Path + "import/{name}",
 	}
 )
 
