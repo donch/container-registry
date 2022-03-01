@@ -1,3 +1,19 @@
+# [3.31.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.30.0-gitlab...v3.31.0-gitlab) (2022-03-01)
+
+
+### Bug Fixes
+
+* enforce single access record for import route auth tokens ([c476307](https://gitlab.com/gitlab-org/container-registry/commit/c476307fd5a6509dc78ccbe76fc87f33dc7b5bfe))
+* use unique value for /gitlab/v1 API route names on metrics ([8e6550a](https://gitlab.com/gitlab-org/container-registry/commit/8e6550ac0eeb6754ec01a91fae0c92e9b8d7f24e))
+* **handlers:** return a proper error code for invalid import query value ([caabf19](https://gitlab.com/gitlab-org/container-registry/commit/caabf192881b13cdc7db5759e16d6b74a0832af6))
+
+
+### Features
+
+* add support for custom oras media types ([625f7a3](https://gitlab.com/gitlab-org/container-registry/commit/625f7a3029da451286dfc3096260c132826a8e2f))
+* **migration:** use Seperate Context for Import Notifications ([62bf886](https://gitlab.com/gitlab-org/container-registry/commit/62bf8867134e5c262d3699132230d9da2f9c6b26))
+* implement import GET route ([d67ba80](https://gitlab.com/gitlab-org/container-registry/commit/d67ba800d2ee2a4c22569ba72d869a0d8e5e0000))
+
 # [3.30.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.29.0-gitlab...v3.30.0-gitlab) (2022-02-23)
 
 
