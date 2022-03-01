@@ -197,6 +197,10 @@ func TestPathToKey(t *testing.T) {
 }
 
 func TestStatRootPath(t *testing.T) {
+	if skipCheck() != "" {
+		t.Skip(skipCheck())
+	}
+
 	var tests = []struct {
 		name          string
 		rootDirectory string
