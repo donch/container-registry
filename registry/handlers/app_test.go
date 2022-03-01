@@ -319,7 +319,7 @@ func TestGitlabAPI_RepositoryImportAccessRecords(t *testing.T) {
 
 	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 
-	expectedAuthHeader := `Bearer realm="realm-test",service="service-test",scope="repository:test/repo:pull repository:test/repo:push registry:import:*"`
+	expectedAuthHeader := `Bearer realm="realm-test",service="service-test",scope="registry:import:*"`
 	require.Equal(t, expectedAuthHeader, resp.Header.Get("WWW-Authenticate"))
 
 	// Ensure import scopes are not attached to other repository scoped requests.

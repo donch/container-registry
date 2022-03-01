@@ -1464,13 +1464,17 @@ func appendRepositoryImportAccessRecords(accessRecords []auth.Access, r *http.Re
 	routeName := route.GetName()
 
 	if routeName == v1.RepositoryImport.Name {
-		accessRecords = append(accessRecords,
-			auth.Access{
+		// If targeting the import route we override any previously added required accesses (from the v2 API) with a
+		// single action of type `registry`, name `import` and action `*`.
+		accessRecords = []auth.Access{
+			{
 				Resource: auth.Resource{
 					Type: "registry",
-					Name: "import"},
+					Name: "import",
+				},
 				Action: "*",
-			})
+			},
+		}
 	}
 
 	return accessRecords
