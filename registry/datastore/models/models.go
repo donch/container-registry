@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/docker/distribution/registry/internal/migration"
@@ -41,6 +42,11 @@ type Repository struct {
 	// This is a temporary attribute for the duration of https://gitlab.com/gitlab-org/container-registry/-/issues/570,
 	// and is only here to allow us to test selects and inserts for soft-deleted repositories:
 	DeletedAt sql.NullTime
+}
+
+// IsTopLevel identifies whether a repository is a top-level repository or not.
+func (r *Repository) IsTopLevel() bool {
+	return !strings.Contains(r.Path, "/")
 }
 
 // Repositories is a slice of Repository pointers.

@@ -88,6 +88,12 @@ func TestBlobStore_All(t *testing.T) {
 		},
 		{
 			MediaType: "application/vnd.docker.image.rootfs.diff.tar.gzip",
+			Digest:    "sha256:476a8fceb48f8f8db4dbad6c79d1087fb456950f31143a93577507f11cce789f",
+			Size:      421341,
+			CreatedAt: testutil.ParseTimestamp(t, "2022-02-22 11:52:35.336065", local),
+		},
+		{
+			MediaType: "application/vnd.docker.image.rootfs.diff.tar.gzip",
 			Digest:    "sha256:c9b1b535fdd91a9855fb7f82348177e5f019329a58c53c47272962dd60f71fc9",
 			Size:      2802957,
 			CreatedAt: testutil.ParseTimestamp(t, "2020-03-04 20:05:35.338639", local),
@@ -115,6 +121,18 @@ func TestBlobStore_All(t *testing.T) {
 			Digest:    "sha256:8cb22990f6b627016f2f2000d2f29da7c2bc87b80d21efb4f89ed148e00df6ee",
 			Size:      361786,
 			CreatedAt: testutil.ParseTimestamp(t, "2021-11-24 11:41:24.297000", local),
+		},
+		{
+			MediaType: "application/vnd.docker.image.rootfs.diff.tar.gzip",
+			Digest:    "sha256:b6755e9ecd752632aa972b4d51ec0775fe00c1c329dfebcfd17b73550795b1b7",
+			Size:      121,
+			CreatedAt: testutil.ParseTimestamp(t, "2022-02-22 11:52:35.336065", local),
+		},
+		{
+			MediaType: "application/vnd.docker.image.rootfs.diff.tar.gzip",
+			Digest:    "sha256:52f7f1bb6469c3c075e08bf1d2f15ce51c9db79ee715d6649ce9b0d67c84b5ef",
+			Size:      563125,
+			CreatedAt: testutil.ParseTimestamp(t, "2022-02-22 11:52:35.336065", local),
 		},
 		{
 			MediaType: "application/vnd.docker.container.image.v1+json",
@@ -157,6 +175,18 @@ func TestBlobStore_All(t *testing.T) {
 			Digest:    "sha256:3ded4e17612c66f216041fe6f15002d9406543192095d689f14e8063b1a503df",
 			Size:      633,
 			CreatedAt: testutil.ParseTimestamp(t, "2021-11-24 11:52:35.336065", local),
+		},
+		{
+			MediaType: "application/vnd.docker.image.rootfs.diff.tar.gzip",
+			Digest:    "sha256:9f6fc12aeb556c70245041829b3aed906d5c439d6cf4e7eb6d90216ffe182a3d",
+			Size:      86,
+			CreatedAt: testutil.ParseTimestamp(t, "2022-02-22 11:52:35.336065", local),
+		},
+		{
+			MediaType: "application/vnd.docker.image.rootfs.diff.tar.gzip",
+			Digest:    "sha256:eb5683307d3554d282fb9101ad7220cdfc81078b2da6dcb4a683698c972136c5",
+			Size:      5462210,
+			CreatedAt: testutil.ParseTimestamp(t, "2022-02-22 11:52:35.336065", local),
 		},
 		{
 			MediaType: "application/vnd.docker.image.rootfs.diff.tar.gzip",
@@ -216,7 +246,7 @@ func TestBlobStore_Count(t *testing.T) {
 	require.NoError(t, err)
 
 	// see testdata/fixtures/blobs.sql
-	require.Equal(t, 22, count)
+	require.Equal(t, 27, count)
 }
 
 func TestBlobStore_Create(t *testing.T) {

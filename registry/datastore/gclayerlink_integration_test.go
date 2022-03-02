@@ -43,6 +43,13 @@ func TestGCLayerLinkStore_FindAll(t *testing.T) {
 			Digest:       "sha256:68ced04f60ab5c7a5f1d0b0b4e7572c5a4c8cce44866513d30d9df1a15277d6b",
 		},
 		{
+			ID:           31,
+			NamespaceID:  3,
+			RepositoryID: 14,
+			LayerID:      31,
+			Digest:       "sha256:476a8fceb48f8f8db4dbad6c79d1087fb456950f31143a93577507f11cce789f",
+		},
+		{
 			ID:           1,
 			NamespaceID:  1,
 			RepositoryID: 3,
@@ -78,6 +85,27 @@ func TestGCLayerLinkStore_FindAll(t *testing.T) {
 			Digest:       "sha256:8cb22990f6b627016f2f2000d2f29da7c2bc87b80d21efb4f89ed148e00df6ee",
 		},
 		{
+			ID:           27,
+			NamespaceID:  3,
+			RepositoryID: 11,
+			LayerID:      27,
+			Digest:       "sha256:cf15cd200b0d2358579e1b561ec750ba8230f86e34e45cff89547c1217959752",
+		},
+		{
+			ID:           29,
+			NamespaceID:  3,
+			RepositoryID: 10,
+			LayerID:      29,
+			Digest:       "sha256:52f7f1bb6469c3c075e08bf1d2f15ce51c9db79ee715d6649ce9b0d67c84b5ef",
+		},
+		{
+			ID:           30,
+			NamespaceID:  3,
+			RepositoryID: 13,
+			LayerID:      30,
+			Digest:       "sha256:52f7f1bb6469c3c075e08bf1d2f15ce51c9db79ee715d6649ce9b0d67c84b5ef",
+		},
+		{
 			ID:           15,
 			NamespaceID:  3,
 			RepositoryID: 10,
@@ -111,6 +139,34 @@ func TestGCLayerLinkStore_FindAll(t *testing.T) {
 			RepositoryID: 10,
 			LayerID:      24,
 			Digest:       "sha256:cdb2596a54a1c291f041b1c824e87f4c6ed282a69b42f18c60dc801818e8a144",
+		},
+		{
+			ID:           25,
+			NamespaceID:  3,
+			RepositoryID: 11,
+			LayerID:      25,
+			Digest:       "sha256:683f96d2165726d760aa085adfc03a62cb3ce070687a4248b6451c6a84766a31",
+		},
+		{
+			ID:           28,
+			NamespaceID:  3,
+			RepositoryID: 13,
+			LayerID:      28,
+			Digest:       "sha256:ad4309f23d757351fba1698406f09c79667ecde8863dba39407cb915ebbe549d",
+		},
+		{
+			ID:           32,
+			NamespaceID:  3,
+			RepositoryID: 14,
+			LayerID:      32,
+			Digest:       "sha256:eb5683307d3554d282fb9101ad7220cdfc81078b2da6dcb4a683698c972136c5",
+		},
+		{
+			ID:           33,
+			NamespaceID:  3,
+			RepositoryID: 9,
+			LayerID:      33,
+			Digest:       "sha256:683f96d2165726d760aa085adfc03a62cb3ce070687a4248b6451c6a84766a31",
 		},
 		{
 			ID:           2,
@@ -189,6 +245,20 @@ func TestGCLayerLinkStore_FindAll(t *testing.T) {
 			LayerID:      20,
 			Digest:       "sha256:a9a96131ae93ca1ea6936aabddac48626c5749cb6f0c00f5e274d4078c5f4568",
 		},
+		{
+			ID:           26,
+			NamespaceID:  3,
+			RepositoryID: 11,
+			LayerID:      26,
+			Digest:       "sha256:a9a96131ae93ca1ea6936aabddac48626c5749cb6f0c00f5e274d4078c5f4568",
+		},
+		{
+			ID:           34,
+			NamespaceID:  3,
+			RepositoryID: 9,
+			LayerID:      34,
+			Digest:       "sha256:a9a96131ae93ca1ea6936aabddac48626c5749cb6f0c00f5e274d4078c5f4568",
+		},
 	}
 
 	require.Equal(t, expected, rr)
@@ -211,5 +281,5 @@ func TestGcLayerLinkStore_Count(t *testing.T) {
 	require.NoError(t, err)
 
 	// see testdata/fixtures/gc_blobs_layers.sql
-	require.Equal(t, 24, count)
+	require.Equal(t, 34, count)
 }
