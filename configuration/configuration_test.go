@@ -898,7 +898,7 @@ migration:
 		{
 			name:  "sample",
 			value: "20m",
-			want:  time.Duration(0),
+			want:  time.Minute * 20,
 		},
 		{
 			name: "default",

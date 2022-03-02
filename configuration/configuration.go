@@ -1087,7 +1087,7 @@ func ApplyDefaults(config *Configuration) {
 	if config.Migration.Enabled && config.Migration.MaxConcurrentImports < 1 {
 		config.Migration.MaxConcurrentImports = 1
 	}
-
-	// Prevent this from being configured by users.
-	config.Migration.TestSlowImport = 0
+	if config.Migration.Enabled && config.Migration.TestSlowImport < 0 {
+		config.Migration.TestSlowImport = 0
+	}
 }
