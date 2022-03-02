@@ -128,7 +128,7 @@ func TestRepositoryStore_FindAll(t *testing.T) {
 	require.NoError(t, err)
 
 	// see testdata/fixtures/repositories.sql
-	require.Len(t, rr, 10)
+	require.Len(t, rr, 16)
 	local := rr[0].CreatedAt.Location()
 	expected := models.Repositories{
 		{
@@ -218,6 +218,60 @@ func TestRepositoryStore_FindAll(t *testing.T) {
 			MigrationStatus: migration.RepositoryStatusNative,
 			CreatedAt:       testutil.ParseTimestamp(t, "2021-11-24 11:36:04.692846", local),
 		},
+		{
+			ID:              11,
+			NamespaceID:     3,
+			Name:            "repository-2",
+			Path:            "usage-group/sub-group-1/repository-2",
+			ParentID:        sql.NullInt64{Int64: 9, Valid: true},
+			MigrationStatus: migration.RepositoryStatusNative,
+			CreatedAt:       testutil.ParseTimestamp(t, "2022-02-22 11:12:43.561123", local),
+		},
+		{
+			ID:              12,
+			NamespaceID:     3,
+			Name:            "sub-group-2",
+			Path:            "usage-group/sub-group-2",
+			ParentID:        sql.NullInt64{Int64: 8, Valid: true},
+			MigrationStatus: migration.RepositoryStatusNative,
+			CreatedAt:       testutil.ParseTimestamp(t, "2022-02-22 11:33:12.312211", local),
+		},
+		{
+			ID:              13,
+			NamespaceID:     3,
+			Name:            "repository-1",
+			Path:            "usage-group/sub-group-2/repository-1",
+			ParentID:        sql.NullInt64{Int64: 12, Valid: true},
+			MigrationStatus: migration.RepositoryStatusNative,
+			CreatedAt:       testutil.ParseTimestamp(t, "2022-02-22 11:33:12.434732", local),
+		},
+		{
+			ID:              14,
+			NamespaceID:     3,
+			Name:            "sub-repository-1",
+			Path:            "usage-group/sub-group-2/repository-1/sub-repository-1",
+			ParentID:        sql.NullInt64{Int64: 13, Valid: true},
+			MigrationStatus: migration.RepositoryStatusNative,
+			CreatedAt:       testutil.ParseTimestamp(t, "2022-02-22 11:33:12.434732", local),
+		},
+		{
+			ID:              15,
+			NamespaceID:     4,
+			Name:            "usage-group-2",
+			Path:            "usage-group-2",
+			ParentID:        sql.NullInt64{},
+			MigrationStatus: migration.RepositoryStatusNative,
+			CreatedAt:       testutil.ParseTimestamp(t, "2022-02-22 15:36:04.692846", local),
+		},
+		{
+			ID:              16,
+			NamespaceID:     4,
+			Name:            "project-1",
+			Path:            "usage-group-2/sub-group-1/project-1",
+			ParentID:        sql.NullInt64{},
+			MigrationStatus: migration.RepositoryStatusNative,
+			CreatedAt:       testutil.ParseTimestamp(t, "2022-02-22 15:36:04.692846", local),
+		},
 	}
 
 	require.Equal(t, expected, rr)
@@ -253,7 +307,7 @@ func TestRepositoryStore_FindAllPaginated(t *testing.T) {
 	}{
 		{
 			name:     "no limit and no last path",
-			limit:    100, // there are only 7 repositories in the DB, so this is equivalent to no limit
+			limit:    100, // there are only 16 repositories in the DB, so this is equivalent to no limit
 			lastPath: "",  // this is the equivalent to no last path, as all repository paths are non-empty
 			expectedRepos: models.Repositories{
 				{
@@ -289,11 +343,43 @@ func TestRepositoryStore_FindAllPaginated(t *testing.T) {
 					MigrationStatus: migration.RepositoryStatusNative,
 				},
 				{
+					ID:              9,
+					NamespaceID:     3,
+					Name:            "sub-group-1",
+					Path:            "usage-group/sub-group-1",
+					ParentID:        sql.NullInt64{Int64: 8, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
+				},
+				{
 					ID:              10,
 					NamespaceID:     3,
 					Name:            "repository-1",
 					Path:            "usage-group/sub-group-1/repository-1",
 					ParentID:        sql.NullInt64{Int64: 9, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
+				},
+				{
+					ID:              11,
+					NamespaceID:     3,
+					Name:            "repository-2",
+					Path:            "usage-group/sub-group-1/repository-2",
+					ParentID:        sql.NullInt64{Int64: 9, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
+				},
+				{
+					ID:              13,
+					NamespaceID:     3,
+					Name:            "repository-1",
+					Path:            "usage-group/sub-group-2/repository-1",
+					ParentID:        sql.NullInt64{Int64: 12, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
+				},
+				{
+					ID:              14,
+					NamespaceID:     3,
+					Name:            "sub-repository-1",
+					Path:            "usage-group/sub-group-2/repository-1/sub-repository-1",
+					ParentID:        sql.NullInt64{Int64: 13, Valid: true},
 					MigrationStatus: migration.RepositoryStatusNative,
 				},
 			},
@@ -350,11 +436,43 @@ func TestRepositoryStore_FindAllPaginated(t *testing.T) {
 					MigrationStatus: migration.RepositoryStatusNative,
 				},
 				{
+					ID:              9,
+					NamespaceID:     3,
+					Name:            "sub-group-1",
+					Path:            "usage-group/sub-group-1",
+					ParentID:        sql.NullInt64{Int64: 8, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
+				},
+				{
 					ID:              10,
 					NamespaceID:     3,
 					Name:            "repository-1",
 					Path:            "usage-group/sub-group-1/repository-1",
 					ParentID:        sql.NullInt64{Int64: 9, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
+				},
+				{
+					ID:              11,
+					NamespaceID:     3,
+					Name:            "repository-2",
+					Path:            "usage-group/sub-group-1/repository-2",
+					ParentID:        sql.NullInt64{Int64: 9, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
+				},
+				{
+					ID:              13,
+					NamespaceID:     3,
+					Name:            "repository-1",
+					Path:            "usage-group/sub-group-2/repository-1",
+					ParentID:        sql.NullInt64{Int64: 12, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
+				},
+				{
+					ID:              14,
+					NamespaceID:     3,
+					Name:            "sub-repository-1",
+					Path:            "usage-group/sub-group-2/repository-1/sub-repository-1",
+					ParentID:        sql.NullInt64{Int64: 13, Valid: true},
 					MigrationStatus: migration.RepositoryStatusNative,
 				},
 			},
@@ -381,11 +499,43 @@ func TestRepositoryStore_FindAllPaginated(t *testing.T) {
 					MigrationStatus: migration.RepositoryStatusNative,
 				},
 				{
+					ID:              9,
+					NamespaceID:     3,
+					Name:            "sub-group-1",
+					Path:            "usage-group/sub-group-1",
+					ParentID:        sql.NullInt64{Int64: 8, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
+				},
+				{
 					ID:              10,
 					NamespaceID:     3,
 					Name:            "repository-1",
 					Path:            "usage-group/sub-group-1/repository-1",
 					ParentID:        sql.NullInt64{Int64: 9, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
+				},
+				{
+					ID:              11,
+					NamespaceID:     3,
+					Name:            "repository-2",
+					Path:            "usage-group/sub-group-1/repository-2",
+					ParentID:        sql.NullInt64{Int64: 9, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
+				},
+				{
+					ID:              13,
+					NamespaceID:     3,
+					Name:            "repository-1",
+					Path:            "usage-group/sub-group-2/repository-1",
+					ParentID:        sql.NullInt64{Int64: 12, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
+				},
+				{
+					ID:              14,
+					NamespaceID:     3,
+					Name:            "sub-repository-1",
+					Path:            "usage-group/sub-group-2/repository-1/sub-repository-1",
+					ParentID:        sql.NullInt64{Int64: 13, Valid: true},
 					MigrationStatus: migration.RepositoryStatusNative,
 				},
 			},
@@ -902,7 +1052,7 @@ func TestRepositoryStore_Count(t *testing.T) {
 	require.NoError(t, err)
 
 	// see testdata/fixtures/repositories.sql
-	require.Equal(t, 10, count)
+	require.Equal(t, 16, count)
 }
 
 func TestRepositoryStore_CountAfterPath(t *testing.T) {
@@ -929,26 +1079,26 @@ func TestRepositoryStore_CountAfterPath(t *testing.T) {
 		{
 			name: "all",
 			path: "",
-			// all non-empty repositories (5) are lexicographically after ""
-			expectedNumRepos: 5,
+			// all non-empty repositories (9) are lexicographically after ""
+			expectedNumRepos: 9,
 		},
 		{
 			name: "first",
 			path: "a-test-group/bar",
-			// there are 4 non-empty repositories lexicographically after "a-test-group/bar"
-			expectedNumRepos: 4,
+			// there are 8 non-empty repositories lexicographically after "a-test-group/bar"
+			expectedNumRepos: 8,
 		},
 		{
 			name: "last",
 			path: "gitlab-org/gitlab-test/frontend",
-			// there are 1 repositories lexicographically after "gitlab-org/gitlab-test/frontend"
-			expectedNumRepos: 1,
+			// there are 5 repositories lexicographically after "gitlab-org/gitlab-test/frontend"
+			expectedNumRepos: 5,
 		},
 		{
 			name: "non existent",
 			path: "does-not-exist",
-			// there are 3 non-empty repositories lexicographically after "does-not-exist"
-			expectedNumRepos: 3,
+			// there are 7 non-empty repositories lexicographically after "does-not-exist"
+			expectedNumRepos: 7,
 		},
 	}
 
@@ -1279,7 +1429,7 @@ func TestRepositoryStore_Size_Empty(t *testing.T) {
 
 	s := datastore.NewRepositoryStore(suite.db)
 
-	size, err := s.Size(suite.ctx, &models.Repository{NamespaceID: 3, ID: 9})
+	size, err := s.Size(suite.ctx, &models.Repository{NamespaceID: 3, ID: 8})
 	require.NoError(t, err)
 	require.Zero(t, size)
 }
@@ -1289,7 +1439,159 @@ func TestRepositoryStore_Size_NotFound(t *testing.T) {
 
 	s := datastore.NewRepositoryStore(suite.db)
 
-	size, err := s.Size(suite.ctx, &models.Repository{NamespaceID: 3, ID: 11})
+	size, err := s.Size(suite.ctx, &models.Repository{NamespaceID: 3, ID: 100})
+	require.NoError(t, err)
+	require.Zero(t, size)
+}
+
+// This comment describes the repository size calculation in detail, explaining the results of the
+// following calls to RepositoryStore.SizeWithDescendants.
+//
+// Here we use the test fixtures for the `usage-group` top-level repository (see testdata/fixtures/*.sql).
+// This repository was set up in the following way:
+//
+// **Repositories:**
+//
+// | Identifier | Path                                                  |
+// |------------|-------------------------------------------------------|
+// | Ra         | usage-group                                           |
+// | Rb         | usage-group/sub-group-1                               |
+// | Rc         | usage-group/sub-group-1/repository-1                  |
+// | Rd         | usage-group/sub-group-1/repository-2                  |
+// | Re         | usage-group/sub-group-2                               |
+// | Rg         | usage-group/sub-group-2/repository-1                  |
+// | Rh         | usage-group/sub-group-2/repository-1/sub-repository-1 |
+// | Ri         | usage-group-2                                         |
+// | Rj         | usage-group-2/sub-group-1/project-1                   |
+//
+// **Layers:**
+//
+// | Identifier | Digest                                                                  | Size    |
+// |------------|-------------------------------------------------------------------------|---------|
+// | La         | sha256:683f96d2165726d760aa085adfc03a62cb3ce070687a4248b6451c6a84766a31 | 468294  |
+// | Lb         | sha256:a9a96131ae93ca1ea6936aabddac48626c5749cb6f0c00f5e274d4078c5f4568 | 428360  |
+// | Lc         | sha256:cf15cd200b0d2358579e1b561ec750ba8230f86e34e45cff89547c1217959752 | 253193  |
+// | Ld         | sha256:8cb22990f6b627016f2f2000d2f29da7c2bc87b80d21efb4f89ed148e00df6ee | 361786  |
+// | Le         | sha256:ad4309f23d757351fba1698406f09c79667ecde8863dba39407cb915ebbe549d | 255232  |
+// | Lf         | sha256:0159a862a1d3a25886b9f029af200f15a27bd0a5552b5861f34b1cb02cc14fb2 | 107728  |
+// | Lg         | sha256:cdb2596a54a1c291f041b1c824e87f4c6ed282a69b42f18c60dc801818e8a144 | 146656  |
+// | Lh         | sha256:52f7f1bb6469c3c075e08bf1d2f15ce51c9db79ee715d6649ce9b0d67c84b5ef | 563125  |
+// | Li         | sha256:476a8fceb48f8f8db4dbad6c79d1087fb456950f31143a93577507f11cce789f | 421341  |
+// | Lj         | sha256:eb5683307d3554d282fb9101ad7220cdfc81078b2da6dcb4a683698c972136c5 | 5462210 |
+//
+// **Manifests:**
+//
+// | Identifier | Repositories | Digest                                                                  | References |
+// |------------|--------------|-------------------------------------------------------------------------|------------|
+// | Ma         | Rb, Rc       | sha256:85fe223d9762cb7c409635e4072bf52aa11d08fc55d0e7a61ac339fd2e41570f | La, Lb     |
+// | Mb         | Rc, Rd       | sha256:af468acedecdad7e7a40ecc7b497ca972ada9778911e340e51791a4a606dbc85 | La, Lb, Lc |
+// | Mc         | Rc           | sha256:557489fa71a8276bdfbbfb042e97eb3d5a72dcd7a6a4840824756e437775393d | Lb, Ld     |
+// | Md         | Rc, Rg       | sha256:0c3cf8ca7d3a3e72d804a5508484af4bcce14c184a344af7d72458ec91fb5708 | Le         |
+// | Me         | Rc           | sha256:59afc836e997438c844162d0216a3f3ae222560628df3d3608cb1c536ed9637b | Lf, Lg     |
+// | Mf         | Rc, Rg       | sha256:e05aa8bc6bd8f5298442bb036fdd7b57896ea4ae30213cd01a1a928cc5a3e98e | Lh         |
+// | Mg         | Rh           | sha256:9199190e776bbfa0f9fbfb031bcba73546e063462cefc2aa0d425b65643c28ea | Li, Lj     |
+//
+// **Manifest Lists:**
+//
+// | Identifier | Repositories | Digest                                                                  | References |
+// |------------|--------------|-------------------------------------------------------------------------|------------|
+// | MLa        | Rc           | sha256:47be6fe0d7fe76bd73bf8ab0b2a8a08c76814ca44cde20cea0f0073a5f3788e6 | Ma, Md     |
+// | MLb        | Rc           | sha256:624a638727aaa9b1fd5d7ebfcde3eb3771fb83ecf143ec1aa5965401d1573f2a | Me, MLa    |
+//
+// **Tags:**
+//
+// | Identifier | Repository | Target |
+// |------------|------------|--------|
+// | Ta         | Rc         | Ma     |
+// | Tb         | Rc         | Mb     |
+// | Tc         | Rc         | MLa    |
+// | Td         | Rc         | MLb    |
+// | Te         | Rd         | Mb     |
+// | Tf         | Rg         | Md     |
+// | Tg         | Rg         | Mf     |
+// | Th         | Rh         | Mg     |
+// | Ti         | Rb         | Ma     |
+//
+// Based on the above, we know:
+//
+// - `Ma` is tagged, so we need to account for the size of `La` and `Lb`. The repository size so far is `1*La + 1*Lb`;
+//
+// - `Mb` is tagged, so we need to account for the size of `Lc`. `La` and `Lb` were already accounted for once.
+//   Therefore, the repository size so far is `1*La + 1*Lb + 1*Lc`;
+//
+// - `Mc` is not tagged, so `Ld` should not be accounted for, and `Lb` was already. The size formula remains unchanged;
+//
+// - `MLa` is tagged and references `Ma` and `Md`. The `Ma` layers were already accounted, so we should only sum the size
+//   of `Le` referenced by `Md`. The repository size is now `1*La + 1*Lb + 1*Lc + 1*Le`;
+//
+// - `MLb` is tagged and references `Me` and `La`. `La` was already accounted for, so we ignore it. `Me` is "new", and
+// references `Lf` and `Lg`, which we haven't seen anywhere else. The repository size is now
+// `1*La + 1*Lb + 1*Lc + 1*Le+ 1*Lf+ 1*Lg`;
+//
+// - `Mg` is tagged and references `Li` and `Lj`, which did not appear before. The final repository size is therefore
+// `1*La + 1*Lb + 1*Lc + 1*Le+ 1*Lf+ 1*Lg + 1*Li + 1*Lj`, which equals to 7543014;
+func TestRepositoryStore_SizeWithDescendants_TopLevel(t *testing.T) {
+	reloadManifestFixtures(t)
+
+	s := datastore.NewRepositoryStore(suite.db)
+
+	size, err := s.SizeWithDescendants(suite.ctx, &models.Repository{NamespaceID: 3, ID: 8, Path: "usage-group"})
+	require.NoError(t, err)
+	require.Equal(t, int64(7543014), size)
+}
+
+// Here we use the test fixtures for the `usage-group/sub-group-1` repository (see testdata/fixtures/*.sql). See the
+// inline documentation for TestRepositoryStore_SizeWithDescendants_TopLevel for a breakdown of the test repositories,
+// their contents, and the rationale behind the expected size.
+//
+// Based on that, we know that `Ma`, `Mb`, `Mc`, `Md` and `Me` are all tagged (directly or indirectly, once or multiple
+// times). Therefore, the repository size is `1*La + 1*Lb + 1*Lc + 1*Le + 1*Lf + 1*Lg`, which is 1659463.
+func TestRepositoryStore_SizeWithDescendants_NonTopLevel(t *testing.T) {
+	reloadManifestFixtures(t)
+
+	s := datastore.NewRepositoryStore(suite.db)
+
+	size, err := s.SizeWithDescendants(suite.ctx, &models.Repository{NamespaceID: 3, ID: 9, Path: "usage-group/sub-group-1"})
+	require.NoError(t, err)
+	require.Equal(t, int64(1659463), size)
+}
+
+func TestRepositoryStore_SizeWithDescendants_TopLevelEmpty(t *testing.T) {
+	reloadManifestFixtures(t)
+
+	s := datastore.NewRepositoryStore(suite.db)
+
+	size, err := s.SizeWithDescendants(suite.ctx, &models.Repository{NamespaceID: 4, ID: 15, Path: "usage-group-2"})
+	require.NoError(t, err)
+	require.Zero(t, size)
+}
+
+func TestRepositoryStore_SizeWithDescendants_NonTopLevelEmpty(t *testing.T) {
+	reloadManifestFixtures(t)
+
+	s := datastore.NewRepositoryStore(suite.db)
+
+	size, err := s.SizeWithDescendants(suite.ctx, &models.Repository{NamespaceID: 4, ID: 16, Path: "usage-group-2/sub-group-1/project-1"})
+	require.NoError(t, err)
+	require.Zero(t, size)
+}
+
+func TestRepositoryStore_SizeWithDescendants_TopLevelNotFound(t *testing.T) {
+	reloadManifestFixtures(t)
+
+	s := datastore.NewRepositoryStore(suite.db)
+
+	size, err := s.SizeWithDescendants(suite.ctx, &models.Repository{NamespaceID: 100, ID: 1000, Path: "foo"})
+	require.NoError(t, err)
+	require.Zero(t, size)
+}
+
+func TestRepositoryStore_SizeWithDescendants_NonTopLevelNotFound(t *testing.T) {
+	reloadManifestFixtures(t)
+
+	s := datastore.NewRepositoryStore(suite.db)
+
+	size, err := s.SizeWithDescendants(suite.ctx, &models.Repository{NamespaceID: 100, ID: 1001, Path: "foo/bar"})
 	require.NoError(t, err)
 	require.Zero(t, size)
 }

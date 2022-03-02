@@ -41,6 +41,7 @@ type RepositoryReader interface {
 	FindBlob(ctx context.Context, r *models.Repository, d digest.Digest) (*models.Blob, error)
 	ExistsBlob(ctx context.Context, r *models.Repository, d digest.Digest) (bool, error)
 	Size(ctx context.Context, r *models.Repository) (int64, error)
+	SizeWithDescendants(ctx context.Context, r *models.Repository) (int64, error)
 }
 
 // RepositoryWriter is the interface that defines write operations for a repository store.
@@ -905,6 +906,139 @@ func (s *repositoryStore) Size(ctx context.Context, r *models.Repository) (int64
 	}
 
 	return size, nil
+}
+
+// topLevelSizeWithDescendants is an optimization for SizeWithDescendants when the target repository is a top-level
+// repository. This allows using an optimized SQL query for this specific scenario.
+func (s *repositoryStore) topLevelSizeWithDescendants(ctx context.Context, r *models.Repository) (int64, error) {
+	defer metrics.InstrumentQuery("repository_size_with_descendants_top_level")()
+
+	q := `SELECT
+			coalesce(sum(q.size), 0)
+		FROM ( WITH RECURSIVE cte AS (
+				SELECT
+					m.id AS manifest_id,
+					m.repository_id
+				FROM
+					manifests AS m
+				WHERE
+					m.top_level_namespace_id = $1
+					AND EXISTS (
+						SELECT
+						FROM
+							tags AS t
+						WHERE
+							t.top_level_namespace_id = m.top_level_namespace_id
+							AND t.repository_id = m.repository_id
+							AND t.manifest_id = m.id)
+					UNION
+					SELECT
+						mr.child_id AS manifest_id,
+						mr.repository_id
+					FROM
+						manifest_references AS mr
+						JOIN cte ON mr.repository_id = cte.repository_id
+							AND mr.parent_id = cte.manifest_id
+					WHERE
+						mr.top_level_namespace_id = $1
+		)
+					SELECT DISTINCT ON (l.digest)
+						l.size
+					FROM
+						layers AS l
+						JOIN cte ON l.top_level_namespace_id = $1
+							AND l.repository_id = cte.repository_id
+							AND l.manifest_id = cte.manifest_id) AS q`
+
+	var size int64
+	if err := s.db.QueryRowContext(ctx, q, r.NamespaceID).Scan(&size); err != nil {
+		return 0, fmt.Errorf("calculating top-level repository size with descendants: %w", err)
+	}
+
+	return size, nil
+}
+
+// nonTopLevelSizeWithDescendants is an optimization for SizeWithDescendants when the target repository is not a
+// top-level repository. This allows using an optimized SQL query for this specific scenario.
+func (s *repositoryStore) nonTopLevelSizeWithDescendants(ctx context.Context, r *models.Repository) (int64, error) {
+	defer metrics.InstrumentQuery("repository_size_with_descendants")()
+
+	q := `SELECT
+			coalesce(sum(q.size), 0)
+		FROM ( WITH RECURSIVE repository_ids AS MATERIALIZED (
+				SELECT
+					id
+				FROM
+					repositories
+				WHERE
+					top_level_namespace_id = $1
+					AND (
+						path = $2
+						OR path LIKE $3
+					)
+				),
+				cte AS (
+					SELECT
+						m.id AS manifest_id
+					FROM
+						manifests AS m
+					WHERE
+						m.top_level_namespace_id = $1
+						AND m.repository_id IN (
+							SELECT
+								id
+							FROM
+								repository_ids)
+							AND EXISTS (
+								SELECT
+								FROM
+									tags AS t
+								WHERE
+									t.top_level_namespace_id = m.top_level_namespace_id
+									AND t.repository_id = m.repository_id
+									AND t.manifest_id = m.id)
+							UNION
+							SELECT
+								mr.child_id AS manifest_id
+							FROM
+								manifest_references AS mr
+								JOIN cte ON mr.parent_id = cte.manifest_id
+							WHERE
+								mr.top_level_namespace_id = $1
+								AND mr.repository_id IN (
+									SELECT
+										id
+									FROM
+										repository_ids))
+								SELECT DISTINCT ON (l.digest)
+									l.size
+								FROM
+									layers AS l
+									JOIN cte ON l.top_level_namespace_id = $1
+										AND l.repository_id IN (
+											SELECT
+												id
+											FROM
+												repository_ids)
+											AND l.manifest_id = cte.manifest_id) AS q`
+
+	var size int64
+	if err := s.db.QueryRowContext(ctx, q, r.NamespaceID, r.Path, r.Path+"/%").Scan(&size); err != nil {
+		return 0, fmt.Errorf("calculating repository size with descendants: %w", err)
+	}
+
+	return size, nil
+}
+
+// SizeWithDescendants returns the deduplicated size of a repository, including all descendants (if any). This is the
+// sum of the size of all unique layers referenced by at least one tagged (directly or indirectly) manifest. No error is
+// returned if the repository does not exist. It is the caller's responsibility to ensure it exists before calling this
+// method and proceed accordingly if that matters.
+func (s *repositoryStore) SizeWithDescendants(ctx context.Context, r *models.Repository) (int64, error) {
+	if r.IsTopLevel() {
+		return s.topLevelSizeWithDescendants(ctx, r)
+	}
+	return s.nonTopLevelSizeWithDescendants(ctx, r)
 }
 
 // CreateOrFind attempts to create a repository. If the repository already exists (same path) that record is loaded from

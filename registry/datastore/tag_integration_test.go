@@ -173,6 +173,38 @@ func TestTagStore_FindAll(t *testing.T) {
 			ManifestID:   18,
 			CreatedAt:    testutil.ParseTimestamp(t, "2021-11-24 11:59:13.421427", local),
 		},
+		{
+			ID:           13,
+			NamespaceID:  3,
+			Name:         "e",
+			RepositoryID: 11,
+			ManifestID:   19,
+			CreatedAt:    testutil.ParseTimestamp(t, "2022-02-22 11:59:13.421427", local),
+		},
+		{
+			ID:           14,
+			NamespaceID:  3,
+			Name:         "f",
+			RepositoryID: 13,
+			ManifestID:   20,
+			CreatedAt:    testutil.ParseTimestamp(t, "2022-02-22 11:59:13.421427", local),
+		},
+		{
+			ID:           15,
+			NamespaceID:  3,
+			Name:         "h",
+			RepositoryID: 14,
+			ManifestID:   23,
+			CreatedAt:    testutil.ParseTimestamp(t, "2022-02-22 11:59:13.421427", local),
+		},
+		{
+			ID:           16,
+			NamespaceID:  3,
+			Name:         "i",
+			RepositoryID: 9,
+			ManifestID:   24,
+			CreatedAt:    testutil.ParseTimestamp(t, "2022-02-22 12:01:05.114178", local),
+		},
 	}
 	require.Equal(t, expected, tt)
 }
@@ -195,7 +227,7 @@ func TestTagStore_Count(t *testing.T) {
 	require.NoError(t, err)
 
 	// see testdata/fixtures/tags.sql
-	require.Equal(t, 12, count)
+	require.Equal(t, 16, count)
 }
 
 func TestTagStore_Repository(t *testing.T) {

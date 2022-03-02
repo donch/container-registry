@@ -11856,6 +11856,8 @@ CREATE INDEX index_gc_manifest_review_queue_on_review_after ON public.gc_manifes
 
 CREATE INDEX index_repositories_on_top_level_namespace_id_and_parent_id ON public.repositories USING btree (top_level_namespace_id, parent_id);
 
+CREATE INDEX index_repositories_on_top_level_namespace_id_and_path_and_id ON public.repositories USING btree (top_level_namespace_id, path text_pattern_ops, id);
+
 ALTER INDEX public.index_blobs_on_media_type_id ATTACH PARTITION partitions.blobs_p_0_media_type_id_idx;
 
 ALTER INDEX public.pk_blobs ATTACH PARTITION partitions.blobs_p_0_pkey;

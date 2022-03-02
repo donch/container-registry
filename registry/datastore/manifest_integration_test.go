@@ -307,6 +307,102 @@ func TestManifestStore_FindAll(t *testing.T) {
 			Payload:       models.Payload(`{"schemaVersion":2,"mediaType":"application/vnd.docker.distribution.manifest.list.v2+json","manifests":[{"mediaType":"application/vnd.docker.distribution.manifest.v2+json","digest":"sha256:59afc836e997438c844162d0216a3f3ae222560628df3d3608cb1c536ed9637b","size":736},{"mediaType":"application/vnd.docker.distribution.manifest.list.v2+json","digest":"sha256:47be6fe0d7fe76bd73bf8ab0b2a8a08c76814ca44cde20cea0f0073a5f3788e6","size":544}]}`),
 			CreatedAt:     testutil.ParseTimestamp(t, "2021-11-24 11:59:13.377238", local),
 		},
+		{
+			ID:            19,
+			NamespaceID:   3,
+			RepositoryID:  11,
+			TotalSize:     1151618,
+			SchemaVersion: 2,
+			MediaType:     "application/vnd.docker.distribution.manifest.v2+json",
+			Digest:        "sha256:af468acedecdad7e7a40ecc7b497ca972ada9778911e340e51791a4a606dbc85",
+			Payload:       models.Payload(`{"schemaVersion":2,"mediaType":"application/vnd.docker.distribution.manifest.v2+json","config":{"mediaType":"application/vnd.docker.container.image.v1+json","size":825,"digest":"sha256:b051081eac10ae5607e7846677924d7ac3824954248d0247e0d24dd5063fb4c0"},"layers":[{"mediaType":"application/vnd.docker.image.rootfs.diff.tar.gzip","size":468294,"digest":"sha256:683f96d2165726d760aa085adfc03a62cb3ce070687a4248b6451c6a84766a31"},{"mediaType":"application/vnd.docker.image.rootfs.diff.tar.gzip","size":428360,"digest":"sha256:a9a96131ae93ca1ea6936aabddac48626c5749cb6f0c00f5e274d4078c5f4568"},{"mediaType":"application/vnd.docker.image.rootfs.diff.tar.gzip","size":253193,"digest":"sha256:cf15cd200b0d2358579e1b561ec750ba8230f86e34e45cff89547c1217959752"}] }`),
+			Configuration: &models.Configuration{
+				MediaType: "application/vnd.docker.container.image.v1+json",
+				Digest:    "sha256:b051081eac10ae5607e7846677924d7ac3824954248d0247e0d24dd5063fb4c0",
+				Payload:   models.Payload(`{"architecture":"amd64","config":{"Env":["PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],"WorkingDir":"/","OnBuild":null},"created":"2021-11-24T11:38:49.1182317Z","history":[{"created":"2021-11-24T11:32:46.8470508Z","created_by":"ADD layer-A / # buildkit","comment":"buildkit.dockerfile.v0"},{"created":"2021-11-24T11:32:46.8767548Z","created_by":"ADD layer-B / # buildkit","comment":"buildkit.dockerfile.v0"},{"created":"2021-11-24T11:38:49.1182317Z","created_by":"ADD layer-C / # buildkit","comment":"buildkit.dockerfile.v0"}],"os":"linux","rootfs":{"type":"layers","diff_ids":["sha256:4974910e7ff7fd346d8e092e942fa85f487c2bf5198fe43ed4098ceb382848c5","sha256:0d81464e0e69e543f6c7adb0553f62113231081fbc8caa97045853649cc2265b","sha256:87ed3ba3f563863852f6a0cf71ba9f901185dbb85ce34e1c34c27d326fbf121f"]}}`),
+			},
+			CreatedAt: testutil.ParseTimestamp(t, "2022-02-22 11:38:57.264559", local),
+		},
+		{
+			ID:            20,
+			NamespaceID:   3,
+			RepositoryID:  13,
+			TotalSize:     256199,
+			SchemaVersion: 2,
+			MediaType:     "application/vnd.docker.distribution.manifest.v2+json",
+			Digest:        "sha256:0c3cf8ca7d3a3e72d804a5508484af4bcce14c184a344af7d72458ec91fb5708",
+			Payload:       models.Payload(`{"schemaVersion":2,"mediaType":"application/vnd.docker.distribution.manifest.v2+json","config":{"mediaType":"application/vnd.docker.container.image.v1+json","size":441,"digest":"sha256:0a450fb93c7bd4ee53d05ba63842d6c2cf73089198cbaccc115d470e6ae2ffc9"},"layers":[{"mediaType":"application/vnd.docker.image.rootfs.diff.tar.gzip","size":255232,"digest":"sha256:ad4309f23d757351fba1698406f09c79667ecde8863dba39407cb915ebbe549d"}] }`),
+			Configuration: &models.Configuration{
+				MediaType: "application/vnd.docker.container.image.v1+json",
+				Digest:    "sha256:0a450fb93c7bd4ee53d05ba63842d6c2cf73089198cbaccc115d470e6ae2ffc9",
+				Payload:   models.Payload(`{"architecture":"amd64","config":{"Env":["PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],"WorkingDir":"/","OnBuild":null},"created":"2021-11-24T11:45:06.1187521Z","history":[{"created":"2021-11-24T11:45:06.1187521Z","created_by":"ADD layer-E / # buildkit","comment":"buildkit.dockerfile.v0"}],"os":"linux","rootfs":{"type":"layers","diff_ids":["sha256:b15ccbd2d845398de645fee48304def6d9308f687ad65861698bd2a76321ed78"]}}`),
+			},
+			CreatedAt: testutil.ParseTimestamp(t, "2022-02-22 11:45:22.869377", local),
+		},
+		{
+			ID:            21,
+			NamespaceID:   3,
+			RepositoryID:  10,
+			TotalSize:     563246,
+			SchemaVersion: 2,
+			MediaType:     "application/vnd.docker.distribution.manifest.v2+json",
+			Digest:        "sha256:e05aa8bc6bd8f5298442bb036fdd7b57896ea4ae30213cd01a1a928cc5a3e98e",
+			Payload:       models.Payload(`{"schemaVersion":2,"mediaType":"application/vnd.docker.distribution.manifest.v2+json","config":{"mediaType":"application/vnd.docker.container.image.v1+json","size":121,"digest":"sha256:b6755e9ecd752632aa972b4d51ec0775fe00c1c329dfebcfd17b73550795b1b7"},"layers":[{"mediaType":"application/vnd.docker.image.rootfs.diff.tar.gzip","size":563125,"digest":"sha256:52f7f1bb6469c3c075e08bf1d2f15ce51c9db79ee715d6649ce9b0d67c84b5ef"}]}`),
+			Configuration: &models.Configuration{
+				MediaType: "application/vnd.docker.container.image.v1+json",
+				Digest:    "sha256:b6755e9ecd752632aa972b4d51ec0775fe00c1c329dfebcfd17b73550795b1b7",
+				Payload:   models.Payload(`{"architecture":"amd64","config":{"Env":["PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],"WorkingDir":"/","OnBuild":null},"created":"2021-11-24T11:45:06.1187521Z","history":[{"created":"2021-11-24T11:45:06.1187521Z","created_by":"ADD layer-E / # buildkit","comment":"buildkit.dockerfile.v0"}],"os":"linux","rootfs":{"type":"layers","diff_ids":["sha256:b15ccbd2d845398de645fee48304def6d9308f687ad65861698bd2a76321ed78"]}}`),
+			},
+			CreatedAt: testutil.ParseTimestamp(t, "2022-02-22 11:45:22.869377", local),
+		},
+		{
+			ID:            22,
+			NamespaceID:   3,
+			RepositoryID:  13,
+			TotalSize:     563246,
+			SchemaVersion: 2,
+			MediaType:     "application/vnd.docker.distribution.manifest.v2+json",
+			Digest:        "sha256:e05aa8bc6bd8f5298442bb036fdd7b57896ea4ae30213cd01a1a928cc5a3e98e",
+			Payload:       models.Payload(`{"schemaVersion":2,"mediaType":"application/vnd.docker.distribution.manifest.v2+json","config":{"mediaType":"application/vnd.docker.container.image.v1+json","size":121,"digest":"sha256:b6755e9ecd752632aa972b4d51ec0775fe00c1c329dfebcfd17b73550795b1b7"},"layers":[{"mediaType":"application/vnd.docker.image.rootfs.diff.tar.gzip","size":563125,"digest":"sha256:52f7f1bb6469c3c075e08bf1d2f15ce51c9db79ee715d6649ce9b0d67c84b5ef"}]}`),
+			Configuration: &models.Configuration{
+				MediaType: "application/vnd.docker.container.image.v1+json",
+				Digest:    "sha256:b6755e9ecd752632aa972b4d51ec0775fe00c1c329dfebcfd17b73550795b1b7",
+				Payload:   models.Payload(`{"architecture":"amd64","config":{"Env":["PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],"WorkingDir":"/","OnBuild":null},"created":"2021-11-24T11:45:06.1187521Z","history":[{"created":"2021-11-24T11:45:06.1187521Z","created_by":"ADD layer-E / # buildkit","comment":"buildkit.dockerfile.v0"}],"os":"linux","rootfs":{"type":"layers","diff_ids":["sha256:b15ccbd2d845398de645fee48304def6d9308f687ad65861698bd2a76321ed78"]}}`),
+			},
+			CreatedAt: testutil.ParseTimestamp(t, "2022-02-22 11:45:22.869377", local),
+		},
+		{
+			ID:            23,
+			NamespaceID:   3,
+			RepositoryID:  14,
+			TotalSize:     5883637,
+			SchemaVersion: 2,
+			MediaType:     "application/vnd.docker.distribution.manifest.v2+json",
+			Digest:        "sha256:9199190e776bbfa0f9fbfb031bcba73546e063462cefc2aa0d425b65643c28ea",
+			Payload:       models.Payload(`{"schemaVersion":2,"mediaType":"application/vnd.docker.distribution.manifest.v2+json","config":{"mediaType":"application/vnd.docker.container.image.v1+json","size":86,"digest":"sha256:9f6fc12aeb556c70245041829b3aed906d5c439d6cf4e7eb6d90216ffe182a3d"},"layers":[{"mediaType":"application/vnd.docker.image.rootfs.diff.tar.gzip","size":421341,"digest":"sha256:476a8fceb48f8f8db4dbad6c79d1087fb456950f31143a93577507f11cce789f"},{"mediaType":"application/vnd.docker.image.rootfs.diff.tar.gzip","size":5462210,"digest":"sha256:eb5683307d3554d282fb9101ad7220cdfc81078b2da6dcb4a683698c972136c5"}]}`),
+			Configuration: &models.Configuration{
+				MediaType: "application/vnd.docker.container.image.v1+json",
+				Digest:    "sha256:9f6fc12aeb556c70245041829b3aed906d5c439d6cf4e7eb6d90216ffe182a3d",
+				Payload:   models.Payload(`{"architecture":"amd64","config":{"Env":["PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],"WorkingDir":"/","OnBuild":null},"created":"2021-11-24T11:45:06.1187521Z","history":[{"created":"2021-11-24T11:45:06.1187521Z","created_by":"ADD layer-E / # buildkit","comment":"buildkit.dockerfile.v0"}],"os":"linux","rootfs":{"type":"layers","diff_ids":["sha256:b15ccbd2d845398de645fee48304def6d9308f687ad65861698bd2a76321ed78"]}}`),
+			},
+			CreatedAt: testutil.ParseTimestamp(t, "2022-02-22 11:45:22.869377", local),
+		},
+		{
+			ID:            24,
+			NamespaceID:   3,
+			RepositoryID:  9,
+			TotalSize:     898023,
+			SchemaVersion: 2,
+			MediaType:     "application/vnd.docker.distribution.manifest.v2+json",
+			Digest:        "sha256:85fe223d9762cb7c409635e4072bf52aa11d08fc55d0e7a61ac339fd2e41570f",
+			Payload:       models.Payload(`{"schemaVersion":2,"mediaType":"application/vnd.docker.distribution.manifest.v2+json","config":{"mediaType":"application/vnd.docker.container.image.v1+json","size":633,"digest":"sha256:65f60633aab53c6abe938ac80b761342c1f7880a95e7f233168b0575dd2dad17"},"layers":[{"mediaType":"application/vnd.docker.image.rootfs.diff.tar.gzip","size":468294,"digest":"sha256:683f96d2165726d760aa085adfc03a62cb3ce070687a4248b6451c6a84766a31"},{"mediaType":"application/vnd.docker.image.rootfs.diff.tar.gzip","size":428360,"digest":"sha256:a9a96131ae93ca1ea6936aabddac48626c5749cb6f0c00f5e274d4078c5f4568"}]}`),
+			Configuration: &models.Configuration{
+				MediaType: "application/vnd.docker.container.image.v1+json",
+				Digest:    "sha256:65f60633aab53c6abe938ac80b761342c1f7880a95e7f233168b0575dd2dad17",
+				Payload:   models.Payload(`{"architecture":"amd64","config":{"Env":["PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],"WorkingDir":"/","OnBuild":null},"created":"2021-11-24T11:32:46.8767548Z","history":[{"created":"2021-11-24T11:32:46.8470508Z","created_by":"ADD layer-A / # buildkit","comment":"buildkit.dockerfile.v0"},{"created":"2021-11-24T11:32:46.8767548Z","created_by":"ADD layer-B / # buildkit","comment":"buildkit.dockerfile.v0"}],"os":"linux","rootfs":{"type":"layers","diff_ids":["sha256:4974910e7ff7fd346d8e092e942fa85f487c2bf5198fe43ed4098ceb382848c5","sha256:0d81464e0e69e543f6c7adb0553f62113231081fbc8caa97045853649cc2265b"]}}`),
+			},
+			CreatedAt: testutil.ParseTimestamp(t, "2022-02-22 11:56:05.114178", local),
+		},
 	}
 	require.Equal(t, expected, mm)
 }
@@ -329,7 +425,7 @@ func TestManifestStore_Count(t *testing.T) {
 	require.NoError(t, err)
 
 	// see testdata/fixtures/manifests.sql
-	require.Equal(t, 18, count)
+	require.Equal(t, 24, count)
 }
 
 func TestManifestStore_Layers(t *testing.T) {
