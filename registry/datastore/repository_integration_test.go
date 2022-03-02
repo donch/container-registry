@@ -1462,6 +1462,9 @@ func TestRepositoryStore_Update(t *testing.T) {
 		Path:            "bar",
 		ParentID:        sql.NullInt64{Int64: 0, Valid: false},
 		MigrationStatus: migration.RepositoryStatusPreImportInProgress,
+		MigrationError: sql.NullString{
+			String: "something went wrong", Valid: true,
+		},
 	}
 	err := s.Update(suite.ctx, update)
 	require.NoError(t, err)
@@ -1471,6 +1474,27 @@ func TestRepositoryStore_Update(t *testing.T) {
 
 	update.CreatedAt = r.CreatedAt
 	require.Equal(t, update, r)
+}
+
+func TestRepositoryStore_Update_MigrationError_LengthConstraint(t *testing.T) {
+	reloadRepositoryFixtures(t)
+        // The check_repositories_migration_error_length constraint allows strings of up to 255 characters, this string is 256 chars long so it will trigger the error
+	longString := "ad165db4bd480656a539e8e00db265377d162d6b98eebbfe5805d0fbd5144155ad165db4bd480656a539e8e00db265377d162d6b98eebbfe5805d0fbd5144155ad165db4bd480656a539e8e00db265377d162d6b98eebbfe5805d0fbd5144155ad165db4bd480656a539e8e00db265377d162d6b98eebbfe5805d0fbd5144155"
+	s := datastore.NewRepositoryStore(suite.db)
+	update := &models.Repository{
+		NamespaceID:     1,
+		ID:              4,
+		Name:            "bar",
+		Path:            "bar",
+		ParentID:        sql.NullInt64{Int64: 0, Valid: false},
+		MigrationStatus: migration.RepositoryStatusPreImportInProgress,
+		MigrationError: sql.NullString{
+			String: longString, Valid: true,
+		},
+	}
+
+	err := s.Update(suite.ctx, update)
+	require.EqualError(t, err, `updating repository: ERROR: new row for relation "repositories" violates check constraint "check_repositories_migration_error_length" (SQLSTATE 23514)`)
 }
 
 func TestRepositoryStore_Update_NotFound(t *testing.T) {

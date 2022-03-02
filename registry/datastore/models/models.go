@@ -35,6 +35,7 @@ type Repository struct {
 	Path            string
 	ParentID        sql.NullInt64
 	MigrationStatus migration.RepositoryStatus
+	MigrationError  sql.NullString
 	CreatedAt       time.Time
 	UpdatedAt       sql.NullTime
 	// This is a temporary attribute for the duration of https://gitlab.com/gitlab-org/container-registry/-/issues/570,
