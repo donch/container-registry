@@ -43,7 +43,7 @@ The due date is set to the 12th of each month to create a buffer of 5 days befor
 
 ### 2. Release
 
-Generate a new release ([documentation](../../docs-gitlab/README.md#releases)).
+Generate a new release ([documentation](https://gitlab.com/gitlab-org/container-registry/-/tree/master/docs-gitlab#releases)).
 
 ### 3. Update
 
