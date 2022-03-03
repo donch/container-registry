@@ -765,6 +765,8 @@ For more information about Token based authentication configuration, see the
 
 ### `htpasswd`
 
+> **DEPRECATION NOTICE**: Support for `htpasswd` is deprecated and will be removed in 2022-05-22. See https://gitlab.com/gitlab-org/container-registry/-/issues/608 for more details.
+
 The _htpasswd_ authentication backed allows you to configure basic
 authentication using an
 [Apache htpasswd file](https://httpd.apache.org/docs/2.4/programs/htpasswd.html).
