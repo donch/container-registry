@@ -1301,6 +1301,7 @@ func (app *App) authorized(w http.ResponseWriter, r *http.Request, context *Cont
 	if repo != "" {
 		accessRecords = appendAccessRecords(accessRecords, r.Method, repo)
 		accessRecords = appendRepositoryImportAccessRecords(accessRecords, r, repo)
+		accessRecords = appendRepositoryDetailsAccessRecords(accessRecords, r, repo)
 
 		if fromRepo := r.FormValue("from"); fromRepo != "" {
 			// mounting a blob from one repository to another requires pull (GET)
@@ -1475,6 +1476,28 @@ func appendRepositoryImportAccessRecords(accessRecords []auth.Access, r *http.Re
 				Action: "*",
 			},
 		}
+	}
+
+	return accessRecords
+}
+
+func appendRepositoryDetailsAccessRecords(accessRecords []auth.Access, r *http.Request, repo string) []auth.Access {
+	route := mux.CurrentRoute(r)
+	routeName := route.GetName()
+
+	// For now, we only have one operation requiring a custom access record, and that is for returning the size of a
+	// repository including its descendants. This requires an access record of type `repository` and name `<name>/*`
+	// (to grant read access on all descendants), in addition to the standard access record of type `repository` and
+	// name `<name>` (to grant read access to the base repository), which was appended in the preceding call to
+	// `appendAccessRecords`.
+	if routeName == v1.Repositories.Name && sizeQueryParamValue(r) == sizeQueryParamSelfWithDescendantsValue {
+		accessRecords = append(accessRecords, auth.Access{
+			Resource: auth.Resource{
+				Type: "repository",
+				Name: fmt.Sprintf("%s/*", repo),
+			},
+			Action: "pull",
+		})
 	}
 
 	return accessRecords

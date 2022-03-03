@@ -1780,7 +1780,7 @@ func TestRepositoryStore_Update(t *testing.T) {
 
 func TestRepositoryStore_Update_MigrationError_LengthConstraint(t *testing.T) {
 	reloadRepositoryFixtures(t)
-        // The check_repositories_migration_error_length constraint allows strings of up to 255 characters, this string is 256 chars long so it will trigger the error
+	// The check_repositories_migration_error_length constraint allows strings of up to 255 characters, this string is 256 chars long so it will trigger the error
 	longString := "ad165db4bd480656a539e8e00db265377d162d6b98eebbfe5805d0fbd5144155ad165db4bd480656a539e8e00db265377d162d6b98eebbfe5805d0fbd5144155ad165db4bd480656a539e8e00db265377d162d6b98eebbfe5805d0fbd5144155ad165db4bd480656a539e8e00db265377d162d6b98eebbfe5805d0fbd5144155"
 	s := datastore.NewRepositoryStore(suite.db)
 	update := &models.Repository{

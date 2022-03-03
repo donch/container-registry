@@ -181,6 +181,16 @@ func makeBuilderTestCases(builder *Builder) []urlBuilderTestCase {
 				})
 			},
 		},
+		{
+			description:  "test Gitlab v1 repository url with self with descendants size",
+			expectedPath: "/gitlab/v1/repositories/foo/bar/?size=self_with_descendants",
+			expectedErr:  nil,
+			build: func() (string, error) {
+				return builder.BuildGitlabV1RepositoryURL(fooBarRef, url.Values{
+					"size": []string{"self_with_descendants"},
+				})
+			},
+		},
 	}
 }
 

@@ -369,6 +369,42 @@ func TestGitlabAPI_GetRepositoryDetailsAccessRecords(t *testing.T) {
 	require.Equal(t, expectedAuthHeader, resp.Header.Get("WWW-Authenticate"))
 }
 
+// TestGitlabAPI_GetRepositoryDetails_SelfWithDescendantsAccessRecords ensures that only users with pull permissions
+// for repositories `<name>` (base) and `<name>/*` (descendants) can invoke the `GET /gitlab/v1/repositories/<name>`
+// endpoint with the `size` query param set to `self_with_descendants`.
+func TestGitlabAPI_GetRepositoryDetails_SelfWithDescendantsAccessRecords(t *testing.T) {
+	ctx := context.Background()
+	config := testConfig()
+
+	app := NewApp(ctx, config)
+
+	server := httptest.NewServer(app)
+	defer server.Close()
+
+	repo, err := reference.WithName("test/repo")
+	require.NoError(t, err)
+
+	repo, err = reference.WithTag(repo, "latest")
+	require.NoError(t, err)
+
+	builder, err := urls.NewBuilderFromString(server.URL, false)
+	require.NoError(t, err)
+
+	u, err := builder.BuildGitlabV1RepositoryURL(repo, url.Values{
+		"size": []string{"self_with_descendants"},
+	})
+	require.NoError(t, err)
+
+	resp, err := http.Get(u)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+
+	expectedAuthHeader := `Bearer realm="realm-test",service="service-test",scope="repository:test/repo:pull repository:test/repo/*:pull"`
+	require.Equal(t, expectedAuthHeader, resp.Header.Get("WWW-Authenticate"))
+}
+
 func Test_updateOnlineGCSettings_SkipIfDatabaseDisabled(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	dbMock := dbmock.NewMockHandler(ctrl)
