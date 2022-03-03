@@ -1077,6 +1077,37 @@ func TestGitlabAPI_Repository_Get(t *testing.T) {
 	require.Regexp(t, iso8601MsFormat, r.CreatedAt)
 	require.Empty(t, r.UpdatedAt)
 
+	// Now create a new sub repository and push a new tagged image. When called with size=self_with_descendants, the
+	// returned size should have been incremented when compared with size=self.
+	subRepoPath := fmt.Sprintf("%s/car", repoPath)
+	m2 := seedRandomSchema2Manifest(t, env, subRepoPath, putByTag(tagName))
+	for _, d := range m2.Layers() {
+		expectedSize += d.Size
+	}
+
+	u, err = env.builder.BuildGitlabV1RepositoryURL(repoRef, url.Values{
+		"size": []string{"self_with_descendants"},
+	})
+	require.NoError(t, err)
+
+	resp, err = http.Get(u)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	r = handlers.RepositoryAPIResponse{}
+	p, err = io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	err = json.Unmarshal(p, &r)
+	require.NoError(t, err)
+
+	require.Equal(t, r.Name, repoName)
+	require.Equal(t, r.Path, repoPath)
+	require.Equal(t, *r.Size, expectedSize)
+	require.NotEmpty(t, r.CreatedAt)
+	require.Regexp(t, iso8601MsFormat, r.CreatedAt)
+	require.Empty(t, r.UpdatedAt)
+
 	// use invalid `size` query param value
 	u, err = env.builder.BuildGitlabV1RepositoryURL(repoRef, url.Values{
 		"size": []string{"selfff"},

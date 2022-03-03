@@ -36,11 +36,15 @@ type RepositoryAPIResponse struct {
 }
 
 const (
-	sizeQueryParamKey       = "size"
-	sizeQueryParamSelfValue = "self"
+	sizeQueryParamKey                      = "size"
+	sizeQueryParamSelfValue                = "self"
+	sizeQueryParamSelfWithDescendantsValue = "self_with_descendants"
 )
 
-var sizeQueryParamValidValues = []string{sizeQueryParamSelfValue}
+var sizeQueryParamValidValues = []string{
+	sizeQueryParamSelfValue,
+	sizeQueryParamSelfWithDescendantsValue,
+}
 
 func isQueryParamValueValid(value string, validValues []string) bool {
 	for _, v := range validValues {
@@ -49,6 +53,10 @@ func isQueryParamValueValid(value string, validValues []string) bool {
 		}
 	}
 	return false
+}
+
+func sizeQueryParamValue(r *http.Request) string {
+	return r.URL.Query().Get(sizeQueryParamKey)
 }
 
 // timeToString converts a time.Time to a ISO 8601 with millisecond precision string. This is the standard format used
@@ -62,15 +70,13 @@ func (h *repositoryHandler) GetRepository(w http.ResponseWriter, r *http.Request
 	l.Debug("GetRepository")
 
 	var withSize bool
-	sizeVal := r.URL.Query().Get(sizeQueryParamKey)
+	sizeVal := sizeQueryParamValue(r)
 	if sizeVal != "" {
 		if !isQueryParamValueValid(sizeVal, sizeQueryParamValidValues) {
 			detail := v1.InvalidQueryParamValueErrorDetail(sizeQueryParamKey, sizeQueryParamValidValues)
 			h.Errors = append(h.Errors, v1.ErrorCodeInvalidQueryParamValue.WithDetail(detail))
 			return
 		}
-		// Later on we'll have other possible values beyond `self`, namely `self_with_descendants`, but for now we only
-		// allow `self`, so a simple bool will do
 		withSize = true
 	}
 
@@ -96,7 +102,13 @@ func (h *repositoryHandler) GetRepository(w http.ResponseWriter, r *http.Request
 
 	var size int64
 	if withSize {
-		if size, err = store.Size(h.Context.Context, repo); err != nil {
+		switch sizeVal {
+		case sizeQueryParamSelfValue:
+			size, err = store.Size(h.Context.Context, repo)
+		case sizeQueryParamSelfWithDescendantsValue:
+			size, err = store.SizeWithDescendants(h.Context.Context, repo)
+		}
+		if err != nil {
 			h.Errors = append(h.Errors, errcode.FromUnknownError(err))
 			return
 		}
