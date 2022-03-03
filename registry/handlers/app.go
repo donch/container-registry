@@ -1038,6 +1038,8 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 				return
 			}
 
+			// TODO: We'll need to do check the migration status in a transaction once
+			// https://gitlab.com/gitlab-org/container-registry/-/issues/595 is resolved.
 			start := time.Now()
 			mStatus, err = app.getMigrationStatus(ctx, repository)
 			if err != nil {
@@ -1046,6 +1048,17 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 				ctx.Errors = append(ctx.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
 			}
 			migrationStatusDuration = time.Since(start)
+
+			// We're in the middle of a full import and we have received a write request.
+			// Deny the write request so that the full import can continue.
+			if mStatus == migration.StatusImportInProgress &&
+				!(r.Method == http.MethodGet || r.Method == http.MethodHead) {
+				err = fmt.Errorf("canceling write request: full import of repository in progress")
+				dcontext.GetLogger(ctx).Error(err)
+				ctx.Errors = append(ctx.Errors, errcode.ErrorCodeUnavailable.WithDetail(err))
+				w.WriteHeader(http.StatusServiceUnavailable)
+				return
+			}
 
 			ctx.writeFSMetadata = !app.Config.Migration.DisableMirrorFS
 			migrateRepo := mStatus.ShouldMigrate()

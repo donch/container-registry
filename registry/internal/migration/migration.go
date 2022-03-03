@@ -77,6 +77,7 @@ const (
 	StatusError
 	StatusOldRepo
 	StatusNonRepositoryScopedRequest
+	StatusImportInProgress
 )
 
 const eligibilityCutoff = 1000
@@ -96,6 +97,7 @@ func (m Status) String() string {
 		StatusNewRepo:                    "NewRepo",
 		StatusNonRepositoryScopedRequest: "NonRepositoryScopedRequest",
 		StatusOnDatabase:                 "OnDatabase",
+		StatusImportInProgress:           "ImportInProgress",
 	}
 
 	s, ok := msg[m]
@@ -116,6 +118,7 @@ func (m Status) Description() string {
 		StatusNewRepo:                    "repository is new, serving via new code path",
 		StatusNonRepositoryScopedRequest: "request is not scoped to single repository",
 		StatusOnDatabase:                 "repository uses database metadata, serving via new code path",
+		StatusImportInProgress:           "repository is currently importing, serving via old code path",
 	}
 
 	s, ok := msg[m]
