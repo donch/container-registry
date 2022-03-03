@@ -40,6 +40,7 @@ func TestSillyAccessController(t *testing.T) {
 
 		w.WriteHeader(http.StatusNoContent)
 	}))
+	t.Cleanup(server.Close)
 
 	resp, err := http.Get(server.URL)
 	if err != nil {
