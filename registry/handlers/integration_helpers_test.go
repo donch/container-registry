@@ -343,6 +343,8 @@ func mockImportNotificationServer(t *testing.T, min *mockImportNotification) str
 
 	s := httptest.NewServer(http.HandlerFunc(min.handleNotificationRequest))
 
+	t.Cleanup(s.Close)
+
 	return s.URL
 }
 

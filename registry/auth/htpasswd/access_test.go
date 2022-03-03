@@ -69,6 +69,7 @@ func TestBasicAccessController(t *testing.T) {
 
 		w.WriteHeader(http.StatusNoContent)
 	}))
+	t.Cleanup(server.Close)
 
 	client := &http.Client{
 		CheckRedirect: nil,

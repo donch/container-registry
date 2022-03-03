@@ -62,6 +62,7 @@ func TestNotify(t *testing.T) {
 
 		w.WriteHeader(http.StatusOK)
 	}))
+	t.Cleanup(s.Close)
 
 	tcs := map[string]struct {
 		ctx            context.Context

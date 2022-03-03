@@ -291,6 +291,8 @@ func checkTestRouter(t *testing.T, testCases []routeTestCase, prefix string, dee
 
 	// Startup test server
 	server := httptest.NewServer(router)
+        // checkTestRouter is called multiple times in the same test, since we don't want to keep around multiple servers we just use defer instead of t.Cleanup
+	defer server.Close()
 
 	for _, testcase := range testCases {
 		testcase.RequestURI = strings.TrimSuffix(prefix, "/") + testcase.RequestURI

@@ -67,6 +67,7 @@ func TestHealthHandler(t *testing.T) {
 
 	// now, create a test server
 	server := httptest.NewServer(handler)
+	t.Cleanup(server.Close)
 
 	checkUp := func(t *testing.T, message string) {
 		resp, err := http.Get(server.URL)

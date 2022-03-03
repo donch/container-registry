@@ -348,7 +348,10 @@ func TestGitlabAPI_RepositoryImport_Put_PreImport(t *testing.T) {
 
 	mockedImportNotifSrv := newMockImportNotification(t, repoPath)
 
-	env2 := newTestEnv(t, withFSDriver(rootDir), withMigrationEnabled, withMigrationRootDirectory(migrationDir),
+	env2 := newTestEnv(t,
+		withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
 		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)))
 	defer env2.Shutdown()
 
@@ -614,7 +617,10 @@ func TestGitlabAPI_RepositoryImport_Put_PreImportFailed(t *testing.T) {
 
 	mockedImportNotifSrv := newMockImportNotification(t, repoPath)
 
-	env2 := newTestEnv(t, withFSDriver(rootDir), withMigrationEnabled, withMigrationRootDirectory(migrationDir),
+	env2 := newTestEnv(t,
+		withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
 		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)))
 	defer env2.Shutdown()
 
@@ -1095,6 +1101,7 @@ func TestGitlabAPI_RepositoryImport_MaxConcurrentImports(t *testing.T) {
 		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)),
 		// only allow a maximum of 3 imports at a time
 		withMigrationMaxConcurrentImports(3))
+	t.Cleanup(env.Shutdown)
 
 	env.requireDB(t)
 

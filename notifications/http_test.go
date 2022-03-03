@@ -88,8 +88,11 @@ func TestHTTPSink(t *testing.T) {
 		t.Fatalf("unexpected error writing events: %v", err)
 	}
 
+	server.Close()
+
 	// reset server to standard http server and sink to a basic sink
 	server = httptest.NewServer(serverHandler)
+	defer server.Close()
 	sink = newHTTPSink(server.URL, 0, nil, nil,
 		&endpointMetricsHTTPStatusListener{safeMetrics: metrics})
 	var expectedMetrics EndpointMetrics

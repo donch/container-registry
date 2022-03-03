@@ -146,6 +146,7 @@ func TestHTTPHealthCheck(t *testing.T) {
 			w.WriteHeader(http.StatusInternalServerError)
 		}
 	}))
+	t.Cleanup(checkedServer.Close)
 
 	config := &configuration.Configuration{
 		Storage: configuration.Storage{
