@@ -31,8 +31,14 @@ func (r *Router) MigrationStatus(ctx context.Context, repo distribution.Reposito
 		return migration.StatusError, fmt.Errorf("finding repository in database: %w", err)
 	}
 
-	if dbRepo != nil && dbRepo.MigrationStatus.OnDatabase() {
-		return migration.StatusOnDatabase, nil
+	if dbRepo != nil {
+		if dbRepo.MigrationStatus.OnDatabase() {
+			return migration.StatusOnDatabase, nil
+		}
+
+		if dbRepo.MigrationStatus == migration.RepositoryStatusImportInProgress {
+			return migration.StatusImportInProgress, nil
+		}
 	}
 
 	// We didn't find the repository in the database, but we need to check the

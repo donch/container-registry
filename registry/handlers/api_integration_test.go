@@ -6306,6 +6306,8 @@ func putManifest(t *testing.T, msg, url, contentType string, v interface{}) *htt
 }
 
 func startPushLayer(t *testing.T, env *testEnv, name reference.Named) (location string, uuid string) {
+	t.Helper()
+
 	layerUploadURL, err := env.builder.BuildBlobUploadURL(name)
 	if err != nil {
 		t.Fatalf("unexpected error building layer upload url: %v", err)
@@ -6474,6 +6476,8 @@ func pushChunk(t *testing.T, ub *urls.Builder, name reference.Named, uploadURLBa
 }
 
 func checkResponse(t *testing.T, msg string, resp *http.Response, expectedStatus int) {
+	t.Helper()
+
 	if resp.StatusCode != expectedStatus {
 		t.Logf("unexpected status %s: %v != %v", msg, resp.StatusCode, expectedStatus)
 		maybeDumpResponse(t, resp)
@@ -6542,6 +6546,8 @@ func checkBodyHasErrorCodes(t *testing.T, msg string, resp *http.Response, error
 }
 
 func maybeDumpResponse(t *testing.T, resp *http.Response) {
+	t.Helper()
+
 	if d, err := httputil.DumpResponse(resp, true); err != nil {
 		t.Logf("error dumping response: %v", err)
 	} else {
