@@ -1,3 +1,19 @@
+# [3.32.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.31.0-gitlab...v3.32.0-gitlab) (2022-03-04)
+
+
+### Bug Fixes
+
+* **storage:** check for nil drivers before creating blob transfer service ([8bf377f](https://gitlab.com/gitlab-org/container-registry/commit/8bf377f16f08ddbd106fb110ba8392faff634f47))
+
+
+### Features
+
+* add queries and methods to calculate the deduplicated size of nested repositories ([2666074](https://gitlab.com/gitlab-org/container-registry/commit/26660744e8264e76691685c4e78b0a58f1eae6a9))
+* **api/gitlab/v1:** calculate size of base repository and its descendants ([b804875](https://gitlab.com/gitlab-org/container-registry/commit/b80487533915e4b13813970471f707e69c2722ce))
+* deprecate htpasswd authentication ([81a3bd2](https://gitlab.com/gitlab-org/container-registry/commit/81a3bd274add2279321dab97437fb8dea674cbde))
+* **handlers:** expose Migration.TestSlowImport in config ([7017917](https://gitlab.com/gitlab-org/container-registry/commit/7017917c4b3820dce5379c0136e0918ea36162db))
+* **handlers:** reject write requests during repository import ([3096022](https://gitlab.com/gitlab-org/container-registry/commit/3096022da7cb5ef8860910724a3ab42d5df732f9))
+
 # [3.31.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.30.0-gitlab...v3.31.0-gitlab) (2022-03-01)
 
 
