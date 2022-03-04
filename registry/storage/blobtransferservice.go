@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/registry/storage/driver"
@@ -19,6 +20,14 @@ type BlobTransferService struct {
 
 // NewBlobTransferService ...
 func NewBlobTransferService(source, destination driver.StorageDriver) (*BlobTransferService, error) {
+	if source == nil {
+		return nil, fmt.Errorf("source driver cannot be nil")
+	}
+
+	if destination == nil {
+		return nil, fmt.Errorf("destination driver cannot be nil")
+	}
+
 	return &BlobTransferService{source, destination}, nil
 }
 

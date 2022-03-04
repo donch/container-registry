@@ -162,6 +162,17 @@ func TestTransferBlobPartialTransferError(t *testing.T) {
 	require.True(t, errors.As(e.Reason, &driver.PartialTransferError{}))
 }
 
+func TestNewBlobTransferService(t *testing.T) {
+	source := newEnv(t, "src/image-a")
+	target := newEnv(t, "dest/image-a")
+
+	_, err := storage.NewBlobTransferService(nil, target.driver)
+	require.EqualError(t, err, "source driver cannot be nil")
+
+	_, err = storage.NewBlobTransferService(source.driver, nil)
+	require.EqualError(t, err, "destination driver cannot be nil")
+}
+
 func uploadLayer(t *testing.T, e *env, layer io.ReadSeeker, dgst digest.Digest) distribution.Descriptor {
 	t.Helper()
 
