@@ -30,6 +30,7 @@ A list of methods and URIs are covered in the table below:
 | `GET`  | `/gitlab/v1/repositories/<path>/` | Obtain details about the repository identified by `path`.  |
 | `PUT`  | `/gitlab/v1/import/<path>/` | Move the repository identified by `path` from filesystem metadata to the database.  |
 | `GET`  | `/gitlab/v1/import/<path>/` | Query import status of the repository identified by `path`.  |
+| `DELETE`  | `/gitlab/v1/import/<path>/` | Cancel import of the repository identified by `path`.  |
 
 By design, any feature that incurs additional processing time, such as query parameters that allow obtaining additional data, is opt-*in*.
 
@@ -215,6 +216,8 @@ Once an import completes, the registry will send a synchronous notification in t
 | `pre_import_complete` | The pre-import completed successfully. |
 | `import_failed` | The import has failed. |
 | `pre_import_failed`    | The pre-import has failed. |
+| `import_canceled` | The import was canceled. |
+| `pre_import_canceled` | The pre-import was canceled. |
 
 ##### Examples
 
@@ -292,6 +295,8 @@ curl --header "Authorization: Bearer <token>" "https://registry.gitlab.com/gitla
 | `pre_import_in_progress`  | The pre-import is in progress. |
 | `pre_import_complete` | The pre-import completed successfully. |
 | `pre_import_failed`    | The pre-import has failed. |
+| `import_canceled` | The import was canceled. |
+| `pre_import_canceled` | The pre-import was canceled. |
 
 #### Example
 
@@ -301,6 +306,75 @@ curl --header "Authorization: Bearer <token>" "https://registry.gitlab.com/gitla
   "path": "gitlab-org/build/cng/gitlab-container-registry",
   "status": "import_in_progress",
   "detail": "import in progress"
+}
+```
+
+## Cancel Repository Import
+
+Cancel ongoing repository (pre)import.
+
+### Request
+
+```shell
+DELETE /gitlab/v1/import/<path>/
+```
+
+| Attribute     | Type    | Required | Default   | Description                                                  |
+| ------------- | ------- | -------- | --------- | ------------------------------------------------------------ |
+| `path`        | String  | Yes      |           | The full path of the target repository. Equivalent to the `name` parameter in the `/v2/` API, described in the [OCI Distribution Spec](https://github.com/opencontainers/distribution-spec/blob/main/spec.md). The same pattern validation applies. |
+
+#### Authentication
+
+This endpoint requires an auth token with the `registry` resource type, name set to `import`, and the `*` action.
+
+#### Example
+
+```shell
+curl -X DELETE --header "Authorization: Bearer <token>" "https://registry.gitlab.com/gitlab/v1/import/gitlab-org/build/cng/gitlab-container-registry/"
+```
+
+### Response
+
+#### Header
+
+| Status Code        | Reason                                                       |
+| ------------------ | ------------------------------------------------------------ |
+| `202 Accepted`     | The repository was found and the ongoing (pre)import will be canceled. An async notification will be sent once the cancelation occurs. |
+| `400 Bad Request`  | The repository was found, but there is no ongoing (pre)import to cancel.  |
+| `401 Unauthorized` | The client should take action based on the contents of the `WWW-Authenticate` header and try the endpoint again. |
+| `404 Not Found`    | The repository was not found.                                |
+
+#### Body
+
+The response body is only included in `400 Bad Request` responses, as a way to inform the client about the current import status of the repository.
+
+| Key          | Value                                                        | Type   | 
+| ------------ | ------------------------------------------------------------ | ------ | 
+| `name`       | The repository name. This is the last segment of the repository path. | String |                                     |                                                              |
+| `path`       | The repository path.                                         | String |                                     |                                                              |
+| `status`     | The status of the import.                                    | String |
+| `detail`     | A detailed explanation of the status. | String |
+
+##### Possible Statuses
+
+| Value | Meaning |
+| ----- | ------- |
+| `native`  | This repository was originally created on the new platform. No import occurred. |
+| `import_complete`  | The import was completed successfully. |
+| `import_failed` | The import has failed. |
+| `pre_import_complete` | The pre-import completed successfully. |
+| `pre_import_failed`    | The pre-import has failed. |
+| `import_canceled` | The import was canceled. |
+| `pre_import_canceled` | The pre-import was canceled. |
+
+#### Example
+
+```json
+{
+  "name": "gitlab-container-registry",
+  "path": "gitlab-org/build/cng/gitlab-container-registry",
+  "status": "import_canceled",
+  "detail": "import canceled"
 }
 ```
 
@@ -337,6 +411,10 @@ error codes described in the
 `INVALID_QUERY_PARAMETER_VALUE` | `the value of a query parameter is invalid` | The value of a request query parameter is invalid. The error detail identifies the concerning parameter and the list of possible values.
 
 ## Changes
+
+### 2022-03-03
+
+- Add cancel repository import operation.
 
 ### 2022-01-26
 
