@@ -368,11 +368,13 @@ func getImportDetail(preImport bool, err error) string {
 // and does not allow requests to begin an import if the limit has been reached.
 func (ih *importHandler) maxConcurrentImportsMiddleware(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// TODO: add saturation metrics https://gitlab.com/gitlab-org/container-registry/-/issues/586
-		// the capacity is equivalent to the `maxconcurrentimports` value
 		capacity := cap(ih.importSemaphore)
 		// the length of the semaphore tells us how many resources are being currently used
 		length := len(ih.importSemaphore)
+
+		p := (float64(length) * 100) / float64(capacity)
+
+		metrics.ImportWorkerSaturation(p)
 
 		if length < capacity {
 			handler.ServeHTTP(w, r)
