@@ -1,3 +1,15 @@
+# [3.33.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.32.0-gitlab...v3.33.0-gitlab) (2022-03-07)
+
+
+### Bug Fixes
+
+* **storage:** add extra debug logging for GCS stat and blob transfer service ([3366b1d](https://gitlab.com/gitlab-org/container-registry/commit/3366b1d067984c3b362473b4d1c212193f7f21af))
+
+
+### Features
+
+* **storage:** instrument '429 Too Many Requests' responses ([9156bb9](https://gitlab.com/gitlab-org/container-registry/commit/9156bb9fd510f667f8e67870f8a5cf79292505a2))
+
 # [3.32.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.31.0-gitlab...v3.32.0-gitlab) (2022-03-04)
 
 
