@@ -13,6 +13,7 @@ var (
 	importDurationHist      *prometheus.HistogramVec
 	importCounter           *prometheus.CounterVec
 	inFlightImports         *prometheus.GaugeVec
+	concurrentImports       prometheus.Gauge
 
 	timeSince = time.Since // for test purposes only
 )
@@ -34,12 +35,14 @@ const (
 	migrationRouteTotalName = "request_migration_route_total"
 	migrationRouteTotalDesc = "A counter for code path routing of requests during migration."
 
-	importDurationName  = "import_duration_seconds"
-	importDurationDesc  = "A histogram of durations for imports."
-	importTotalName     = "imports_total"
-	importTotalDesc     = "A counter for API triggered imports."
-	inFlightImportsName = "in_flight_imports"
-	inFlightImportsDesc = "A gauge of imports currently being undertaken by the registry."
+	importDurationName    = "import_duration_seconds"
+	importDurationDesc    = "A histogram of durations for imports."
+	importTotalName       = "imports_total"
+	importTotalDesc       = "A counter for API triggered imports."
+	inFlightImportsName   = "in_flight_imports"
+	inFlightImportsDesc   = "A gauge of imports currently being undertaken by the registry."
+	concurrentImportsName = "import_worker_saturation"
+	concurrentImportsDesc = "A gauge of saturation of workers per instance."
 )
 
 func init() {
@@ -84,10 +87,20 @@ func init() {
 		[]string{importTypeLabel},
 	)
 
+	concurrentImports = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Namespace: metrics.NamespacePrefix,
+			Subsystem: subsystem,
+			Name:      concurrentImportsName,
+			Help:      concurrentImportsDesc,
+		},
+	)
+
 	prometheus.MustRegister(migrationRoutingCounter)
 	prometheus.MustRegister(importDurationHist)
 	prometheus.MustRegister(importCounter)
 	prometheus.MustRegister(inFlightImports)
+	prometheus.MustRegister(concurrentImports)
 }
 
 func MigrationRoute(newCodePath bool) {
@@ -122,4 +135,8 @@ func doImport(importType string) func(importAttempted bool, err error) {
 		importDurationHist.WithLabelValues(importType, failed, attempted).Observe(timeSince(start).Seconds())
 		importCounter.WithLabelValues(importType, failed, attempted).Inc()
 	}
+}
+
+func ImportWorkerSaturation(percentage float64) {
+	concurrentImports.Set(percentage)
 }
