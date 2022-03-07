@@ -43,6 +43,7 @@ import (
 	"github.com/docker/distribution/registry/storage/driver/base"
 	"github.com/docker/distribution/registry/storage/driver/factory"
 	"github.com/docker/distribution/registry/storage/driver/internal/parse"
+	"github.com/docker/distribution/registry/storage/internal/metrics"
 	"github.com/hashicorp/go-multierror"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
@@ -425,8 +426,9 @@ func (w *writer) Cancel() error {
 	w.closed = true
 	err := storageDeleteObject(context.Background(), w.storageClient, w.bucket, w.name)
 	if err != nil {
-		if status, ok := err.(*googleapi.Error); ok {
-			if status.Code == http.StatusNotFound {
+		var gerr *googleapi.Error
+		if errors.As(err, &gerr) {
+			if gerr.Code == http.StatusNotFound {
 				err = nil
 			}
 		}
@@ -635,11 +637,21 @@ func retry(req request) error {
 			return err
 		}
 
+		if status.Code == http.StatusTooManyRequests {
+			metrics.StorageRatelimit()
+		}
+
 		time.Sleep(backoff - time.Second + (time.Duration(rand.Int31n(1000)) * time.Millisecond))
 		if i <= 4 {
 			backoff = backoff * 2
 		}
 	}
+
+	var gerr *googleapi.Error
+	if ok := errors.As(err, &gerr); ok && gerr.Code == http.StatusTooManyRequests {
+		return storagedriver.TooManyRequestsError{Cause: err}
+	}
+
 	return err
 }
 
@@ -743,8 +755,9 @@ func (d *driver) List(ctx context.Context, path string) ([]string, error) {
 func (d *driver) Move(ctx context.Context, sourcePath string, destPath string) error {
 	_, err := storageCopyObject(ctx, d.storageClient, d.bucket, d.pathToKey(sourcePath), d.bucket, d.pathToKey(destPath), nil)
 	if err != nil {
-		if status, ok := err.(*googleapi.Error); ok {
-			if status.Code == http.StatusNotFound {
+		var gerr *googleapi.Error
+		if errors.As(err, &gerr) {
+			if gerr.Code == http.StatusNotFound {
 				return storagedriver.PathNotFoundError{Path: sourcePath}
 			}
 		}
