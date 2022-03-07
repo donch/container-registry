@@ -168,6 +168,20 @@ func (err PathNotFoundError) Error() string {
 	return fmt.Sprintf("%s: Path not found: %s", err.DriverName, err.Path)
 }
 
+// TooManyRequestsError is returned when the user has sent too 
+// many requests in a given amount of time.
+type TooManyRequestsError struct {
+	Cause error
+}
+
+func (err TooManyRequestsError) Unwrap() error {
+	return err.Cause
+}
+
+func (err TooManyRequestsError) Error() string {
+	return fmt.Sprintf("too many requests: %s", err.Cause)
+}
+
 // InvalidPathError is returned when the provided path is malformed.
 type InvalidPathError struct {
 	Path       string

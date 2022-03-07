@@ -104,6 +104,25 @@ registry_storage_cdn_redirects_total{backend="storage",bypass="true",bypass_reas
 	require.NoError(t, err)
 }
 
+func TestStorageLimit(t *testing.T) {
+	restore := mockTimeSince(10 * time.Millisecond)
+	defer restore()
+
+	StorageRatelimit()
+
+	var expected bytes.Buffer
+	expected.WriteString(`
+# HELP registry_storage_rate_limit_total A counter of requests to the storage driver that hit a rate limit.
+# TYPE registry_storage_rate_limit_total counter
+registry_storage_rate_limit_total 1
+`)
+	totalFullName := fmt.Sprintf("%s_%s_%s", metrics.NamespacePrefix, subsystem, rateLimitStorageName)
+
+	err := testutil.GatherAndCompare(prometheus.DefaultGatherer, &expected, totalFullName)
+	require.NoError(t, err)
+}
+
+
 func TestBlobUpload(t *testing.T) {
 	restore := mockTimeSince(10 * time.Millisecond)
 	defer restore()

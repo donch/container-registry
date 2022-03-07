@@ -11,6 +11,7 @@ import (
 var (
 	blobDownloadBytesHist, blobUploadBytesHist *prometheus.HistogramVec
 	cdnRedirectTotal                           *prometheus.CounterVec
+	rateLimitStorageTotal                      prometheus.Counter
 
 	timeSince = time.Since // for test purposes only
 )
@@ -29,6 +30,8 @@ const (
 	cdnRedirectBypassReasonLabel = "bypass_reason"
 	cdnRedirectTotalName         = "cdn_redirects_total"
 	cdnRedirectTotalDesc         = "A counter of CDN redirections for blob downloads."
+	rateLimitStorageName         = "rate_limit_total"
+	rateLimitStorageDesc         = "A counter of requests to the storage driver that hit a rate limit."
 )
 
 func init() {
@@ -87,9 +90,19 @@ func init() {
 		[]string{cdnRedirectBackendLabel, cdnRedirectBypassLabel, cdnRedirectBypassReasonLabel},
 	)
 
+	rateLimitStorageTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: metrics.NamespacePrefix,
+			Subsystem: subsystem,
+			Name:      rateLimitStorageName,
+			Help:      rateLimitStorageDesc,
+		},
+	)
+
 	prometheus.MustRegister(blobDownloadBytesHist)
 	prometheus.MustRegister(blobUploadBytesHist)
 	prometheus.MustRegister(cdnRedirectTotal)
+	prometheus.MustRegister(rateLimitStorageTotal)
 }
 
 func BlobDownload(redirect bool, size int64) {
@@ -98,6 +111,10 @@ func BlobDownload(redirect bool, size int64) {
 
 func CDNRedirect(backend string, bypass bool, bypassReason string) {
 	cdnRedirectTotal.WithLabelValues(backend, strconv.FormatBool(bypass), bypassReason).Inc()
+}
+
+func StorageRatelimit() {
+	rateLimitStorageTotal.Inc()
 }
 
 func BlobUpload(migrationPath string, size int64) {
