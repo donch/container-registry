@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -200,6 +201,12 @@ func (imp *Importer) importLayers(ctx context.Context, dbRepo *models.Repository
 }
 
 func (imp *Importer) transferBlob(ctx context.Context, d digest.Digest) error {
+	defer func() {
+		if err := recover(); err != nil {
+			log.GetLogger(log.WithContext(ctx)).Error("panic: %s", string(debug.Stack()))
+			panic(err)
+		}
+	}()
 	if imp.dryRun || imp.blobTransferService == nil {
 		return nil
 	}
