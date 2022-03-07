@@ -38,6 +38,7 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/benbjohnson/clock"
+	"github.com/docker/distribution/log"
 	"github.com/docker/distribution/registry/internal"
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
 	"github.com/docker/distribution/registry/storage/driver/base"
@@ -660,6 +661,8 @@ func retry(req request) error {
 func (d *driver) Stat(ctx context.Context, path string) (storagedriver.FileInfo, error) {
 	var fi storagedriver.FileInfoFields
 	//try to get as file
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"path": d.pathToKey(path), "driver": "GCS"})
+	l.Info("statting path as object")
 	obj, err := storageStatObject(ctx, d.storageClient, d.bucket, d.pathToKey(path))
 	if err == nil {
 		if obj.ContentType == uploadSessionContentType {
@@ -680,16 +683,21 @@ func (d *driver) Stat(ctx context.Context, path string) (storagedriver.FileInfo,
 	query = &storage.Query{}
 	query.Prefix = dirpath
 
+	l.WithFields(log.Fields{"path": dirpath})
+	l.Info("statting path as directory, listing objects")
 	it, err := storageListObjects(ctx, d.storageClient, d.bucket, query)
 	if err != nil {
 		return nil, err
 	}
 
+	l.Info("getting next object in iterator")
 	attrs, err := it.Next()
 	if err == iterator.Done {
+		l.Info("object not found in iterator")
 		return nil, storagedriver.PathNotFoundError{Path: path}
 	}
 	if err != nil {
+		l.WithError(err).Error("error getting next object in iterator")
 		return nil, err
 	}
 
