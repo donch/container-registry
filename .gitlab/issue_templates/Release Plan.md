@@ -56,24 +56,29 @@ Generate a new release ([documentation](https://gitlab.com/gitlab-org/container-
     - [ ] Version bump in [Omnibus](https://gitlab.com/gitlab-org/omnibus-gitlab):
         - [ ] Update `version` in [`config/software/registry.rb`](https://gitlab.com/gitlab-org/omnibus-gitlab/blob/master/config/software/registry.rb) and use the `Changelog: changed` commit trailer in the commit message
         - [ ] Label merge request with: `/label ~"workflow::ready for review" ~"type::maintenance"`
+        - [ ] Copy the changelog description from https://gitlab.com/gitlab-org/container-registry/-/blob/master/CHANGELOG.md since the last upgrade to the MR description.
     - [ ] Version bump in [Charts](https://gitlab.com/gitlab-org/charts). If the change is not time sensitive and we are not close to the monthly GitLab release date (more than a week before), you may wait for the [Gitlab Dependency Bot](https://gitlab.com/gitlab-dependency-bot) to create a version bump MR ([example](https://gitlab.com/gitlab-org/charts/gitlab/-/merge_requests/2123)). You should then associate that MR with this release issue for visibility. Otherwise, please proceed as follows:
         - [ ] Update `appVersion` in [`charts/registry/Chart.yaml`](https://gitlab.com/gitlab-org/charts/gitlab/-/blob/master/charts/registry/Chart.yaml)
         - [ ] Update `image.tag` in [`charts/registry/values.yaml`](https://gitlab.com/gitlab-org/charts/gitlab/-/blob/master/charts/registry/values.yaml)
         - [ ] Update `image.tag` in [`doc/charts/registry/index.md`](https://gitlab.com/gitlab-org/charts/gitlab/-/blob/master/doc/charts/registry/index.md), under the [Configuration](https://gitlab.com/gitlab-org/charts/gitlab/-/blob/master/doc/charts/registry/index.md#configuration), [Installation command line options](https://gitlab.com/gitlab-org/charts/gitlab/-/blob/master/doc/charts/registry/index.md#installation-command-line-options) and [Configuring the `image`](https://gitlab.com/gitlab-org/charts/gitlab/-/blob/master/doc/charts/registry/index.md#configuring-the-image) sections
         - [ ] Add `Changelog: changed` as commit trailer in the commit message
         - [ ] Label merge request with: `/label ~"group::distribution" ~"devops::enablement" ~"workflow::ready for review" ~"type::maintenance"`
+        - [ ] Copy the changelog description from https://gitlab.com/gitlab-org/container-registry/-/blob/master/CHANGELOG.md since the last upgrade to the MR description.
     - [ ] Version bump in [K8s Workloads](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com). This requires two separate MRs, one for pre-production and staging and another for production, which need to be created and merged in this order. Allow enough time between the two to confirm that everything is working as expected in pre-production and staging. For all environments, update `registry_version` under the respective stanza for each environment in [`bases/environments.yaml`](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/blob/105b865bbd4c4d745452429b0e3d8ff2e4e52080/bases/environments.yaml):
         - [ ] Pre-production and staging
             - [ ] Update `registry_version` under `pre` and `gstg`
             - [ ] Label with: `/label ~"Service::Container Registry" ~"team::delivery" ~"workflow::ready for review"`
+            - [ ] Copy the changelog description from https://gitlab.com/gitlab-org/container-registry/-/blob/master/CHANGELOG.md since the last upgrade to the MR description.  
             - [ ] Assign to a reviewer
         - [ ] Production
             - [ ] Update `registry_version` under `gprd`
             - [ ] Label with: `/label ~"Service::Container Registry" ~"team::delivery" ~"workflow::ready for review"`
+            - [ ] Copy the changelog description from https://gitlab.com/gitlab-org/container-registry/-/blob/master/CHANGELOG.md since the last upgrade to the MR description.
             - [ ] Assign to a reviewer
 1. [ ] Version bump for [GDK](https://gitlab.com/gitlab-org/gitlab-development-kit):
     - [ ] Update `"${registry_image:-registry.gitlab.com/gitlab-org/build/cng/gitlab-container-registry:vX.Y.Z-gitlab}"`, which is passed to the `docker run` command in [support/docker-registry](https://gitlab.com/gitlab-org/gitlab-development-kit/-/blob/main/support/docker-registry)
-    - [ ] Label with: `/label ~"workflow::ready for review"`
+    - [ ] Label with: `/label ~"workflow::ready for review" ~"group::package" ~"devops::package"`
+    - [ ] Copy the changelog description from https://gitlab.com/gitlab-org/container-registry/-/blob/master/CHANGELOG.md since the last upgrade to the MR description.
     - [ ] Assign to the reviewer suggested by reviewer roulette
 
 <details>
