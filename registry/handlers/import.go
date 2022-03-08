@@ -161,7 +161,21 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	bts, err := storage.NewBlobTransferService(ih.App.driver, ih.App.migrationDriver)
+	// We're calling the constructor for the migration driver here, rather than
+	// passing it directly. This effectively strips the google CDN middleware
+	// (and all other middleware) from the migration driver since the CDN
+	// prevents blob transfer from starting.
+	// See: https://gitlab.com/gitlab-org/container-registry/-/issues/617a
+	migrationDriver, err := migrationDriver(ih.App.Config)
+	if err != nil {
+		err = errcode.FromUnknownError(err)
+		ih.Errors = append(ih.Errors, err)
+
+		report(false, err)
+		return
+	}
+
+	bts, err := storage.NewBlobTransferService(ih.App.driver, migrationDriver)
 	if err != nil {
 		err = errcode.FromUnknownError(err)
 		ih.Errors = append(ih.Errors, err)

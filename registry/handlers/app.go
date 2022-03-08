@@ -161,7 +161,11 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 	log := dcontext.GetLogger(app)
 
 	if config.Migration.Enabled {
-		app.migrationDriver = migrationDriver(config)
+		md, err := migrationDriver(config)
+		if err != nil {
+			panic(err)
+		}
+		app.migrationDriver = md
 		app.importSemaphore = make(chan struct{}, config.Migration.MaxConcurrentImports)
 
 		if config.Migration.ImportNotification.Enabled {
@@ -526,7 +530,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 	return app
 }
 
-func migrationDriver(config *configuration.Configuration) storagedriver.StorageDriver {
+func migrationDriver(config *configuration.Configuration) (storagedriver.StorageDriver, error) {
 	paramsCopy := make(configuration.Parameters)
 	storageParams := config.Storage.Parameters()
 
@@ -540,10 +544,10 @@ func migrationDriver(config *configuration.Configuration) storagedriver.StorageD
 
 	driver, err := factory.Create(config.Storage.Type(), paramsCopy)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return driver
+	return driver, nil
 }
 
 func migrationRegistry(ctx context.Context, driver storagedriver.StorageDriver, config *configuration.Configuration, options ...storage.RegistryOption) distribution.Namespace {
