@@ -112,7 +112,7 @@ func init() {
 	gcsDriverConstructor = func(rootDirectory string) (storagedriver.StorageDriver, error) {
 		parameters := &driverParameters{
 			bucket:         bucket,
-			rootDirectory:  root,
+			rootDirectory:  rootDirectory,
 			email:          email,
 			privateKey:     privateKey,
 			client:         oauth2.NewClient(dcontext.Background(), ts),
@@ -132,7 +132,7 @@ func init() {
 
 		parameters := &driverParameters{
 			bucket:         migrationBucket,
-			rootDirectory:  root,
+			rootDirectory:  rootDirectory,
 			email:          email,
 			privateKey:     privateKey,
 			client:         oauth2.NewClient(dcontext.Background(), ts),
@@ -405,12 +405,12 @@ func TestTransferTo(t *testing.T) {
 		t.Skip(skipGCSTransferTo())
 	}
 
-	validRoot := t.TempDir()
-
-	srcDriver, err := gcsDriverConstructor(validRoot)
+	srcRoot := t.TempDir()
+	srcDriver, err := gcsDriverConstructor(srcRoot)
 	require.NoError(t, err)
 
-	destDriver, err := gcsTargetDriverConstructor(validRoot)
+	dstRoot := t.TempDir()
+	destDriver, err := gcsTargetDriverConstructor(dstRoot)
 	require.NoError(t, err)
 
 	b := make([]byte, 10)
@@ -444,34 +444,6 @@ func TestTransferTo(t *testing.T) {
 	require.EqualValues(t, b, c)
 }
 
-func TestTransferToSameBucket(t *testing.T) {
-	if skipGCS() != "" {
-		t.Skip(skipGCS())
-	}
-
-	if skipGCSTransferTo() != "" {
-		t.Skip(skipGCSTransferTo())
-	}
-
-	srcDriver := newTempDirDriver(t)
-
-	b := make([]byte, 10)
-	rand.Read(b)
-
-	ctx := context.Background()
-	path := "/same/bucket/data/path"
-
-	// Write content to source.
-	err := srcDriver.PutContent(ctx, path, b)
-	require.NoError(t, err)
-	_, err = srcDriver.Stat(ctx, path)
-	require.NoError(t, err)
-
-	// Transfer to destination should exit early with error.
-	err = srcDriver.TransferTo(ctx, srcDriver, path, path)
-	require.EqualError(t, err, "srcDriver and destDriver must not have the same bucket")
-}
-
 func TestTransferToInvalidPath(t *testing.T) {
 	if skipGCS() != "" {
 		t.Skip(skipGCS())
@@ -481,12 +453,12 @@ func TestTransferToInvalidPath(t *testing.T) {
 		t.Skip(skipGCSTransferTo())
 	}
 
-	validRoot := t.TempDir()
-
-	srcDriver, err := gcsDriverConstructor(validRoot)
+	srcRoot := t.TempDir()
+	srcDriver, err := gcsDriverConstructor(srcRoot)
 	require.NoError(t, err)
 
-	destDriver, err := gcsTargetDriverConstructor(validRoot)
+	dstRoot := t.TempDir()
+	destDriver, err := gcsTargetDriverConstructor(dstRoot)
 	require.NoError(t, err)
 
 	b := make([]byte, 10)
@@ -522,12 +494,12 @@ func TestTransferToExistingDest(t *testing.T) {
 		t.Skip(skipGCSTransferTo())
 	}
 
-	validRoot := t.TempDir()
-
-	srcDriver, err := gcsDriverConstructor(validRoot)
+	srcRoot := t.TempDir()
+	srcDriver, err := gcsDriverConstructor(srcRoot)
 	require.NoError(t, err)
 
-	destDriver, err := gcsTargetDriverConstructor(validRoot)
+	destRoot := t.TempDir()
+	destDriver, err := gcsTargetDriverConstructor(destRoot)
 	require.NoError(t, err)
 
 	srcContent := make([]byte, 10)
@@ -645,7 +617,7 @@ func Test_parseParameters_Bool(t *testing.T) {
 func newTempDirDriver(tb testing.TB) storagedriver.StorageDriver {
 	tb.Helper()
 
-	root := t.TempDir()
+	root := tb.TempDir()
 
 	d, err := gcsDriverConstructor(root)
 	require.NoError(tb, err)
