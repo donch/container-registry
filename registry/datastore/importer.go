@@ -812,8 +812,12 @@ func (imp *Importer) Import(ctx context.Context, path string) error {
 	}
 	defer tx.Rollback()
 
-	// Add pre_import field to all subsequent logging.
-	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"pre_import": false, "dry_run": imp.dryRun})
+	// Add specific log fields to all subsequent log entries.
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
+		"pre_import": false,
+		"dry_run":    imp.dryRun,
+		"component":  "importer",
+	})
 	ctx = log.WithLogger(ctx, l)
 
 	start := time.Now()
