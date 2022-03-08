@@ -1,3 +1,16 @@
+# [3.34.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.33.0-gitlab...v3.34.0-gitlab) (2022-03-08)
+
+
+### Bug Fixes
+
+* **handlers:** prevent middleware from interrupting blob transfer ([0b9dab1](https://gitlab.com/gitlab-org/container-registry/commit/0b9dab1d5b25285c4839b0f0a4a7121283a0c4d4))
+* GCS driver TransferTo and integration tests ([a9779c1](https://gitlab.com/gitlab-org/container-registry/commit/a9779c1917b7379dcbae4cfc67931d7f5eb38203))
+
+
+### Features
+
+* add metrics for max concurrent imports ([269c3f6](https://gitlab.com/gitlab-org/container-registry/commit/269c3f6571d807dd57039c8482e9db5e5cfbadfa))
+
 # [3.33.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.32.0-gitlab...v3.33.0-gitlab) (2022-03-07)
 
 
