@@ -1007,10 +1007,6 @@ func (d *driver) TransferTo(ctx context.Context, destDriver storagedriver.Storag
 		return fmt.Errorf("unable to begin transfer: %w", err)
 	}
 
-	if targetDriver.bucket == d.bucket {
-		return errors.New("srcDriver and destDriver must not have the same bucket")
-	}
-
 	srcPath = d.pathToKey(srcPath)
 	destPath = targetDriver.pathToKey(destPath)
 
