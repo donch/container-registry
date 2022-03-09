@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -17,6 +18,7 @@ import (
 	"github.com/docker/distribution/registry/internal/migration"
 	"github.com/docker/distribution/registry/storage"
 	ghandlers "github.com/gorilla/handlers"
+	"github.com/hashicorp/go-multierror"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"gitlab.com/gitlab-org/labkit/errortracking"
 )
@@ -224,7 +226,7 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 		// ensure correlation ID is forwarded to the notifier
 		notificationCtx = correlation.ContextWithCorrelation(notificationCtx, correlationID)
 
-		ih.sendImportNotification(notificationCtx, dbRepo, err)
+		ih.sendImportNotification(notificationCtx, dbRepo)
 	}()
 
 	w.WriteHeader(http.StatusAccepted)
@@ -298,36 +300,49 @@ func (ih *importHandler) createOrUpdateRepo(ctx context.Context, dbRepo *models.
 }
 
 func (ih *importHandler) runImport(ctx context.Context, importer *datastore.Importer, dbRepo *models.Repository) error {
+	var multiErrs *multierror.Error
+
 	if ih.preImport {
 		if err := importer.PreImport(ctx, dbRepo.Path); err != nil {
+			multiErrs = multierror.Append(multiErrs, err)
 			dbRepo.MigrationStatus = migration.RepositoryStatusPreImportFailed
+			dbRepo.MigrationError = sql.NullString{String: multiErrs.Error(), Valid: true}
+
 			if err := ih.Update(ctx, dbRepo); err != nil {
-				return fmt.Errorf("updating migration status after failed pre import: %w", err)
+				multiErrs = multierror.Append(multiErrs, fmt.Errorf("updating migration status after failed pre import: %w", err))
+				dbRepo.MigrationError.String = multiErrs.Error()
 			}
 
-			return err
+			return multiErrs
 		}
 
 		dbRepo.MigrationStatus = migration.RepositoryStatusPreImportComplete
 		if err := ih.Update(ctx, dbRepo); err != nil {
-			return fmt.Errorf("updating migration status after successful pre import: %w", err)
+			multiErrs = multierror.Append(multiErrs, fmt.Errorf("updating migration status after successful pre import: %w", err))
+			dbRepo.MigrationError = sql.NullString{String: multiErrs.Error(), Valid: true}
 		}
 
-		return nil
+		return multiErrs.ErrorOrNil()
 	}
 
 	if err := importer.Import(ctx, dbRepo.Path); err != nil {
+		multiErrs = multierror.Append(multiErrs, err)
 		dbRepo.MigrationStatus = migration.RepositoryStatusImportFailed
+		dbRepo.MigrationError = sql.NullString{String: multiErrs.Error(), Valid: true}
+
 		if err := ih.Update(ctx, dbRepo); err != nil {
-			return fmt.Errorf("updating migration status after failed final import: %w", err)
+			multiErrs = multierror.Append(multiErrs, fmt.Errorf("updating migration status after failed final import: %w", err))
+			dbRepo.MigrationError.String = multiErrs.Error()
 		}
 
-		return err
+		return multiErrs
 	}
 
 	dbRepo.MigrationStatus = migration.RepositoryStatusImportComplete
 	if err := ih.Update(ctx, dbRepo); err != nil {
-		return fmt.Errorf("updating migration status after successful final import: %w", err)
+		multiErrs = multierror.Append(multiErrs, fmt.Errorf("updating migration status after successful final import: %w", err))
+		dbRepo.MigrationError = sql.NullString{String: multiErrs.Error(), Valid: true}
+		return multiErrs
 	}
 
 	return nil
@@ -347,7 +362,7 @@ func isImportTypePre(r *http.Request) (bool, error) {
 	}
 }
 
-func (ih *importHandler) sendImportNotification(ctx context.Context, dbRepo *models.Repository, err error) {
+func (ih *importHandler) sendImportNotification(ctx context.Context, dbRepo *models.Repository) {
 	if ih.App.importNotifier == nil {
 		return
 	}
@@ -356,8 +371,7 @@ func (ih *importHandler) sendImportNotification(ctx context.Context, dbRepo *mod
 		Name:   dbRepo.Name,
 		Path:   dbRepo.Path,
 		Status: string(dbRepo.MigrationStatus),
-		// TODO: replace with migration_error when https://gitlab.com/gitlab-org/container-registry/-/issues/566 is done
-		Detail: getImportDetail(ih.preImport, err),
+		Detail: getImportDetail(ih.preImport, dbRepo.MigrationError.String),
 	}
 
 	if err := ih.App.importNotifier.Notify(ctx, importNotification); err != nil {
@@ -366,9 +380,9 @@ func (ih *importHandler) sendImportNotification(ctx context.Context, dbRepo *mod
 	}
 }
 
-func getImportDetail(preImport bool, err error) string {
-	if err != nil {
-		return err.Error()
+func getImportDetail(preImport bool, migrationError string) string {
+	if migrationError != "" {
+		return migrationError
 	}
 
 	if preImport {
