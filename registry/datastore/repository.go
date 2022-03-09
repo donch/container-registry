@@ -1188,7 +1188,7 @@ func (s *repositoryStore) Update(ctx context.Context, r *models.Repository) erro
 	q := `UPDATE
 			repositories
 		SET
-			(name, path, parent_id, updated_at, migration_status, migration_error) = ($1, $2, $3, now(), $6, $7)
+			(name, path, parent_id, updated_at, migration_status, migration_error) = ($1, $2, $3, now(), $6, left($7, 255))
 		WHERE
 			top_level_namespace_id = $4
 			AND id = $5

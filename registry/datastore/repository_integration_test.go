@@ -1796,7 +1796,8 @@ func TestRepositoryStore_Update_MigrationError_LengthConstraint(t *testing.T) {
 	}
 
 	err := s.Update(suite.ctx, update)
-	require.EqualError(t, err, `updating repository: ERROR: new row for relation "repositories" violates check constraint "check_repositories_migration_error_length" (SQLSTATE 23514)`)
+	// we truncate the value of error using `left($1, 255)` so no error is expected
+	require.NoError(t, err)
 }
 
 func TestRepositoryStore_Update_NotFound(t *testing.T) {

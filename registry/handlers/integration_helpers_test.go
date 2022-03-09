@@ -360,7 +360,13 @@ func (min *mockImportNotification) waitForImportNotification(t *testing.T, path,
 
 	select {
 	case receivedNotif := <-min.receivedNotif[path]:
-		require.Equal(t, expectedNotif, receivedNotif)
+		require.Equal(t, expectedNotif.Name, receivedNotif.Name)
+		require.Equal(t, expectedNotif.Path, receivedNotif.Path)
+		require.Equal(t, expectedNotif.Status, receivedNotif.Status)
+
+		// we wrap the underlying error if we fail to update the DB after a (pre)import operation
+		// which varies depending on the execution, for example the DB username
+		require.Contains(t, receivedNotif.Detail, expectedNotif.Detail, "detail mismatch")
 	case <-time.After(timeout):
 		t.Errorf("timed out waiting for import notification for path: %q", path)
 	}
