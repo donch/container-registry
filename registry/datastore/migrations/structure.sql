@@ -11856,6 +11856,9 @@ CREATE INDEX index_gc_blob_review_queue_on_review_after ON public.gc_blob_review
 
 CREATE INDEX index_gc_manifest_review_queue_on_review_after ON public.gc_manifest_review_queue USING btree (review_after);
 
+CREATE INDEX index_repositories_on_id_where_deleted_at_not_null ON public.repositories USING btree (id)
+WHERE (deleted_at IS NOT NULL);
+
 CREATE INDEX index_repositories_on_top_level_namespace_id_and_parent_id ON public.repositories USING btree (top_level_namespace_id, parent_id);
 
 CREATE INDEX index_repositories_on_top_level_namespace_id_and_path_and_id ON public.repositories USING btree (top_level_namespace_id, path text_pattern_ops, id);
