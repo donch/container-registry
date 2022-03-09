@@ -1407,3 +1407,48 @@ func TestGitlabAPI_RepositoryImport_MaxConcurrentImports_ErrorShouldNotBlockLimi
 		t, repoPath2, string(migration.RepositoryStatusPreImportComplete), "pre import completed successfully", 2*time.Second,
 	)
 }
+
+func TestGitlabAPI_RepositoryImport_MaxConcurrentImports_NoopShouldNotBlockLimits(t *testing.T) {
+	rootDir := t.TempDir()
+
+	migrationDir := filepath.Join(rootDir, "/new")
+
+	tagName := "tag"
+	repoPath := "foo/bar"
+
+	env := newTestEnv(t,
+		withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+		// only allow 1 import at a time
+		withMigrationMaxConcurrentImports(1))
+	t.Cleanup(env.Shutdown)
+
+	env.requireDB(t)
+
+	// create a repository on the database side
+	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName))
+
+	// try to import it
+	repoRef, err := reference.WithName(repoPath)
+	require.NoError(t, err)
+	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"pre"}})
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPut, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// should be a noop
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// repeat request, should not be rate limited
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+}
