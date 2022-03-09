@@ -151,6 +151,7 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 		w.WriteHeader(http.StatusOK)
 
 		report(false, nil)
+		ih.releaseImportSemaphore()
 		return
 	}
 
