@@ -191,8 +191,7 @@ func (imp *Importer) importLayers(ctx context.Context, dbRepo *models.Repository
 			Digest:    fsLayer.Digest,
 			Size:      fsLayer.Size,
 		}); err != nil {
-			l.WithError(err).Error("importing layer")
-			continue
+			return err
 		}
 	}
 
