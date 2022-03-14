@@ -165,7 +165,7 @@ const (
 )
 
 func dbDeleteTag(ctx context.Context, db datastore.Handler, repoPath string, tagName string) error {
-	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": repoPath, "tag": tagName})
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": repoPath, "tag_name": tagName})
 	l.Debug("deleting tag from repository in database")
 
 	rStore := datastore.NewRepositoryStore(db)
