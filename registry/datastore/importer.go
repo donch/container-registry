@@ -236,6 +236,16 @@ func (imp *Importer) importManifestV2(ctx context.Context, fsRepo distribution.R
 		Digest:    m.Config().Digest,
 		Size:      m.Config().Size,
 	}
+
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
+		"repository": dbRepo.Path,
+		"digest":     dbConfigBlob.Digest,
+		"media_type": dbConfigBlob.MediaType,
+		"size":       dbConfigBlob.Size,
+	})
+	l.Info("importing configuration")
+	ctx = log.WithLogger(ctx, l)
+
 	if err = imp.blobStore.CreateOrFind(ctx, dbConfigBlob); err != nil {
 		return nil, err
 	}
