@@ -1,3 +1,24 @@
+# [3.35.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.34.0-gitlab...v3.35.0-gitlab) (2022-03-15)
+
+
+### Bug Fixes
+
+* abort import if layer has unknown media type ([d9a4779](https://gitlab.com/gitlab-org/container-registry/commit/d9a4779d6f024e5e80b4fda8d3adad1f92d0c6fc))
+* **handlers:** release concurrency semaphore on noop imports ([08099ba](https://gitlab.com/gitlab-org/container-registry/commit/08099ba420da776e850bae36e8d604ef187ee074))
+
+
+### Features
+
+* parse message from Rails in failed migration notification ([cbbda65](https://gitlab.com/gitlab-org/container-registry/commit/cbbda65d064ab317910245e8d9d723de5456b908))
+* **datastore:** add component key/value pair to Importer log entries ([14fc6ed](https://gitlab.com/gitlab-org/container-registry/commit/14fc6edb1e9d1211e0cb95e8094f5966dd3094dc))
+* **datastore:** index soft-deleted repository records ([88aac62](https://gitlab.com/gitlab-org/container-registry/commit/88aac622a25723da220a6b5f02fc94562a7811a5))
+* **handler:** update migration_error and use value in import notification ([73a00c0](https://gitlab.com/gitlab-org/container-registry/commit/73a00c024932a0064dbce81e37e7d20c165221d4))
+
+
+### Reverts
+
+* extra debug logging for GCS stat and blob transfer service ([845fbc2](https://gitlab.com/gitlab-org/container-registry/commit/845fbc2201a721cf1ef1c285e45d6f94935fb06b))
+
 # [3.34.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.33.0-gitlab...v3.34.0-gitlab) (2022-03-08)
 
 
