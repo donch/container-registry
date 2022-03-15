@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -41,6 +42,20 @@ type Notification struct {
 	Path   string `json:"path"`
 	Status string `json:"status"`
 	Detail string `json:"detail"`
+}
+
+// errorResponse represents an error response from GitLab Rails when receiving a notification.
+type errorResponse struct {
+	Status  int
+	Message string `json:"message"`
+}
+
+func (e errorResponse) Error() string {
+	base := "server returned error response"
+	if e.Message != "" {
+		return fmt.Sprintf("%s: %d (%s)", base, e.Status, e.Message)
+	}
+	return fmt.Sprintf("%s: %d", base, e.Status)
 }
 
 // NewNotifier creates an instance of the Notifier with a given configuration.
@@ -111,9 +126,23 @@ func (n *Notifier) Notify(ctx context.Context, notification *Notification) error
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		err := fmt.Errorf("import notifier received response: %d", res.StatusCode)
-		l.WithError(err).Error("unexpected response sending import notification")
-		return err
+		srvError := errorResponse{
+			Status: res.StatusCode,
+		}
+
+		// The Rails API includes a `message` key in all error responses, so we can try to parse and log the reason. In
+		// case of an error trying to parse this message, we simply log and proceed as it is not critical.
+		body, err := io.ReadAll(res.Body)
+		if err != nil {
+			l.WithError(err).Error("failed to read import notification error response")
+			return srvError
+		}
+		if err = json.Unmarshal(body, &srvError); err != nil {
+			l.WithError(err).Error("failed to parse import notification error response")
+		}
+		srvError.Status = res.StatusCode
+
+		return srvError
 	}
 
 	l.Info("sent import notification successfully")

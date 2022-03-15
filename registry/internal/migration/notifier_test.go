@@ -2,6 +2,7 @@ package migration
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -79,7 +80,7 @@ func TestNotify(t *testing.T) {
 			ctx:            context.Background(),
 			timeout:        2 * delay,
 			secret:         "bad secret",
-			expectedErrMsg: fmt.Sprintf("import notifier received response: %d", http.StatusUnauthorized),
+			expectedErrMsg: fmt.Sprintf("server returned error response: %d", http.StatusUnauthorized),
 		},
 		"client_timeout_waiting_for_response": {
 			ctx:            context.Background(),
@@ -127,6 +128,28 @@ func TestNotify(t *testing.T) {
 		})
 	}
 
+}
+
+func TestNotify_ErrorResponse(t *testing.T) {
+	msg := "something went wrong"
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+
+		errResp := &errorResponse{Message: msg}
+		b, err := json.Marshal(errResp)
+		require.NoError(t, err)
+
+		_, err = w.Write(b)
+		require.NoError(t, err)
+	}))
+	t.Cleanup(s.Close)
+
+	n, err := NewNotifier(s.URL, "secret", 2*time.Second)
+	require.NoError(t, err)
+
+	err = n.Notify(context.Background(), &Notification{})
+	require.Error(t, err)
+	require.EqualError(t, err, fmt.Sprintf("server returned error response: %d (%s)", http.StatusBadRequest, msg))
 }
 
 func TestNotifier_insertPathInEndpoint(t *testing.T) {
