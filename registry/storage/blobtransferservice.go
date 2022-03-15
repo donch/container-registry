@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/docker/distribution"
+	"github.com/docker/distribution/log"
 	"github.com/docker/distribution/registry/storage/driver"
 	"github.com/opencontainers/go-digest"
 )
@@ -33,6 +34,7 @@ func NewBlobTransferService(source, destination driver.StorageDriver) (*BlobTran
 
 // Transfer ...
 func (s *BlobTransferService) Transfer(ctx context.Context, dgst digest.Digest) error {
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"digest": dgst, "component": "blob transfer service"})
 	blobDataPath, err := pathFor(blobDataPathSpec{digest: dgst})
 	if err != nil {
 		return distribution.ErrBlobTransferFailed{Digest: dgst, Reason: err}
@@ -47,6 +49,7 @@ func (s *BlobTransferService) Transfer(ctx context.Context, dgst digest.Digest) 
 			return err
 		}
 	} else {
+		l.Info("blob already present, no need to transfer")
 		// If the path exists, we can assume that the content has already
 		// been uploaded, since the blob storage is content-addressable.
 		// While it may be corrupted, detection of such corruption belongs
