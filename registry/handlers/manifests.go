@@ -209,7 +209,7 @@ func (imh *manifestHandler) GetManifest(w http.ResponseWriter, r *http.Request) 
 			"media_type":      manifestType.MediaType(),
 			"size_bytes":      len(p),
 			"digest":          imh.Digest,
-			"tag":             imh.Tag,
+			"tag_name":        imh.Tag,
 			"reference_count": len(manifest.References()),
 		}).Info("manifest downloaded")
 	}
@@ -340,7 +340,7 @@ func newDBManifestGetter(imh *manifestHandler, req *http.Request) (*dbManifestGe
 }
 
 func (g *dbManifestGetter) GetByTag(ctx context.Context, tagName string) (distribution.Manifest, digest.Digest, error) {
-	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": g.repoPath, "tag": tagName})
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": g.repoPath, "tag_name": tagName})
 	l.Debug("getting manifest by tag from database")
 
 	dbRepo, err := g.FindByPath(ctx, g.repoPath)
@@ -736,7 +736,7 @@ func (imh *manifestHandler) PutManifest(w http.ResponseWriter, r *http.Request) 
 		"media_type":      desc.MediaType,
 		"size_bytes":      desc.Size,
 		"digest":          desc.Digest,
-		"tag":             imh.Tag,
+		"tag_name":        imh.Tag,
 		"reference_count": len(manifest.References()),
 	}).Info("manifest uploaded")
 }
@@ -807,7 +807,7 @@ const (
 )
 
 func dbTagManifest(ctx context.Context, db datastore.Handler, cache datastore.RepositoryCache, dgst digest.Digest, tagName, path string) error {
-	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": path, "manifest_digest": dgst, "tag": tagName})
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": path, "manifest_digest": dgst, "tag_name": tagName})
 	l.Debug("tagging manifest")
 
 	repositoryStore := datastore.NewRepositoryStore(db, datastore.WithRepositoryCache(cache))

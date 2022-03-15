@@ -457,7 +457,7 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 				if err != nil {
 					cancel()
 					// this log entry allows us to determine the root cause for the outer context cancellation error
-					l.WithFields(log.Fields{"tag": t}).WithError(err).Error("reading tag details, cancelling context")
+					l.WithFields(log.Fields{"tag_name": t}).WithError(err).Error("reading tag details, cancelling context")
 					return
 				}
 
@@ -479,10 +479,10 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 		desc := tRes.desc
 
 		l := l.WithFields(log.Fields{
-			"tag":    fsTag,
-			"count":  i,
-			"total":  total,
-			"digest": desc.Digest,
+			"tag_name": fsTag,
+			"count":    i,
+			"total":    total,
+			"digest":   desc.Digest,
 		})
 		l.Info("importing tag")
 
