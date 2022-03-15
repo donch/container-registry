@@ -469,3 +469,11 @@ func TestImporter_Import_BadManifestListRef(t *testing.T) {
 	err := imp.Import(suite.ctx, "multi-arch")
 	require.EqualError(t, err, `importing tags: importing manifest: retrieving referenced manifest "sha256:597bd5c319cc09d6bb295b4ef23cac50ec7c373fff5fe923cfd246ec09967b31" from filesystem: unknown manifest name=multi-arch revision=sha256:597bd5c319cc09d6bb295b4ef23cac50ec7c373fff5fe923cfd246ec09967b31`)
 }
+
+func TestImporter_Import_UnknownLayerMediaType(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "unknown-layer-mediatype")
+	err := imp.Import(suite.ctx, "a-simple")
+	require.EqualError(t, err, "importing tags: importing manifest: importing layers: creating layer blob: unknown media type: application/foo.bar.layer.v1.tar+gzip")
+}
