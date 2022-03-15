@@ -169,7 +169,7 @@ func (imp *Importer) importLayers(ctx context.Context, dbRepo *models.Repository
 	total := len(fsLayers)
 	for i, fsLayer := range fsLayers {
 		l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
-			"repository": dbRepo.Name,
+			"repository": dbRepo.Path,
 			"digest":     fsLayer.Digest,
 			"media_type": fsLayer.MediaType,
 			"size":       fsLayer.Size,
@@ -320,7 +320,7 @@ func (imp *Importer) importManifestList(ctx context.Context, fsRepo distribution
 	total := len(ml.Manifests)
 	for i, m := range ml.Manifests {
 		l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
-			"repository": dbRepo.Name,
+			"repository": dbRepo.Path,
 			"digest":     m.Digest.String(),
 			"count":      i + 1,
 			"total":      total,
@@ -380,7 +380,7 @@ func (imp *Importer) importManifests(ctx context.Context, fsRepo distribution.Re
 		}
 
 		l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
-			"repository": dbRepo.Name,
+			"repository": dbRepo.Path,
 			"digest":     dgst,
 			"count":      index,
 			"type":       fmt.Sprintf("%T", m),
@@ -566,7 +566,7 @@ func (imp *Importer) preImportTaggedManifests(ctx context.Context, fsRepo distri
 	total := len(fsTags)
 
 	for i, fsTag := range fsTags {
-		l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": dbRepo.Name, "name": fsTag, "count": i + 1, "total": total})
+		l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": dbRepo.Path, "name": fsTag, "count": i + 1, "total": total})
 		l.Info("processing tag")
 
 		// read tag details from the filesystem
@@ -597,7 +597,7 @@ func (imp *Importer) preImportManifest(ctx context.Context, fsRepo distribution.
 		return fmt.Errorf("constructing manifest service: %w", err)
 	}
 
-	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": dbRepo.Name, "digest": dgst})
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": dbRepo.Path, "digest": dgst})
 
 	m, err := manifestService.Get(ctx, dgst)
 	if err != nil {
