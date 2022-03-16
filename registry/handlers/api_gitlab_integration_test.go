@@ -10,7 +10,6 @@ import (
 	"math"
 	"net/http"
 	"net/url"
-	"os"
 	"path/filepath"
 	"regexp"
 	"sync"
@@ -28,6 +27,35 @@ import (
 
 var waitForever = time.Duration(math.MaxInt64)
 
+func preImportRepository(t *testing.T, env *testEnv, mockNotificationSrv *mockImportNotification, repoPath string) {
+	t.Helper()
+
+	repoRef, err := reference.WithName(repoPath)
+	require.NoError(t, err)
+
+	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"pre"}})
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPut, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	if mockNotificationSrv != nil {
+		mockNotificationSrv.waitForImportNotification(
+			t,
+			repoPath,
+			string(migration.RepositoryStatusPreImportComplete),
+			"pre import completed successfully",
+			2*time.Second,
+		)
+	}
+}
+
 func TestGitlabAPI_RepositoryImport_Get(t *testing.T) {
 	rootDir := t.TempDir()
 	migrationDir := filepath.Join(rootDir, "/new")
@@ -42,7 +70,7 @@ func TestGitlabAPI_RepositoryImport_Get(t *testing.T) {
 		withMigrationEnabled,
 		withMigrationRootDirectory(migrationDir),
 		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)))
-	defer env.Shutdown()
+	t.Cleanup(env.Shutdown)
 
 	env.requireDB(t)
 
@@ -52,7 +80,7 @@ func TestGitlabAPI_RepositoryImport_Get(t *testing.T) {
 	repoRef, err := reference.WithName(repoPath)
 	require.NoError(t, err)
 
-	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef)
+	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"final"}})
 	require.NoError(t, err)
 
 	// Before starting the import.
@@ -65,6 +93,8 @@ func TestGitlabAPI_RepositoryImport_Get(t *testing.T) {
 
 	// Import should return 404.
 	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+
+	preImportRepository(t, env, mockedImportNotifSrv, repoPath)
 
 	// Start Repository Import.
 	req, err = http.NewRequest(http.MethodPut, importURL, nil)
@@ -108,39 +138,32 @@ func TestGitlabAPI_RepositoryImport_Get(t *testing.T) {
 }
 
 func TestGitlabAPI_RepositoryImport_Put(t *testing.T) {
-	rootDir, err := os.MkdirTemp("", "api-repository-import-")
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		os.RemoveAll(rootDir)
-	})
-
+	rootDir := t.TempDir()
 	migrationDir := filepath.Join(rootDir, "/new")
-
-	env := newTestEnv(t, withFSDriver(rootDir))
-	defer env.Shutdown()
-
-	env.requireDB(t)
 
 	repoPath := "old/repo"
 	tagName := "import-tag"
 
-	// Push up a image to the old side of the registry, so we can migrate it below.
-	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
-
 	mockedImportNotifSrv := newMockImportNotification(t, repoPath)
 
-	env2 := newTestEnv(t,
+	env := newTestEnv(t,
 		withFSDriver(rootDir),
 		withMigrationEnabled,
 		withMigrationRootDirectory(migrationDir),
 		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)))
-	defer env2.Shutdown()
+	t.Cleanup(env.Shutdown)
+	env.requireDB(t)
+
+	// Push up a image to the old side of the registry, so we can migrate it below.
+	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
+
+	preImportRepository(t, env, mockedImportNotifSrv, repoPath)
 
 	// Start Repository Import.
 	repoRef, err := reference.WithName(repoPath)
 	require.NoError(t, err)
 
-	importURL, err := env2.builder.BuildGitlabV1RepositoryImportURL(repoRef)
+	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"final"}})
 	require.NoError(t, err)
 
 	req, err := http.NewRequest(http.MethodPut, importURL, nil)
@@ -170,7 +193,6 @@ func TestGitlabAPI_RepositoryImport_Put(t *testing.T) {
 
 func TestGitlabAPI_RepositoryPreImport_Put_PreImportTimeout(t *testing.T) {
 	rootDir := t.TempDir()
-
 	migrationDir := filepath.Join(rootDir, "/new")
 
 	repoPath := "old/repo"
@@ -184,7 +206,7 @@ func TestGitlabAPI_RepositoryPreImport_Put_PreImportTimeout(t *testing.T) {
 		withMigrationRootDirectory(migrationDir),
 		withMigrationPreImportTimeout(time.Millisecond),
 		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)))
-	defer env.Shutdown()
+	t.Cleanup(env.Shutdown)
 
 	env.requireDB(t)
 
@@ -231,18 +253,20 @@ func TestGitlabAPI_RepositoryImport_Put_ImportTimeout(t *testing.T) {
 		withMigrationRootDirectory(migrationDir),
 		withMigrationImportTimeout(time.Millisecond),
 		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)))
-	defer env.Shutdown()
+	t.Cleanup(env.Shutdown)
 
 	env.requireDB(t)
 
 	// Push up a image to the old side of the registry, so we can migrate it below.
 	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
 
+	preImportRepository(t, env, mockedImportNotifSrv, repoPath)
+
 	// Start Repository Import.
 	repoRef, err := reference.WithName(repoPath)
 	require.NoError(t, err)
 
-	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef)
+	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"final"}})
 	require.NoError(t, err)
 
 	req, err := http.NewRequest(http.MethodPut, importURL, nil)
@@ -265,14 +289,22 @@ func TestGitlabAPI_RepositoryImport_Put_ConcurrentTags(t *testing.T) {
 	rootDir := t.TempDir()
 	migrationDir := filepath.Join(rootDir, "/new")
 
-	env := newTestEnv(t, withFSDriver(rootDir))
-	defer env.Shutdown()
-
-	env.requireDB(t)
-
 	repoPath := "old/repo"
 	tagTmpl := "import-tag-%d"
 	tags := make([]string, 10)
+
+	mockedImportNotifSrv := newMockImportNotification(t, repoPath)
+
+	env := newTestEnv(
+		t, withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+		withMigrationTagConcurrency(5),
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)),
+	)
+	t.Cleanup(env.Shutdown)
+
+	env.requireDB(t)
 
 	// Push up a image to the old side of the registry, so we can migrate it below.
 	// Push up a series of images to the old side of the registry, so we can
@@ -284,22 +316,13 @@ func TestGitlabAPI_RepositoryImport_Put_ConcurrentTags(t *testing.T) {
 		seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
 	}
 
-	mockedImportNotifSrv := newMockImportNotification(t, repoPath)
-
-	env2 := newTestEnv(
-		t, withFSDriver(rootDir),
-		withMigrationEnabled,
-		withMigrationRootDirectory(migrationDir),
-		withMigrationTagConcurrency(5),
-		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)),
-	)
-	defer env2.Shutdown()
+	preImportRepository(t, env, mockedImportNotifSrv, repoPath)
 
 	// Start Repository Import.
 	repoRef, err := reference.WithName(repoPath)
 	require.NoError(t, err)
 
-	importURL, err := env2.builder.BuildGitlabV1RepositoryImportURL(repoRef)
+	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"final"}})
 	require.NoError(t, err)
 
 	req, err := http.NewRequest(http.MethodPut, importURL, nil)
@@ -335,31 +358,27 @@ func TestGitlabAPI_RepositoryImport_Put_PreImport(t *testing.T) {
 	rootDir := t.TempDir()
 	migrationDir := filepath.Join(rootDir, "/new")
 
-	env := newTestEnv(t, withFSDriver(rootDir))
-	defer env.Shutdown()
-
-	env.requireDB(t)
-
 	repoPath := "old/repo"
 	tagName := "import-tag"
 
-	// Push up a image to the old side of the registry, so we can migrate it below.
-	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
-
 	mockedImportNotifSrv := newMockImportNotification(t, repoPath)
 
-	env2 := newTestEnv(t,
+	env := newTestEnv(t,
 		withFSDriver(rootDir),
 		withMigrationEnabled,
 		withMigrationRootDirectory(migrationDir),
 		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)))
-	defer env2.Shutdown()
+	t.Cleanup(env.Shutdown)
 
+	env.requireDB(t)
+
+	// Push up a image to the old side of the registry, so we can migrate it below.
+	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
 	// Start repository pre import.
 	repoRef, err := reference.WithName(repoPath)
 	require.NoError(t, err)
 
-	importURL, err := env2.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"pre"}})
+	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"pre"}})
 	require.NoError(t, err)
 
 	req, err := http.NewRequest(http.MethodPut, importURL, nil)
@@ -403,7 +422,7 @@ func TestGitlabAPI_RepositoryImport_Put_PreImport(t *testing.T) {
 	)
 
 	// Final import after pre import should succeed.
-	importURL, err = env2.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"final"}})
+	importURL, err = env.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"final"}})
 	require.NoError(t, err)
 
 	req, err = http.NewRequest(http.MethodPut, importURL, nil)
@@ -424,31 +443,28 @@ func TestGitlabAPI_RepositoryImport_PreImportInProgress(t *testing.T) {
 	rootDir := t.TempDir()
 	migrationDir := filepath.Join(rootDir, "/new")
 
-	env := newTestEnv(t, withFSDriver(rootDir))
-	defer env.Shutdown()
-
-	env.requireDB(t)
-
 	repoPath := "old/repo"
 	tagName := "import-tag"
 
-	// Push up a image to the old side of the registry, so we can migrate it below.
-	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
-
-	env2 := newTestEnv(
+	env := newTestEnv(
 		t, withFSDriver(rootDir),
 		withMigrationEnabled,
 		withMigrationRootDirectory(migrationDir),
 		// Simulate a long running import.
 		withMigrationTestSlowImport(waitForever),
 	)
-	defer env2.Shutdown()
+	t.Cleanup(env.Shutdown)
+
+	env.requireDB(t)
+
+	// Push up a image to the old side of the registry, so we can migrate it below.
+	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
 
 	// Start repository pre import.
 	repoRef, err := reference.WithName(repoPath)
 	require.NoError(t, err)
 
-	importURL, err := env2.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"pre"}})
+	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"pre"}})
 	require.NoError(t, err)
 
 	req, err := http.NewRequest(http.MethodPut, importURL, nil)
@@ -472,7 +488,7 @@ func TestGitlabAPI_RepositoryImport_PreImportInProgress(t *testing.T) {
 	require.Equal(t, http.StatusTooEarly, resp.StatusCode)
 
 	// Additonal import attemps should fail as well
-	importURL, err = env2.builder.BuildGitlabV1RepositoryImportURL(repoRef)
+	importURL, err = env.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"final"}})
 	require.NoError(t, err)
 
 	req, err = http.NewRequest(http.MethodPut, importURL, nil)
@@ -514,16 +530,19 @@ func TestGitlabAPI_RepositoryImport_ImportInProgress(t *testing.T) {
 	rootDir := t.TempDir()
 	migrationDir := filepath.Join(rootDir, "/new")
 
-	env := newTestEnv(t, withFSDriver(rootDir))
-	defer env.Shutdown()
-
-	env.requireDB(t)
-
 	repoPath := "old/repo"
 	tagName := "import-tag"
 
+	mockedImportNotifSrv := newMockImportNotification(t, repoPath)
+	env := newTestEnv(t, withFSDriver(rootDir), withMigrationEnabled, withMigrationRootDirectory(migrationDir),
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)))
+	t.Cleanup(env.Shutdown)
+	env.requireDB(t)
+
 	// Push up a image to the old side of the registry, so we can migrate it below.
 	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
+
+	preImportRepository(t, env, mockedImportNotifSrv, repoPath)
 
 	env2 := newTestEnv(
 		t, withFSDriver(rootDir),
@@ -538,7 +557,7 @@ func TestGitlabAPI_RepositoryImport_ImportInProgress(t *testing.T) {
 	repoRef, err := reference.WithName(repoPath)
 	require.NoError(t, err)
 
-	importURL, err := env2.builder.BuildGitlabV1RepositoryImportURL(repoRef)
+	importURL, err := env2.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"final"}})
 	require.NoError(t, err)
 
 	req, err := http.NewRequest(http.MethodPut, importURL, nil)
@@ -604,33 +623,26 @@ func TestGitlabAPI_RepositoryImport_Put_PreImportFailed(t *testing.T) {
 	rootDir := t.TempDir()
 	migrationDir := filepath.Join(rootDir, "/new")
 
-	env := newTestEnv(t, withFSDriver(rootDir))
-	defer env.Shutdown()
-
-	env.requireDB(t)
-
 	repoPath := "notags/repo"
+
+	mockedImportNotifSrv := newMockImportNotification(t, repoPath)
+
+	env := newTestEnv(t,
+		withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)))
+	t.Cleanup(env.Shutdown)
+	env.requireDB(t)
 
 	// Push up a image to the old side of the registry, but do not push any tags,
 	// the pre import will start without error, but the actual pre import will fail.
 	seedRandomSchema2Manifest(t, env, repoPath, putByDigest, writeToFilesystemOnly)
 
-	mockedImportNotifSrv := newMockImportNotification(t, repoPath)
-
-	env2 := newTestEnv(t,
-		withFSDriver(rootDir),
-		withMigrationEnabled,
-		withMigrationRootDirectory(migrationDir),
-		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)))
-	defer env2.Shutdown()
-
 	repoRef, err := reference.WithName(repoPath)
 	require.NoError(t, err)
 
-	preImportURL, err := env2.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"pre"}})
-	require.NoError(t, err)
-
-	importURL, err := env2.builder.BuildGitlabV1RepositoryImportURL(repoRef)
+	preImportURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"pre"}})
 	require.NoError(t, err)
 
 	req, err := http.NewRequest(http.MethodPut, preImportURL, nil)
@@ -647,6 +659,8 @@ func TestGitlabAPI_RepositoryImport_Put_PreImportFailed(t *testing.T) {
 		"pre importing tagged manifests: reading tags: unknown repository name=notags/repo", 2*time.Second,
 	)
 
+	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"final"}})
+	require.NoError(t, err)
 	// Subsequent import attempts fail.
 	req, err = http.NewRequest(http.MethodPut, importURL, nil)
 	require.NoError(t, err)
@@ -701,16 +715,11 @@ func TestGitlabAPI_RepositoryImport_Put_PreImportFailed(t *testing.T) {
 }
 
 func TestGitlabAPI_RepositoryImport_Put_RepositoryNotPresentOnOldSide(t *testing.T) {
-	rootDir, err := os.MkdirTemp("", "api-repository-import-")
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		os.RemoveAll(rootDir)
-	})
-
+	rootDir := t.TempDir()
 	migrationDir := filepath.Join(rootDir, "/new")
 
 	env := newTestEnv(t, withFSDriver(rootDir), withMigrationEnabled, withMigrationRootDirectory(migrationDir))
-	defer env.Shutdown()
+	t.Cleanup(env.Shutdown)
 
 	env.requireDB(t)
 
@@ -720,7 +729,7 @@ func TestGitlabAPI_RepositoryImport_Put_RepositoryNotPresentOnOldSide(t *testing
 	repoRef, err := reference.WithName(repoPath)
 	require.NoError(t, err)
 
-	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef)
+	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"pre"}})
 	require.NoError(t, err)
 
 	req, err := http.NewRequest(http.MethodPut, importURL, nil)
@@ -746,7 +755,7 @@ func TestGitlabAPI_RepositoryImport_Migration_PreImportInProgress(t *testing.T) 
 		// Simulate a long running pre import.
 		withMigrationTestSlowImport(waitForever),
 	)
-	defer env.Shutdown()
+	t.Cleanup(env.Shutdown)
 
 	env.requireDB(t)
 
@@ -797,22 +806,21 @@ func TestGitlabAPI_RepositoryImport_Migration_PreImportInProgress(t *testing.T) 
 	require.Equal(t, migration.OldCodePath.String(), resp.Header.Get("Gitlab-Migration-Path"))
 }
 
-func TestGitLabAPI_RepositoryImport_Migration_ImportInProgress(t *testing.T) {
+func TestGitlabAPI_RepositoryImport_Migration_ImportInProgress(t *testing.T) {
 	rootDir := t.TempDir()
 	migrationDir := filepath.Join(rootDir, "/new")
 
 	repoPath := "old-repo"
 	repoTag := "schema2-old-repo"
 
-	// Bring up a new environment in migration mode.
+	mockedImportNotifSrv := newMockImportNotification(t, repoPath)
+
 	env := newTestEnv(
 		t, withFSDriver(rootDir),
 		withMigrationEnabled,
 		withMigrationRootDirectory(migrationDir),
-		// Simulate a long running import.
-		withMigrationTestSlowImport(waitForever),
-	)
-	defer env.Shutdown()
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)))
+	t.Cleanup(env.Shutdown)
 
 	env.requireDB(t)
 
@@ -824,11 +832,25 @@ func TestGitLabAPI_RepositoryImport_Migration_ImportInProgress(t *testing.T) {
 	// prepare the layers successfully and later fail the manifest put.
 	deserializedManifest := seedRandomSchema2Manifest(t, env, repoPath)
 
+	preImportRepository(t, env, mockedImportNotifSrv, repoPath)
+
+	// Bring up a new environment in migration mode.
+	env2 := newTestEnv(
+		t, withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+		// Simulate a long running import.
+		withMigrationTestSlowImport(waitForever),
+	)
+	t.Cleanup(env2.Shutdown)
+
+	env2.requireDB(t)
+
 	// Start repository full import.
 	repoRef, err := reference.WithName(repoPath)
 	require.NoError(t, err)
 
-	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef)
+	importURL, err := env2.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"final"}})
 	require.NoError(t, err)
 
 	req, err := http.NewRequest(http.MethodPut, importURL, nil)
@@ -865,7 +887,7 @@ func TestGitLabAPI_RepositoryImport_Migration_ImportInProgress(t *testing.T) {
 	require.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
 
 	// Ensure that write requests for repositories not currently being imported succeed.
-	seedRandomSchema2Manifest(t, env, "different/repo", putByTag("latest"))
+	seedRandomSchema2Manifest(t, env2, "different/repo", putByTag("latest"))
 }
 
 func TestGitlabAPI_RepositoryImport_Migration_PreImportComplete(t *testing.T) {
@@ -883,7 +905,7 @@ func TestGitlabAPI_RepositoryImport_Migration_PreImportComplete(t *testing.T) {
 		withMigrationRootDirectory(migrationDir),
 		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)),
 	)
-	defer env.Shutdown()
+	t.Cleanup(env.Shutdown)
 
 	env.requireDB(t)
 
@@ -950,18 +972,20 @@ func TestGitlabAPI_RepositoryImport_Migration_ImportComplete(t *testing.T) {
 		withMigrationRootDirectory(migrationDir),
 		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)),
 	)
-	defer env.Shutdown()
+	t.Cleanup(env.Shutdown)
 
 	env.requireDB(t)
 
 	// Push up a image to the old side of the registry, so we can migrate it below.
 	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
 
+	preImportRepository(t, env, mockedImportNotifSrv, repoPath)
+
 	// Start repository import.
 	repoRef, err := reference.WithName(repoPath)
 	require.NoError(t, err)
 
-	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef)
+	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"final"}})
 	require.NoError(t, err)
 
 	req, err := http.NewRequest(http.MethodPut, importURL, nil)
@@ -1007,7 +1031,7 @@ var iso8601MsFormat = regexp.MustCompile(`^(?:[0-9]{4}-[0-9]{2}-[0-9]{2})?(?:[ T
 
 func TestGitlabAPI_Repository_Get(t *testing.T) {
 	env := newTestEnv(t, disableMirrorFS)
-	defer env.Shutdown()
+	t.Cleanup(env.Shutdown)
 	env.requireDB(t)
 
 	repoName := "bar"
@@ -1451,4 +1475,34 @@ func TestGitlabAPI_RepositoryImport_MaxConcurrentImports_NoopShouldNotBlockLimit
 	defer resp.Body.Close()
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
+func TestGitlabAPI_RepositoryImport_NoImportTypeParam(t *testing.T) {
+	rootDir := t.TempDir()
+
+	migrationDir := filepath.Join(rootDir, "/new")
+
+	env := newTestEnv(t,
+		withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir))
+	t.Cleanup(env.Shutdown)
+
+	env.requireDB(t)
+
+	repoPath := "foo/bar"
+	repoRef, err := reference.WithName(repoPath)
+	require.NoError(t, err)
+	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPut, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	checkBodyHasErrorCodes(t, "invalid query param", resp, v1.ErrorCodeInvalidQueryParamValue)
 }

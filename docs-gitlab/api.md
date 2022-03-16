@@ -153,7 +153,7 @@ PUT /gitlab/v1/import/<path>/
 | Attribute     | Type    | Required | Default   | Description                                                  |
 | ------------- | ------- | -------- | --------- | ------------------------------------------------------------ |
 | `path`        | String  | Yes      |           | The full path of the target repository. Equivalent to the `name` parameter in the `/v2/` API, described in the [OCI Distribution Spec](https://github.com/opencontainers/distribution-spec/blob/main/spec.md). The same pattern validation applies. |
-| `import_type` | Bool    | No       | `final`   | When `import_type=pre`, only import manifests and their associated blobs, without importing tags. Once the pre import is complete, performing a final import (default) should take far less time, reducing the amount of time required during which writes will be blocked. |
+| `import_type` | Bool    | Yes      |           | When `import_type=pre`, only import manifests and their associated blobs, without importing tags. Once the pre import is complete, performing a final import with `import_type=final` should take far less time, reducing the amount of time required during which writes will be blocked. |
 
 #### Example
 
@@ -188,6 +188,7 @@ This endpoint requires an auth token with the `registry` resource type, name set
 | `200 OK`                  | The repository was already present on the database and does not need to be imported. This repository may have been previously migrated or native to the database. |
 | `202 Accepted`            | The import or pre import was successfully started. |
 | `401 Unauthorized`        | The client should take action based on the contents of the `WWW-Authenticate` header and try the endpoint again. |
+| `400 Bad Request`         | The `import_type` query parameter was not set or its value is invalid. |
 | `404 Not Found`           | The repository was not found. |
 | `409 Conflict`            | The repository is already being imported. |
 | `424 Failed Dependency`   | The repository failed to pre import. This error only affects the import request when `import_type=final`, when `import_type=pre` the pre import will be retried.|

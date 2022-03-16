@@ -356,7 +356,7 @@ func isImportTypePre(r *http.Request) (bool, error) {
 	switch importTypeValue {
 	case "pre":
 		return true, nil
-	case "final", "":
+	case "final":
 		return false, nil
 	default:
 		return false, fmt.Errorf("import_type value must be 'pre' or 'final', got %s", importTypeValue)
