@@ -1,4 +1,4 @@
-# Bad Manifest Format
+# Bad Manifest Layer Format
 
 This test fixture simulates a registry with a repository in which a manifest has a layer with an unknown media type.
 This can be used to cause errors in order to test the error path. A layer with an unknown media type should cause the
