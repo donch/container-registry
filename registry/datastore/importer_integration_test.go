@@ -470,10 +470,50 @@ func TestImporter_Import_BadManifestListRef(t *testing.T) {
 	require.EqualError(t, err, `importing tags: importing manifest: retrieving referenced manifest "sha256:597bd5c319cc09d6bb295b4ef23cac50ec7c373fff5fe923cfd246ec09967b31" from filesystem: unknown manifest name=multi-arch revision=sha256:597bd5c319cc09d6bb295b4ef23cac50ec7c373fff5fe923cfd246ec09967b31`)
 }
 
+func TestImporter_PreImport_UnknownLayerMediaType(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "unknown-layer-mediatype")
+	err := imp.PreImport(suite.ctx, "a-simple")
+	require.EqualError(t, err, "pre importing tagged manifests: pre importing manifest: pre importing manifest: importing layers: creating layer blob: unknown media type: application/foo.bar.layer.v1.tar+gzip")
+}
+
 func TestImporter_Import_UnknownLayerMediaType(t *testing.T) {
 	require.NoError(t, testutil.TruncateAllTables(suite.db))
 
 	imp := newImporterWithRoot(t, suite.db, "unknown-layer-mediatype")
 	err := imp.Import(suite.ctx, "a-simple")
 	require.EqualError(t, err, "importing tags: importing manifest: importing layers: creating layer blob: unknown media type: application/foo.bar.layer.v1.tar+gzip")
+}
+
+func TestImporter_PreImport_UnknownManifestMediaType(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "unknown-manifest-mediatype")
+	err := imp.PreImport(suite.ctx, "a-simple")
+	require.EqualError(t, err, "pre importing tagged manifests: pre importing manifest: retrieving manifest \"sha256:3742a2977c3f5663dd12ddc406d45ed7cda2760842c9da514c35f9069581e7a2\" from filesystem: errors verifying manifest: unrecognized manifest content type application/foo.bar.manfiest.v1.tar+gzip")
+}
+
+func TestImporter_Import_UnknownManifestMediaType(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "unknown-manifest-mediatype")
+	err := imp.Import(suite.ctx, "a-simple")
+	require.EqualError(t, err, "importing tags: retrieving manifest \"sha256:3742a2977c3f5663dd12ddc406d45ed7cda2760842c9da514c35f9069581e7a2\" from filesystem: errors verifying manifest: unrecognized manifest content type application/foo.bar.manfiest.v1.tar+gzip")
+}
+
+func TestImporter_PreImport_UnknownManifestConfigMediaType(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "unknown-manifestconfig-mediatype")
+	err := imp.PreImport(suite.ctx, "a-simple")
+	require.EqualError(t, err, "pre importing tagged manifests: pre importing manifest: pre importing manifest: unknown media type: application/foo.bar.container.image.v1+json")
+}
+
+func TestImporter_Import_UnknownManifestConfigMediaType(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "unknown-manifestconfig-mediatype")
+	err := imp.Import(suite.ctx, "a-simple")
+	require.EqualError(t, err, "importing tags: importing manifest: unknown media type: application/foo.bar.container.image.v1+json")
 }
