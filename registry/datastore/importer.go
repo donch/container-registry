@@ -173,10 +173,9 @@ func (imp *Importer) importLayers(ctx context.Context, dbRepo *models.Repository
 			"digest":     fsLayer.Digest,
 			"media_type": fsLayer.MediaType,
 			"size":       fsLayer.Size,
-			"count":      i + 1,
-			"total":      total,
 		})
-		l.Info("importing layer")
+		ctx = log.WithLogger(ctx, l)
+		l.WithFields(log.Fields{"total": total, "count": i + 1}).Info("importing layer")
 
 		if _, err := fsRepo.Blobs(ctx).Stat(ctx, fsLayer.Digest); err != nil {
 			if errors.Is(err, distribution.ErrBlobUnknown) {
@@ -411,7 +410,7 @@ type tagLookupResponse struct {
 }
 
 func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Repository, dbRepo *models.Repository) error {
-	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": dbRepo.Name})
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": dbRepo.Path})
 
 	manifestService, err := fsRepo.Manifests(ctx)
 	if err != nil {
@@ -566,7 +565,7 @@ func (imp *Importer) preImportTaggedManifests(ctx context.Context, fsRepo distri
 	total := len(fsTags)
 
 	for i, fsTag := range fsTags {
-		l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": dbRepo.Path, "name": fsTag, "count": i + 1, "total": total})
+		l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": dbRepo.Path, "tag_name": fsTag, "count": i + 1, "total": total})
 		l.Info("processing tag")
 
 		// read tag details from the filesystem
@@ -878,8 +877,11 @@ func (imp *Importer) PreImport(ctx context.Context, path string) error {
 	var tx Transactor
 	var err error
 
-	// Add pre_import field to all subsequent logging.
-	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"pre_import": true})
+	// Add specific log fields to all subsequent log entries.
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
+		"pre_import": true,
+		"component":  "importer",
+	})
 	ctx = log.WithLogger(ctx, l)
 
 	// Create a single transaction and roll it back at the end for dry runs.
