@@ -88,9 +88,8 @@ func (ih *importHandler) GetImport(w http.ResponseWriter, r *http.Request) {
 
 const importTypeQueryParamKey = "import_type"
 
-// StartRepository begins a repository import.
+// StartRepositoryImport begins a repository import.
 func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Request) {
-	// acquire semaphore
 	ih.acquireImportSemaphore()
 
 	defer func() {
@@ -254,7 +253,7 @@ func (ih *importHandler) shouldImport(dbRepo *models.Repository) (bool, error) {
 		// additional pre import attempts.
 		case status == migration.RepositoryStatusPreImportFailed && !ih.preImport:
 			detail := v1.ErrorCodePreImportFailedErrorDetail(ih.Repository)
-			return false, v1.ErrorCodePreImportInFailed.WithDetail(detail)
+			return false, v1.ErrorCodePreImportFailed.WithDetail(detail)
 		}
 	}
 
@@ -271,6 +270,13 @@ func (ih *importHandler) shouldImport(dbRepo *models.Repository) (bool, error) {
 
 	if !exists {
 		return false, v2.ErrorCodeNameUnknown
+	}
+
+	// Do not begin a final import for a repository that has not been pre imported. We do the check here to allow
+	// raising an "unknown repository" error if it does not exist on the old storage prefix.
+	if dbRepo == nil && !ih.preImport {
+		detail := v1.ErrorCodePreImportRequiredDetail(ih.Repository)
+		return false, v1.ErrorCodePreImportRequired.WithDetail(detail)
 	}
 
 	return true, nil

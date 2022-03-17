@@ -51,7 +51,7 @@ func preImportRepository(t *testing.T, env *testEnv, mockNotificationSrv *mockIm
 			repoPath,
 			string(migration.RepositoryStatusPreImportComplete),
 			"pre import completed successfully",
-			2*time.Second,
+			5*time.Second,
 		)
 	}
 }
@@ -285,6 +285,7 @@ func TestGitlabAPI_RepositoryImport_Put_ImportTimeout(t *testing.T) {
 		"updating migration status after failed final import: updating repository: context deadline exceeded", 2*time.Second,
 	)
 }
+
 func TestGitlabAPI_RepositoryImport_Put_ConcurrentTags(t *testing.T) {
 	rootDir := t.TempDir()
 	migrationDir := filepath.Join(rootDir, "/new")
@@ -1505,4 +1506,42 @@ func TestGitlabAPI_RepositoryImport_NoImportTypeParam(t *testing.T) {
 
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	checkBodyHasErrorCodes(t, "invalid query param", resp, v1.ErrorCodeInvalidQueryParamValue)
+}
+
+func TestGitlabAPI_RepositoryImport_PreImportRequired(t *testing.T) {
+	rootDir := t.TempDir()
+	migrationDir := filepath.Join(rootDir, "/new")
+
+	env := newTestEnv(
+		t, withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+	)
+	t.Cleanup(env.Shutdown)
+
+	env.requireDB(t)
+
+	repoPath := "old/repo"
+	tagName := "import-tag"
+
+	// Push up an image to the old side of the registry, so we can migrate it below.
+	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
+
+	// Try repository final import (without a preceding pre import)
+	repoRef, err := reference.WithName(repoPath)
+	require.NoError(t, err)
+
+	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"final"}})
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPut, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Final import should not be allowed
+	require.Equal(t, http.StatusFailedDependency, resp.StatusCode)
+	checkBodyHasErrorCodes(t, "failed dependency", resp, v1.ErrorCodePreImportRequired)
 }

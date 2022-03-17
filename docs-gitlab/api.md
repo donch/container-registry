@@ -192,6 +192,7 @@ This endpoint requires an auth token with the `registry` resource type, name set
 | `404 Not Found`           | The repository was not found. |
 | `409 Conflict`            | The repository is already being imported. |
 | `424 Failed Dependency`   | The repository failed to pre import. This error only affects the import request when `import_type=final`, when `import_type=pre` the pre import will be retried.|
+| `424 Failed Dependency`   | The repository has not been pre imported yet. This error only affects the import request when `import_type=final` and no preceding `import_type=pre` import has been started.|
 | `425 Too Early`           | The Repository is currently being pre imported. |
 | `429 Too Many Requests`   | The registry is already running the maximum configured import jobs. |
 
