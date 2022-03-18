@@ -283,8 +283,7 @@ func (suite *metricsSuite) TestInFlightImports() {
 	restore := mockTimeSince(10 * time.Millisecond)
 	defer restore()
 
-	type rptFunc func(importAttempted bool, err error)
-	reports := []rptFunc{}
+	var reports []ImportReportFunc
 
 	// Open five imports.
 	reports = append(reports, PreImport())
