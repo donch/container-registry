@@ -43,7 +43,7 @@ func TestListener(t *testing.T) {
 	if !ok {
 		t.Fatal("registry does not implement RepositoryRemover")
 	}
-	repository, remover = Listen(repository, remover, tl)
+	repository, remover = Listen(repository, remover, tl, false)
 
 	// Now take the registry through a number of operations
 	checkExerciseRepository(t, repository, remover)

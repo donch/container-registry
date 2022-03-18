@@ -1110,7 +1110,8 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 			ctx.Repository, ctx.RepositoryRemover = notifications.Listen(
 				repository,
 				ctx.App.repoRemover,
-				app.eventBridge(ctx, r))
+				app.eventBridge(ctx, r),
+				app.Config.Migration.DisableMirrorFS)
 
 			ctx.Repository, err = applyRepoMiddleware(app, ctx.Repository, app.Config.Middleware["repository"])
 			if err != nil {
