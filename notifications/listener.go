@@ -42,6 +42,8 @@ type Listener interface {
 type repositoryListener struct {
 	distribution.Repository
 	listener Listener
+	// TODO: remove and handle case properly https://gitlab.com/gitlab-org/container-registry/-/issues/622
+	fsMirroringDisabled bool
 }
 
 type removerListener struct {
@@ -50,10 +52,11 @@ type removerListener struct {
 }
 
 // Listen dispatches events on the repository to the listener.
-func Listen(repo distribution.Repository, remover distribution.RepositoryRemover, listener Listener) (distribution.Repository, distribution.RepositoryRemover) {
+func Listen(repo distribution.Repository, remover distribution.RepositoryRemover, listener Listener, fsMirroringDisabled bool) (distribution.Repository, distribution.RepositoryRemover) {
 	return &repositoryListener{
-			Repository: repo,
-			listener:   listener,
+			Repository:          repo,
+			listener:            listener,
+			fsMirroringDisabled: fsMirroringDisabled,
 		}, &removerListener{
 			RepositoryRemover: remover,
 			listener:          listener,
@@ -81,8 +84,9 @@ func (rl *repositoryListener) Manifests(ctx context.Context, options ...distribu
 
 func (rl *repositoryListener) Blobs(ctx context.Context) distribution.BlobStore {
 	return &blobServiceListener{
-		BlobStore: rl.Repository.Blobs(ctx),
-		parent:    rl,
+		BlobStore:           rl.Repository.Blobs(ctx),
+		parent:              rl,
+		fsMirroringDisabled: rl.fsMirroringDisabled,
 	}
 }
 
@@ -127,7 +131,8 @@ func (msl *manifestServiceListener) Put(ctx context.Context, sm distribution.Man
 
 type blobServiceListener struct {
 	distribution.BlobStore
-	parent *repositoryListener
+	parent              *repositoryListener
+	fsMirroringDisabled bool
 }
 
 var _ distribution.BlobStore = &blobServiceListener{}
@@ -135,6 +140,9 @@ var _ distribution.BlobStore = &blobServiceListener{}
 func (bsl *blobServiceListener) Get(ctx context.Context, dgst digest.Digest) ([]byte, error) {
 	p, err := bsl.BlobStore.Get(ctx, dgst)
 	if err == nil {
+		if bsl.fsMirroringDisabled {
+			return p, nil
+		}
 		if desc, err := bsl.Stat(ctx, dgst); err != nil {
 			dcontext.GetLogger(ctx).Errorf("error resolving descriptor in ServeBlob listener: %v", err)
 		} else {
@@ -150,6 +158,9 @@ func (bsl *blobServiceListener) Get(ctx context.Context, dgst digest.Digest) ([]
 func (bsl *blobServiceListener) Open(ctx context.Context, dgst digest.Digest) (distribution.ReadSeekCloser, error) {
 	rc, err := bsl.BlobStore.Open(ctx, dgst)
 	if err == nil {
+		if bsl.fsMirroringDisabled {
+			return rc, nil
+		}
 		if desc, err := bsl.Stat(ctx, dgst); err != nil {
 			dcontext.GetLogger(ctx).Errorf("error resolving descriptor in ServeBlob listener: %v", err)
 		} else {
@@ -165,6 +176,9 @@ func (bsl *blobServiceListener) Open(ctx context.Context, dgst digest.Digest) (d
 func (bsl *blobServiceListener) ServeBlob(ctx context.Context, w http.ResponseWriter, r *http.Request, dgst digest.Digest) error {
 	err := bsl.BlobStore.ServeBlob(ctx, w, r, dgst)
 	if err == nil {
+		if bsl.fsMirroringDisabled {
+			return nil
+		}
 		if desc, err := bsl.Stat(ctx, dgst); err != nil {
 			dcontext.GetLogger(ctx).Errorf("error resolving descriptor in ServeBlob listener: %v", err)
 		} else {
