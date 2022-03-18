@@ -89,7 +89,7 @@ func TestTransferBlobExistsOnTarget(t *testing.T) {
 	require.NoError(t, err)
 
 	err = bts.Transfer(source.ctx, dgst)
-	require.NoError(t, err)
+	require.ErrorIs(t, err, distribution.ErrBlobExists)
 
 	// Ensure blob is still not linked to the metadata, but present in common
 	// blob storage on target registry.
