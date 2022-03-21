@@ -203,12 +203,17 @@ func (imp *Importer) transferBlob(ctx context.Context, d digest.Digest) error {
 	}
 
 	start := time.Now()
+	var noop bool
 	if err := imp.blobTransferService.Transfer(ctx, d); err != nil {
-		return fmt.Errorf("transferring blob with digest %s: %w", d, err)
+		if !errors.Is(err, distribution.ErrBlobExists) {
+			return fmt.Errorf("transferring blob with digest %s: %w", d, err)
+		}
+		noop = true
 	}
 
 	end := time.Since(start).Seconds()
 	log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
+		"noop":       noop,
 		"digest":     d,
 		"duration_s": end,
 	}).Info("blob transfer complete")

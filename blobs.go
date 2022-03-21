@@ -136,7 +136,8 @@ type BlobTransferService interface {
 	// Transfer initiates copying the blob with the corresponding digest. This
 	// call must block until complete. The source location should not be modified
 	// as part of this operation. If an error occurs during this operation
-	// 	ErrBlobTransferFailed will be returned.
+	// ErrBlobTransferFailed will be returned. ErrBlobExists is returned in case
+	// the blob already exists on the destination.
 	Transfer(context.Context, digest.Digest) error
 }
 
