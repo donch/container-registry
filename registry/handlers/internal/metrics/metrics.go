@@ -113,11 +113,13 @@ func MigrationRoute(newCodePath bool) {
 	migrationRoutingCounter.WithLabelValues(codePath).Inc()
 }
 
-func Import() func(importAttempted bool, err error) {
+type ImportReportFunc func(importAttempted bool, err error)
+
+func Import() ImportReportFunc {
 	return doImport(importTypeValue)
 }
 
-func PreImport() func(importAttempted bool, err error) {
+func PreImport() ImportReportFunc {
 	return doImport(preImportTypeValue)
 }
 

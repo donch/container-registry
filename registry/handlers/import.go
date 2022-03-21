@@ -132,9 +132,11 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 	l = l.WithFields(log.Fields{"pre_import": ih.preImport, "timeout_s": ih.timeout.Seconds()})
 
 	// Set up metrics reporting
-	report := metrics.Import()
+	var report metrics.ImportReportFunc
 	if ih.preImport {
 		report = metrics.PreImport()
+	} else {
+		report = metrics.Import()
 	}
 
 	shouldImport, err := ih.shouldImport(dbRepo)
@@ -214,11 +216,8 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 		if err != nil {
 			l.WithError(err).Error("importing repository")
 			errortracking.Capture(err, errortracking.WithContext(importCtx), errortracking.WithRequest(r))
-
-			report(true, err)
 		}
-
-		report(true, nil)
+		report(true, err)
 
 		notificationCtx, cancel := context.WithTimeout(context.Background(), ih.Config.Migration.ImportNotification.Timeout)
 		defer cancel()
