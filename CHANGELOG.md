@@ -1,3 +1,19 @@
+# [3.36.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.35.0-gitlab...v3.36.0-gitlab) (2022-03-21)
+
+
+### Bug Fixes
+
+* bypass blob get notifications to avoid filesystem link check in migration mode ([c87899b](https://gitlab.com/gitlab-org/container-registry/commit/c87899b90e4b3aafa2f16080bc57dae3dcb8f554))
+* increment and decrement inflight imports metric correctly ([9766063](https://gitlab.com/gitlab-org/container-registry/commit/9766063232e309c780bff29965c33799e2594b4b))
+* **handlers:** always require import type query param to be present ([e80c655](https://gitlab.com/gitlab-org/container-registry/commit/e80c65581005eb328d10e6b95fc02735f973dfb4))
+* **handlers:** do not allow final import without a preceding pre import ([44f7382](https://gitlab.com/gitlab-org/container-registry/commit/44f7382f3445fe52cbf912a5777bd26491fda836))
+
+
+### Features
+
+* add support for Singularity media types ([a78b5d8](https://gitlab.com/gitlab-org/container-registry/commit/a78b5d8a42f0fb8aa895333ea659a623175ec7c3))
+* log whether blob transfer was a noop during repository import ([f290f47](https://gitlab.com/gitlab-org/container-registry/commit/f290f473572fee7d6e034b14b966d3e640e39dbe))
+
 # [3.35.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.34.0-gitlab...v3.35.0-gitlab) (2022-03-15)
 
 
