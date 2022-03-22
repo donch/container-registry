@@ -135,6 +135,9 @@ func TestGitlabAPI_RepositoryImport_Get(t *testing.T) {
 	}
 
 	require.Equal(t, expectedStatus, s)
+
+	// response content type must be application/json
+	require.Equal(t, resp.Header.Get("Content-Type"), "application/json")
 }
 
 func TestGitlabAPI_RepositoryImport_Put(t *testing.T) {

@@ -77,13 +77,13 @@ func (ih *importHandler) GetImport(w http.ResponseWriter, r *http.Request) {
 		Status: dbRepo.MigrationStatus,
 	}
 
-	b, err := json.Marshal(rs)
-	if err != nil {
+	w.Header().Set("Content-Type", "application/json")
+	enc := json.NewEncoder(w)
+
+	if err := enc.Encode(rs); err != nil {
 		ih.Errors = append(ih.Errors, errcode.FromUnknownError(err))
 		return
 	}
-
-	w.Write(b)
 }
 
 const importTypeQueryParamKey = "import_type"
