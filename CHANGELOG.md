@@ -1,3 +1,10 @@
+## [3.36.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.36.0-gitlab...v3.36.1-gitlab) (2022-03-22)
+
+
+### Bug Fixes
+
+* set response content-type for get import status requests ([56509fa](https://gitlab.com/gitlab-org/container-registry/commit/56509fab29927845fc664278b99c36e663251ad3))
+
 # [3.36.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.35.0-gitlab...v3.36.0-gitlab) (2022-03-21)
 
 
