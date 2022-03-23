@@ -446,6 +446,22 @@ func TestImporter_PreImport_BadManifestFormat(t *testing.T) {
 	require.EqualError(t, err, `pre importing tagged manifests: pre importing manifest: retrieving manifest "sha256:a2490cec4484ee6c1068ba3a05f89934010c85242f736280b35343483b2264b6" from filesystem: failed to unmarshal manifest payload: invalid character 's' looking for beginning of value`)
 }
 
+func TestImporter_PreImport_EmptyManifest(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "empty-manifest")
+	err := imp.PreImport(suite.ctx, "empty-manifest")
+	require.NoError(t, err)
+}
+
+func TestImporter_Import_EmptyManifest(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "empty-manifest")
+	err := imp.Import(suite.ctx, "empty-manifest")
+	require.NoError(t, err)
+}
+
 func TestImporter_PreImport_BadTagLink(t *testing.T) {
 	require.NoError(t, testutil.TruncateAllTables(suite.db))
 

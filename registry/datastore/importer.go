@@ -378,17 +378,24 @@ func (imp *Importer) importManifests(ctx context.Context, fsRepo distribution.Re
 	err = manifestEnumerator.Enumerate(ctx, func(dgst digest.Digest) error {
 		index++
 
-		m, err := manifestService.Get(ctx, dgst)
-		if err != nil {
-			return fmt.Errorf("retrieving manifest %q from filesystem: %w", dgst, err)
-		}
-
 		l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
 			"repository": dbRepo.Path,
 			"digest":     dgst,
 			"count":      index,
-			"type":       fmt.Sprintf("%T", m),
 		})
+
+		m, err := manifestService.Get(ctx, dgst)
+		if err != nil {
+			if errors.As(err, &distribution.ErrManifestEmpty{}) {
+				// This manifest is empty, which means it's unrecoverable, and therefore we should simply log, leave it
+				// behind and continue
+				l.Warn("empty manifest payload, skipping")
+				return nil
+			}
+			return fmt.Errorf("retrieving manifest %q from filesystem: %w", dgst, err)
+		}
+
+		l = l.WithFields(log.Fields{"type": fmt.Sprintf("%T", m)})
 
 		switch fsManifest := m.(type) {
 		case *manifestlist.DeserializedManifestList:
@@ -499,6 +506,12 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 		if dbManifest == nil {
 			m, err := manifestService.Get(lookupCtx, desc.Digest)
 			if err != nil {
+				if errors.As(err, &distribution.ErrManifestEmpty{}) {
+					// This manifest is empty, which means it's unrecoverable, and therefore we should simply log, leave it
+					// behind and continue
+					l.Warn("empty manifest payload, skipping")
+					return nil
+				}
 				return fmt.Errorf("retrieving manifest %q from filesystem: %w", desc.Digest, err)
 			}
 
@@ -605,6 +618,12 @@ func (imp *Importer) preImportManifest(ctx context.Context, fsRepo distribution.
 
 	m, err := manifestService.Get(ctx, dgst)
 	if err != nil {
+		if errors.As(err, &distribution.ErrManifestEmpty{}) {
+			// This manifest is empty, which means it's unrecoverable, and therefore we should simply log, leave it
+			// behind and continue
+			l.Warn("empty manifest payload, skipping")
+			return nil
+		}
 		return fmt.Errorf("retrieving manifest %q from filesystem: %w", dgst, err)
 	}
 
