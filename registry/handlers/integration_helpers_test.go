@@ -18,6 +18,7 @@ import (
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/reference"
+	"github.com/docker/distribution/registry/handlers"
 	"github.com/docker/distribution/registry/internal/migration"
 	"github.com/docker/distribution/testutil"
 	"github.com/opencontainers/go-digest"
@@ -398,4 +399,33 @@ func seedMultipleFSManifestsWithTag(t *testing.T, env *testEnv, tagName string, 
 	for _, path := range repoPaths {
 		seedRandomSchema2Manifest(t, env, path, putByTag(tagName), writeToFilesystemOnly)
 	}
+}
+
+func assertImportStatus(t *testing.T, importURL, repoPath string, expectedStatus migration.RepositoryStatus) {
+	t.Helper()
+
+	req, err := http.NewRequest(http.MethodGet, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Import should have been found.
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	b, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var s handlers.RepositoryImportStatus
+	err = json.Unmarshal(b, &s)
+	require.NoError(t, err)
+
+	expectedStatusResponse := handlers.RepositoryImportStatus{
+		Name:   repositoryName(repoPath),
+		Path:   repoPath,
+		Status: expectedStatus,
+	}
+
+	require.Equal(t, expectedStatusResponse, s)
 }

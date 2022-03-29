@@ -23,6 +23,13 @@ import (
 	"gitlab.com/gitlab-org/labkit/errortracking"
 )
 
+// cancelableStatuses is the list of migration repository statuses that are
+// allowed to be canceled.
+var cancelableStatuses = map[migration.RepositoryStatus]bool{
+	migration.RepositoryStatusPreImportInProgress: true,
+	migration.RepositoryStatusImportInProgress:    true,
+}
+
 // importHandler handles http operations on repository imports
 type importHandler struct {
 	*Context
@@ -47,6 +54,7 @@ func importDispatcher(ctx *Context, r *http.Request) http.Handler {
 
 	if !ctx.readOnly {
 		ihandler[http.MethodPut] = ih.maxConcurrentImportsMiddleware(http.HandlerFunc(ih.StartRepositoryImport))
+		ihandler[http.MethodDelete] = http.HandlerFunc(ih.CancelRepositoryImport)
 	}
 
 	return ihandler
@@ -308,6 +316,8 @@ func (ih *importHandler) createOrUpdateRepo(ctx context.Context, dbRepo *models.
 func (ih *importHandler) runImport(ctx context.Context, importer *datastore.Importer, dbRepo *models.Repository) error {
 	var multiErrs *multierror.Error
 
+	// TODO: check if the (pre)import has been canceled
+	// https://gitlab.com/gitlab-org/container-registry/-/issues/527
 	if ih.preImport {
 		if err := importer.PreImport(ctx, dbRepo.Path); err != nil {
 			multiErrs = multierror.Append(multiErrs, err)
@@ -432,4 +442,57 @@ func (ih *importHandler) acquireImportSemaphore() {
 
 func (ih *importHandler) releaseImportSemaphore() {
 	<-ih.importSemaphore
+}
+
+// CancelRepositoryImport will attempt to update the repository status of an ongoing (pre)import to
+// migration.RepositoryStatusPreImportCanceled or migration.RepositoryStatusImportCanceled depending on the status of
+// given repository.
+func (ih *importHandler) CancelRepositoryImport(w http.ResponseWriter, r *http.Request) {
+	l := log.GetLogger(log.WithContext(ih)).WithFields(log.Fields{
+		"repository": ih.Repository.Named().Name(),
+	})
+	l.Debug("CancelImportRepository")
+
+	dbRepo, err := ih.FindByPath(ih.Context, ih.Repository.Named().Name())
+	if err != nil {
+		ih.Errors = append(ih.Errors, errcode.FromUnknownError(err))
+		return
+	}
+
+	if dbRepo == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	if cancelable := cancelableStatuses[dbRepo.MigrationStatus]; !cancelable {
+		detail := v1.ErrorCodeImportCannotBeCanceledDetail(ih.Repository, string(dbRepo.MigrationStatus))
+		ih.Errors = append(ih.Errors, v1.ErrorCodeImportCannotBeCanceled.WithDetail(detail))
+		// TODO: add metrics
+		return
+	}
+
+	if err := ih.cancelImport(dbRepo); err != nil {
+		ih.Errors = append(ih.Errors, errcode.FromUnknownError(err))
+		return
+	}
+
+	w.WriteHeader(http.StatusAccepted)
+}
+
+func (ih *importHandler) cancelImport(dbRepo *models.Repository) error {
+	toStatus := migration.RepositoryStatusImportCanceled
+	detail := "import canceled"
+	if dbRepo.MigrationStatus == migration.RepositoryStatusPreImportInProgress {
+		toStatus = migration.RepositoryStatusPreImportCanceled
+		detail = "pre import canceled"
+	}
+
+	dbRepo.MigrationStatus = toStatus
+	dbRepo.MigrationError = sql.NullString{String: detail}
+
+	if err := ih.Update(ih, dbRepo); err != nil {
+		return fmt.Errorf("updating migration status trying to cancel import: %w", err)
+	}
+
+	return nil
 }

@@ -147,8 +147,13 @@ const (
 	// RepositoryStatusImportComplete is the migration status of a repository that has successfully been imported.
 	RepositoryStatusImportComplete RepositoryStatus = "import_complete"
 
-	// RepositoryStatusImportFailed is the migration status of a repository that has failed to import.
+	// RepositoryStatusImportFailed is the migration status of a repository that has failed to import for a different
+	// reason than `import_canceled`
 	RepositoryStatusImportFailed RepositoryStatus = "import_failed"
+
+	// RepositoryStatusImportCanceled is the migration status of a repository that has been canceled manually and is
+	// different from `import_failed`.
+	RepositoryStatusImportCanceled RepositoryStatus = "import_canceled"
 
 	// RepositoryStatusPreImportInProgress is the migration status of a repository that is currently undergoing a pre import.
 	RepositoryStatusPreImportInProgress RepositoryStatus = "pre_import_in_progress"
@@ -156,8 +161,13 @@ const (
 	// RepositoryStatusPreImportComplete is the migration status of a repository that has successfully been pre imported.
 	RepositoryStatusPreImportComplete RepositoryStatus = "pre_import_complete"
 
-	// RepositoryStatusPreImportFailed  the migration status of a repository that has failed to pre import.
+	// RepositoryStatusPreImportFailed  the migration status of a repository that has failed to pre import for a different
+	// reason than `pre_import_canceled`.
 	RepositoryStatusPreImportFailed RepositoryStatus = "pre_import_failed"
+
+	// RepositoryStatusPreImportCanceled is the migration status of a repository that has been canceled manually and is
+	// different from `pre_import_failed`.
+	RepositoryStatusPreImportCanceled RepositoryStatus = "pre_import_canceled"
 )
 
 // OnDatabase returns true if the repository uses the database for metadata.
