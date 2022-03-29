@@ -27,7 +27,7 @@ import (
 
 var waitForever = time.Duration(math.MaxInt64)
 
-func preImportRepository(t *testing.T, env *testEnv, mockNotificationSrv *mockImportNotification, repoPath string) {
+func preImportRepository(t *testing.T, env *testEnv, mockNotificationSrv *mockImportNotification, repoPath string) string {
 	t.Helper()
 
 	repoRef, err := reference.WithName(repoPath)
@@ -54,6 +54,8 @@ func preImportRepository(t *testing.T, env *testEnv, mockNotificationSrv *mockIm
 			5*time.Second,
 		)
 	}
+
+	return importURL
 }
 
 func TestGitlabAPI_RepositoryImport_Get(t *testing.T) {
@@ -1547,4 +1549,270 @@ func TestGitlabAPI_RepositoryImport_PreImportRequired(t *testing.T) {
 	// Final import should not be allowed
 	require.Equal(t, http.StatusFailedDependency, resp.StatusCode)
 	checkBodyHasErrorCodes(t, "failed dependency", resp, v1.ErrorCodePreImportRequired)
+}
+
+func TestGitlabAPI_RepositoryImport_Delete_PreImportInProgress(t *testing.T) {
+	rootDir := t.TempDir()
+	migrationDir := filepath.Join(rootDir, "/new")
+	repoPath := "old/repo"
+	tagName := "import-tag"
+
+	env := newTestEnv(
+		t, withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+		// make the pre-import take a long time so we can cancel it
+		withMigrationTestSlowImport(waitForever),
+	)
+	t.Cleanup(env.Shutdown)
+
+	env.requireDB(t)
+
+	// Push up an image to the old side of the registry, so we can migrate it below.
+	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
+
+	// Begin a pre-import
+	repoRef, err := reference.WithName(repoPath)
+	require.NoError(t, err)
+
+	preImportURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"pre"}})
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPut, preImportURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Pre import should start
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	// DELETE the same URL
+	req, err = http.NewRequest(http.MethodDelete, preImportURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// DELETE pre import should be accepted
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	// TODO: wait for import notification with canceled status
+
+	// Get the import status
+	assertImportStatus(t, preImportURL, repoPath, migration.RepositoryStatusPreImportCanceled)
+}
+
+func TestGitlabAPI_RepositoryImport_Delete_ImportInProgress(t *testing.T) {
+	rootDir := t.TempDir()
+	migrationDir := filepath.Join(rootDir, "/new")
+	repoPath := "old/repo"
+	tagName := "import-tag"
+
+	mockedImportNotifSrv := newMockImportNotification(t, repoPath)
+
+	env := newTestEnv(
+		t, withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)),
+	)
+	t.Cleanup(env.Shutdown)
+
+	env.requireDB(t)
+
+	// Push up an image to the old side of the registry, so we can migrate it below.
+	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
+
+	// pre import repository and wait for it to complete
+	preImportRepository(t, env, mockedImportNotifSrv, repoPath)
+
+	// Create a new environment with a long wait so we can cancel the import in progress
+	env2 := newTestEnv(
+		t, withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+		// make the pre-import take a long time so we can cancel it
+		withMigrationTestSlowImport(waitForever),
+	)
+	t.Cleanup(env.Shutdown)
+
+	// Begin a final import
+	repoRef, err := reference.WithName(repoPath)
+	require.NoError(t, err)
+
+	importURL, err := env2.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"final"}})
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPut, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Final import should start
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	// DELETE the import using the same URL
+	req, err = http.NewRequest(http.MethodDelete, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// DELETE final import should be accepted
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	// TODO: wait for import notification with canceled status
+
+	// Get the import status
+	assertImportStatus(t, importURL, repoPath, migration.RepositoryStatusImportCanceled)
+}
+
+func TestGitlabAPI_RepositoryImport_Delete_PreImportComplete_BadRequest(t *testing.T) {
+	rootDir := t.TempDir()
+	migrationDir := filepath.Join(rootDir, "/new")
+	repoPath := "old/repo"
+	tagName := "import-tag"
+
+	mockedImportNotifSrv := newMockImportNotification(t, repoPath)
+
+	env := newTestEnv(
+		t, withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)),
+	)
+	t.Cleanup(env.Shutdown)
+
+	env.requireDB(t)
+
+	// Push up an image to the old side of the registry, so we can migrate it below.
+	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
+
+	importURL := preImportRepository(t, env, mockedImportNotifSrv, repoPath)
+
+	// DELETE the same URL
+	req, err := http.NewRequest(http.MethodDelete, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// DELETE pre import should not be accepted
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	checkBodyHasErrorCodes(t, "failed to cancel (pre)import", resp, v1.ErrorCodeImportCannotBeCanceled)
+
+	// Get the import status
+	assertImportStatus(t, importURL, repoPath, migration.RepositoryStatusPreImportComplete)
+}
+
+func TestGitlabAPI_RepositoryImport_Delete_ImportComplete_BadRequest(t *testing.T) {
+	rootDir := t.TempDir()
+	migrationDir := filepath.Join(rootDir, "/new")
+	repoPath := "old/repo"
+	tagName := "import-tag"
+
+	mockedImportNotifSrv := newMockImportNotification(t, repoPath)
+
+	env := newTestEnv(
+		t, withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)),
+	)
+	t.Cleanup(env.Shutdown)
+
+	env.requireDB(t)
+
+	// Push up an image to the old side of the registry, so we can migrate it below.
+	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
+
+	// pre import repository and wait for it to complete
+	preImportRepository(t, env, mockedImportNotifSrv, repoPath)
+
+	// Create a new environment with a long wait so we can cancel the import in progress
+	env2 := newTestEnv(
+		t, withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)),
+	)
+	t.Cleanup(env.Shutdown)
+
+	// Begin a final import
+	repoRef, err := reference.WithName(repoPath)
+	require.NoError(t, err)
+
+	importURL, err := env2.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"final"}})
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPut, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Final import should start
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	mockedImportNotifSrv.waitForImportNotification(
+		t,
+		repoPath,
+		string(migration.RepositoryStatusImportComplete),
+		"final import completed successfully",
+		5*time.Second,
+	)
+
+	// DELETE the same URL
+	req, err = http.NewRequest(http.MethodDelete, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// DELETE final import should not be accepted
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	checkBodyHasErrorCodes(t, "failed to cancel (pre)import", resp, v1.ErrorCodeImportCannotBeCanceled)
+
+	// Get the import status
+	assertImportStatus(t, importURL, repoPath, migration.RepositoryStatusImportComplete)
+}
+
+func TestGitlabAPI_RepositoryImport_Delete_NotFound(t *testing.T) {
+	rootDir := t.TempDir()
+	migrationDir := filepath.Join(rootDir, "/new")
+	repoPath := "old/repo"
+
+	env := newTestEnv(
+		t, withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+	)
+	t.Cleanup(env.Shutdown)
+
+	env.requireDB(t)
+
+	// Attempt to delete an import for a repository that is not found on the DB yet
+	repoRef, err := reference.WithName(repoPath)
+	require.NoError(t, err)
+
+	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodDelete, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
 }

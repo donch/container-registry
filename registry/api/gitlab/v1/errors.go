@@ -83,3 +83,16 @@ var ErrorCodePreImportRequired = errcode.Register(errGroup, errcode.ErrorDescrip
 func ErrorCodePreImportRequiredDetail(repo distribution.Repository) string {
 	return fmt.Sprintf("repository path %s", repo.Named().Name())
 }
+
+// ErrorCodeImportCannotBeCanceled is returned when a repository failed to cancel a (pre)import when the repository
+// is already on the database as native or (pre)import has completed
+var ErrorCodeImportCannotBeCanceled = errcode.Register(errGroup, errcode.ErrorDescriptor{
+	Value:          "IMPORT_CANNOT_BE_CANCELED",
+	Message:        "failed to cancel (pre)import",
+	Description:    "The repository (pre)import cannot be canceled after it has been completed or if it is native",
+	HTTPStatusCode: http.StatusBadRequest,
+})
+
+func ErrorCodeImportCannotBeCanceledDetail(repo distribution.Repository, status string) string {
+	return fmt.Sprintf("repository path %s previous migration status: %s", repo.Named().Name(), status)
+}
