@@ -626,6 +626,9 @@ func TestGitlabAPI_RepositoryImport_ImportInProgress(t *testing.T) {
 }
 
 func TestGitlabAPI_RepositoryImport_Put_PreImportFailed(t *testing.T) {
+	// FIXME
+	t.Skip("Skipped, see https://gitlab.com/gitlab-org/container-registry/-/issues/633")
+
 	rootDir := t.TempDir()
 	migrationDir := filepath.Join(rootDir, "/new")
 

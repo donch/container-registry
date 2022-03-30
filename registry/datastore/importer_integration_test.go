@@ -533,3 +533,12 @@ func TestImporter_Import_UnknownManifestConfigMediaType(t *testing.T) {
 	err := imp.Import(suite.ctx, "a-simple")
 	require.EqualError(t, err, "importing tags: importing manifest: unknown media type: application/foo.bar.container.image.v1+json")
 }
+
+func TestImporter_PreImport_NoTagsPrefix(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "missing-tags")
+	err := imp.PreImport(suite.ctx, "b-missing-tags")
+	require.NoError(t, err)
+	validateImport(t, suite.db)
+}
