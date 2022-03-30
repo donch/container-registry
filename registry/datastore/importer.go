@@ -577,6 +577,11 @@ func (imp *Importer) preImportTaggedManifests(ctx context.Context, fsRepo distri
 	tagService := fsRepo.Tags(ctx)
 	fsTags, err := tagService.All(ctx)
 	if err != nil {
+		if errors.As(err, &distribution.ErrRepositoryUnknown{}) {
+			// No `tags` folder, so no tags and therefore nothing to import. Just handle this gracefully and return.
+			// The pre-import will be completed successfully.
+			return nil
+		}
 		return fmt.Errorf("reading tags: %w", err)
 	}
 
