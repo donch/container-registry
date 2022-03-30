@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -150,8 +151,12 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 	shouldImport, err := ih.shouldImport(dbRepo)
 	if err != nil {
 		ih.Errors = append(ih.Errors, err)
-
-		report(false, err)
+		// do not report import failure if the target repository was not found in the old registry
+		if errors.Is(err, v2.ErrorCodeNameUnknown) {
+			report(false, nil)
+		} else {
+			report(false, err)
+		}
 		return
 	}
 
