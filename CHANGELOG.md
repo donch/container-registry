@@ -1,3 +1,17 @@
+# [3.37.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.36.1-gitlab...v3.37.0-gitlab) (2022-03-30)
+
+
+### Bug Fixes
+
+* do not report import error if target repository does not exist ([2775446](https://gitlab.com/gitlab-org/container-registry/commit/2775446b9b3a15d0a1028fdf3f85e01039336ec6))
+* gracefully handle missing tags prefix during pre-imports ([a49aa80](https://gitlab.com/gitlab-org/container-registry/commit/a49aa80be642beb01dd0daf9588bb6437d374447))
+* skip empty manifest during (pre)import ([97effe0](https://gitlab.com/gitlab-org/container-registry/commit/97effe0e314b27789c1bd147bf1d2cf6210579ad))
+
+
+### Features
+
+* implement import DELETE endpoint ([6edc99b](https://gitlab.com/gitlab-org/container-registry/commit/6edc99b316bba098c120a0196e109e0d71796bc8))
+
 ## [3.36.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.36.0-gitlab...v3.36.1-gitlab) (2022-03-22)
 
 
