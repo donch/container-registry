@@ -279,6 +279,11 @@ func (ih *importHandler) shouldImport(dbRepo *models.Repository) (bool, error) {
 		case status == migration.RepositoryStatusPreImportFailed && !ih.preImport:
 			detail := v1.ErrorCodePreImportFailedErrorDetail(ih.Repository)
 			return false, v1.ErrorCodePreImportFailed.WithDetail(detail)
+
+		// Do not begin a final import for repository that was canceled during pre import.
+		case status == migration.RepositoryStatusPreImportCanceled && !ih.preImport:
+			detail := v1.ErrorCodePreImportCanceledErrorDetail(ih.Repository)
+			return false, v1.ErrorCodePreImportCanceled.WithDetail(detail)
 		}
 	}
 

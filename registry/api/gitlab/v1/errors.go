@@ -47,7 +47,8 @@ func ErrorCodeImportInProgressErrorDetail(repo distribution.Repository) string {
 	return fmt.Sprintf("repository path %s", repo.Named().Name())
 }
 
-// ErrorCodePreImportFailed is returned when a repository failed a previous pre import.
+// ErrorCodePreImportFailed is returned when a repository failed a previous pre import and
+// is attempting to run a final import.
 var ErrorCodePreImportFailed = errcode.Register(errGroup, errcode.ErrorDescriptor{
 	Value:          "PRE_IMPORT_FAILED",
 	Message:        "a previous pre import failed",
@@ -56,6 +57,19 @@ var ErrorCodePreImportFailed = errcode.Register(errGroup, errcode.ErrorDescripto
 })
 
 func ErrorCodePreImportFailedErrorDetail(repo distribution.Repository) string {
+	return fmt.Sprintf("repository path %s", repo.Named().Name())
+}
+
+// ErrorCodePreImportCanceled is returned when a repository canceled a previous pre import and
+// is attempting to run a final import.
+var ErrorCodePreImportCanceled = errcode.Register(errGroup, errcode.ErrorDescriptor{
+	Value:          "PRE_IMPORT_CANCELED",
+	Message:        "a previous pre import was canceled",
+	Description:    "The repository pre import was canceled",
+	HTTPStatusCode: http.StatusFailedDependency,
+})
+
+func ErrorCodePreImportCanceledErrorDetail(repo distribution.Repository) string {
 	return fmt.Sprintf("repository path %s", repo.Named().Name())
 }
 
