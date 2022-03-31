@@ -61,6 +61,10 @@ import (
 
 func init() {
 	factory.Register("schema1Preseededinmemorydriver", &schema1PreseededInMemoryDriverFactory{})
+
+	// horrible hack for faster test execution
+	// TODO: this should be configurable https://gitlab.com/gitlab-org/container-registry/-/issues/626
+	registryhandlers.OngoingImportCheckIntervalSeconds = 100 * time.Millisecond
 }
 
 type configOpt func(*configuration.Configuration)

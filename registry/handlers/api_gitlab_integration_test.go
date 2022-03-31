@@ -1560,12 +1560,14 @@ func TestGitlabAPI_RepositoryImport_Delete_PreImportInProgress(t *testing.T) {
 	repoPath := "old/repo"
 	tagName := "import-tag"
 
+	mockedImportNotifSrv := newMockImportNotification(t, repoPath)
 	env := newTestEnv(
 		t, withFSDriver(rootDir),
 		withMigrationEnabled,
 		withMigrationRootDirectory(migrationDir),
 		// make the pre-import take a long time so we can cancel it
 		withMigrationTestSlowImport(waitForever),
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)),
 	)
 	t.Cleanup(env.Shutdown)
 
@@ -1602,7 +1604,13 @@ func TestGitlabAPI_RepositoryImport_Delete_PreImportInProgress(t *testing.T) {
 	// DELETE pre import should be accepted
 	require.Equal(t, http.StatusAccepted, resp.StatusCode)
 
-	// TODO: wait for import notification with canceled status
+	mockedImportNotifSrv.waitForImportNotification(
+		t,
+		repoPath,
+		string(migration.RepositoryStatusPreImportCanceled),
+		"pre import was canceled",
+		5*time.Second,
+	)
 
 	// Get the import status
 	assertImportStatus(t, preImportURL, repoPath, migration.RepositoryStatusPreImportCanceled)
@@ -1614,13 +1622,13 @@ func TestGitlabAPI_RepositoryImport_Delete_ImportInProgress(t *testing.T) {
 	repoPath := "old/repo"
 	tagName := "import-tag"
 
-	mockedImportNotifSrv := newMockImportNotification(t, repoPath)
+	preImportNotifSrv := newMockImportNotification(t, repoPath)
 
 	env := newTestEnv(
 		t, withFSDriver(rootDir),
 		withMigrationEnabled,
 		withMigrationRootDirectory(migrationDir),
-		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)),
+		withImportNotification(mockImportNotificationServer(t, preImportNotifSrv)),
 	)
 	t.Cleanup(env.Shutdown)
 
@@ -1630,8 +1638,9 @@ func TestGitlabAPI_RepositoryImport_Delete_ImportInProgress(t *testing.T) {
 	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
 
 	// pre import repository and wait for it to complete
-	preImportRepository(t, env, mockedImportNotifSrv, repoPath)
+	preImportRepository(t, env, preImportNotifSrv, repoPath)
 
+	mockedImportNotifSrv := newMockImportNotification(t, repoPath)
 	// Create a new environment with a long wait so we can cancel the import in progress
 	env2 := newTestEnv(
 		t, withFSDriver(rootDir),
@@ -1639,6 +1648,7 @@ func TestGitlabAPI_RepositoryImport_Delete_ImportInProgress(t *testing.T) {
 		withMigrationRootDirectory(migrationDir),
 		// make the pre-import take a long time so we can cancel it
 		withMigrationTestSlowImport(waitForever),
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)),
 	)
 	t.Cleanup(env.Shutdown)
 
@@ -1670,7 +1680,13 @@ func TestGitlabAPI_RepositoryImport_Delete_ImportInProgress(t *testing.T) {
 	// DELETE final import should be accepted
 	require.Equal(t, http.StatusAccepted, resp.StatusCode)
 
-	// TODO: wait for import notification with canceled status
+	mockedImportNotifSrv.waitForImportNotification(
+		t,
+		repoPath,
+		string(migration.RepositoryStatusImportCanceled),
+		"final import was canceled",
+		5*time.Second,
+	)
 
 	// Get the import status
 	assertImportStatus(t, importURL, repoPath, migration.RepositoryStatusImportCanceled)

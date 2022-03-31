@@ -12,11 +12,15 @@ import (
 	"github.com/docker/distribution/manifest/manifestlist"
 	"github.com/docker/distribution/manifest/schema1"
 	"github.com/docker/distribution/reference"
+	v2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/docker/distribution/registry/datastore/models"
+	"github.com/docker/distribution/registry/internal/migration"
 	"github.com/docker/distribution/registry/storage/driver"
 	"github.com/opencontainers/go-digest"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
+
+var errImportCanceled = errors.New("repository import has been canceled")
 
 // Importer populates the registry database with filesystem metadata. This is only meant to be used for an initial
 // one-off migration, starting with an empty database.
@@ -871,7 +875,14 @@ func (imp *Importer) Import(ctx context.Context, path string) error {
 	}
 
 	// This should only delay during testing.
-	time.Sleep(imp.testingDelay)
+	timer := time.NewTimer(imp.testingDelay)
+	select {
+	case <-timer.C:
+		// do nothing
+		l.Debug("done waiting for slow import test")
+	case <-ctx.Done():
+		return nil
+	}
 
 	if imp.rowCount {
 		counters, err := imp.countRows(ctx)
@@ -888,14 +899,42 @@ func (imp *Importer) Import(ctx context.Context, path string) error {
 
 	t := time.Since(start).Seconds()
 	l.WithFields(log.Fields{"duration_s": t}).Info("metadata import complete")
+	if imp.dryRun {
+		return err
+	}
 
-	if !imp.dryRun {
-		if err := tx.Commit(); err != nil {
-			return fmt.Errorf("commit repository transaction: %w", err)
+	err = imp.checkStatusAndCommitTx(ctx, path, tx)
+	if err != nil {
+		if errors.Is(err, errImportCanceled) {
+			l.Warn("import was canceled before committing transaction")
+			return nil
 		}
+
+		l.WithError(err).Error("committing transaction for final import")
 	}
 
 	return err
+}
+
+func (imp *Importer) checkStatusAndCommitTx(ctx context.Context, path string, tx Transactor) error {
+	dbRepo, err := imp.repositoryStore.FindByPath(ctx, path)
+	if err != nil {
+		return fmt.Errorf("getting repository after final import completed: %w", err)
+	}
+
+	if dbRepo == nil {
+		return v2.ErrorCodeNameUnknown
+	}
+
+	if dbRepo.MigrationStatus == migration.RepositoryStatusImportCanceled {
+		return errImportCanceled
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit repository transaction: %w", err)
+	}
+
+	return nil
 }
 
 // PreImport populates repository data without including any tag information.
@@ -955,7 +994,14 @@ func (imp *Importer) PreImport(ctx context.Context, path string) error {
 	}
 
 	// This should only delay during testing.
-	time.Sleep(imp.testingDelay)
+	timer := time.NewTimer(imp.testingDelay)
+	select {
+	case <-timer.C:
+		// do nothing
+		l.Debug("done waiting for slow pre import test")
+	case <-ctx.Done():
+		return nil
+	}
 
 	if !imp.dryRun {
 		// reset stores to use the main connection handler instead of the last (committed/rolled back) transaction

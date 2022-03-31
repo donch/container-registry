@@ -296,6 +296,8 @@ type mockImportNotification struct {
 func newMockImportNotification(t *testing.T, paths ...string) *mockImportNotification {
 	t.Helper()
 
+	require.Greater(t, len(paths), 0, "mock server requires at least 1 path")
+
 	min := &mockImportNotification{
 		t:             t,
 		receivedNotif: make(map[string]chan migration.Notification),

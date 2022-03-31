@@ -24,6 +24,15 @@ import (
 	"gitlab.com/gitlab-org/labkit/errortracking"
 )
 
+var (
+	// OngoingImportCheckIntervalSeconds is the interval in seconds at which the import handler would
+	// check if an ongoing import has been manually canceled by the DELETE method. This variable
+	// is public so it can be overridden in tests.
+	// TODO: make this part of the importHandler and add it to the configuration settings
+	// https://gitlab.com/gitlab-org/container-registry/-/issues/626
+	OngoingImportCheckIntervalSeconds = 5 * time.Second
+)
+
 // cancelableStatuses is the list of migration repository statuses that are
 // allowed to be canceled.
 var cancelableStatuses = map[migration.RepositoryStatus]bool{
@@ -215,8 +224,8 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 
 		correlationID := correlation.ExtractFromContext(ih.Context)
 
-		importCtx, cancel := context.WithTimeout(context.Background(), ih.timeout)
-		defer cancel()
+		importCtx, importCtxCancel := context.WithTimeout(context.Background(), ih.timeout)
+		defer importCtxCancel()
 
 		// ensure correlation ID is forwarded to the import
 		importCtx = correlation.ContextWithCorrelation(importCtx, correlationID)
@@ -225,6 +234,11 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 		l := log.GetLogger(log.WithContext(ih.Context))
 		importCtx = log.WithLogger(importCtx, l)
 
+		done := make(chan bool)
+		defer close(done)
+
+		go ih.checkOngoingImportStatus(importCtx, done, importCtxCancel)
+
 		err = ih.runImport(importCtx, importer, dbRepo)
 		if err != nil {
 			l.WithError(err).Error("importing repository")
@@ -232,13 +246,12 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 		}
 		report(true, err)
 
-		notificationCtx, cancel := context.WithTimeout(context.Background(), ih.Config.Migration.ImportNotification.Timeout)
-		defer cancel()
+		notifCtx, notifCtxCancel := context.WithTimeout(context.Background(), ih.Config.Migration.ImportNotification.Timeout)
+		defer notifCtxCancel()
 
 		// ensure correlation ID is forwarded to the notifier
-		notificationCtx = correlation.ContextWithCorrelation(notificationCtx, correlationID)
-
-		ih.sendImportNotification(notificationCtx, dbRepo)
+		notifCtx = correlation.ContextWithCorrelation(notifCtx, correlationID)
+		ih.sendImportNotification(notifCtx, err)
 	}()
 
 	w.WriteHeader(http.StatusAccepted)
@@ -321,8 +334,6 @@ func (ih *importHandler) createOrUpdateRepo(ctx context.Context, dbRepo *models.
 func (ih *importHandler) runImport(ctx context.Context, importer *datastore.Importer, dbRepo *models.Repository) error {
 	var multiErrs *multierror.Error
 
-	// TODO: check if the (pre)import has been canceled
-	// https://gitlab.com/gitlab-org/container-registry/-/issues/527
 	if ih.preImport {
 		if err := importer.PreImport(ctx, dbRepo.Path); err != nil {
 			multiErrs = multierror.Append(multiErrs, err)
@@ -383,34 +394,71 @@ func isImportTypePre(r *http.Request) (bool, error) {
 	}
 }
 
-func (ih *importHandler) sendImportNotification(ctx context.Context, dbRepo *models.Repository) {
+func (ih *importHandler) sendImportNotification(ctx context.Context, importErr error) {
 	if ih.App.importNotifier == nil {
 		return
+	}
+	l := log.GetLogger(log.WithContext(ih))
+
+	dbRepo, err := ih.FindByPath(ctx, ih.Repository.Named().Name())
+	if err != nil {
+		l.WithError(err).Error("finding repository before sending import notification")
+		errortracking.Capture(err, errortracking.WithContext(ctx))
+		return
+	}
+
+	if dbRepo == nil {
+		err := fmt.Errorf("repository was nil: %q", ih.Repository.Named().Name())
+		l.WithError(err).Error("sending import notification")
+		errortracking.Capture(err, errortracking.WithContext(ctx))
+		return
+	}
+
+	if importErr != nil && !errors.Is(importErr, context.Canceled) {
+		dbRepo.MigrationStatus = migration.RepositoryStatusImportFailed
+		if ih.preImport {
+			dbRepo.MigrationStatus = migration.RepositoryStatusPreImportFailed
+		}
+
+		dbRepo.MigrationError.String = importErr.Error()
+
+		if err := ih.Update(ctx, dbRepo); err != nil {
+			l.WithError(err).Error("updating failed import before sending notification")
+			errortracking.Capture(err, errortracking.WithContext(ctx))
+			return
+		}
 	}
 
 	importNotification := &migration.Notification{
 		Name:   dbRepo.Name,
 		Path:   dbRepo.Path,
 		Status: string(dbRepo.MigrationStatus),
-		Detail: getImportDetail(ih.preImport, dbRepo.MigrationError.String),
+		Detail: getImportDetail(dbRepo),
 	}
 
 	if err := ih.App.importNotifier.Notify(ctx, importNotification); err != nil {
-		log.GetLogger(log.WithContext(ih)).WithError(err).Error("failed to send import notification")
+		l.WithError(err).Error("failed to send import notification")
 		errortracking.Capture(err, errortracking.WithContext(ctx))
 	}
 }
 
-func getImportDetail(preImport bool, migrationError string) string {
-	if migrationError != "" {
-		return migrationError
+func getImportDetail(dbRepo *models.Repository) string {
+	if dbRepo.MigrationError.String != "" {
+		return dbRepo.MigrationError.String
 	}
 
-	if preImport {
+	switch dbRepo.MigrationStatus {
+	case migration.RepositoryStatusImportComplete:
+		return "final import completed successfully"
+	case migration.RepositoryStatusPreImportComplete:
 		return "pre import completed successfully"
+	case migration.RepositoryStatusPreImportCanceled:
+		return "pre import was canceled manually"
+	case migration.RepositoryStatusImportCanceled:
+		return "final import was canceled manually"
+	default:
+		return string(dbRepo.MigrationStatus)
 	}
-
-	return "final import completed successfully"
 }
 
 // maxConcurrentImportsMiddleware is a middleware that checks the configured `maxconcurrentimports`
@@ -469,10 +517,11 @@ func (ih *importHandler) CancelRepositoryImport(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// TODO: allow forcing import cancellation
+	// https://gitlab.com/gitlab-org/container-registry/-/issues/631
 	if cancelable := cancelableStatuses[dbRepo.MigrationStatus]; !cancelable {
 		detail := v1.ErrorCodeImportCannotBeCanceledDetail(ih.Repository, string(dbRepo.MigrationStatus))
 		ih.Errors = append(ih.Errors, v1.ErrorCodeImportCannotBeCanceled.WithDetail(detail))
-		// TODO: add metrics
 		return
 	}
 
@@ -500,4 +549,46 @@ func (ih *importHandler) cancelImport(dbRepo *models.Repository) error {
 	}
 
 	return nil
+}
+
+// checkOngoingImportStatus starts a ticker that will check every OngoingImportCheckIntervalSeconds if the repository
+// currently being imported has been canceled by a DELETE operation.
+// If it has, it will cancel the importCtx calling cancelFn letting the rest of the (pre)import operations fail.
+// It returns if the done chanel is closed by the import having finished.
+func (ih *importHandler) checkOngoingImportStatus(importCtx context.Context, done chan bool, cancelFn func()) {
+	l := log.GetLogger(log.WithContext(ih.Context)).WithFields(log.Fields{
+		"repository": ih.Repository.Named().Name(),
+		"interval_s": OngoingImportCheckIntervalSeconds.Seconds(),
+	})
+
+	ticker := time.NewTicker(OngoingImportCheckIntervalSeconds)
+	for {
+		select {
+		case <-ticker.C:
+			l.Info("checking if ongoing (pre)import has been canceled")
+
+			dbRepo, err := ih.FindByPath(importCtx, ih.Repository.Named().Name())
+			if err != nil {
+				ih.Errors = append(ih.Errors, errcode.FromUnknownError(err))
+				return
+			}
+
+			if dbRepo == nil {
+				l.WithError(v2.ErrorCodeNameUnknown).Error("repository was nil checking if ongoing (pre)import has been canceled")
+				errortracking.Capture(v2.ErrorCodeNameUnknown, errortracking.WithContext(importCtx))
+				return
+			}
+
+			if dbRepo.MigrationStatus == migration.RepositoryStatusPreImportCanceled ||
+				dbRepo.MigrationStatus == migration.RepositoryStatusImportCanceled {
+				// importCtxCancel ongoing import
+				l.Warn("canceling ongoing (pre)import")
+				cancelFn()
+				return
+			}
+
+		case <-done:
+			return
+		}
+	}
 }
