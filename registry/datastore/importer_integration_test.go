@@ -4,6 +4,7 @@
 package datastore_test
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
@@ -12,10 +13,12 @@ import (
 	"path/filepath"
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/registry/datastore"
 	"github.com/docker/distribution/registry/datastore/testutil"
+	"github.com/docker/distribution/registry/internal/migration"
 	"github.com/docker/distribution/registry/storage"
 	"github.com/docker/distribution/registry/storage/driver"
 	storageDriver "github.com/docker/distribution/registry/storage/driver"
@@ -541,4 +544,44 @@ func TestImporter_PreImport_NoTagsPrefix(t *testing.T) {
 	err := imp.PreImport(suite.ctx, "b-missing-tags")
 	require.NoError(t, err)
 	validateImport(t, suite.db)
+}
+
+func TestImporter_Import_CannotCommitAfterImportWasCanceled(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	path := "f-dangling-manifests"
+	imp := newImporter(t, suite.db)
+
+	// do a pre import for path so that it exists in the DB
+	require.NoError(t, imp.PreImport(suite.ctx, path))
+
+	// Update the repository migration status to `import_canceled` so that
+	// we can cancel the import before committing the transaction
+	ctx, cancel := context.WithTimeout(suite.ctx, time.Second)
+	defer cancel()
+
+	res, err := suite.db.ExecContext(ctx,
+		`UPDATE repositories SET migration_status = $1 WHERE path = $2`,
+		migration.RepositoryStatusImportCanceled,
+		path,
+	)
+	require.NoError(t, err)
+
+	count, err := res.RowsAffected()
+	require.NoError(t, err)
+	require.EqualValues(t, 1, count)
+
+	// errImportCanceled does not return an error but the transaction is not committed
+	// so the final status should be migration.RepositoryStatusImportCanceled
+	err = imp.Import(suite.ctx, path)
+	require.NoError(t, err)
+
+	// assert that the migration status did not change after the import
+	var gotStatus migration.RepositoryStatus
+	err = suite.db.QueryRow(
+		`SELECT migration_status FROM repositories WHERE path = $1`,
+		path,
+	).Scan(&gotStatus)
+	require.NoError(t, err)
+	require.Equal(t, migration.RepositoryStatusImportCanceled, gotStatus)
 }
