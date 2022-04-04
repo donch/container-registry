@@ -1,3 +1,10 @@
+## [3.37.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.37.0-gitlab...v3.37.1-gitlab) (2022-04-04)
+
+
+### Bug Fixes
+
+* gracefully handle missing tags prefix during imports ([6041785](https://gitlab.com/gitlab-org/container-registry/commit/6041785ba03117fed341cc614ee479ba23d52c6c))
+
 # [3.37.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.36.1-gitlab...v3.37.0-gitlab) (2022-03-30)
 
 
