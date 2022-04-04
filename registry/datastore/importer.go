@@ -436,6 +436,11 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 	tagService := fsRepo.Tags(ctx)
 	fsTags, err := tagService.All(ctx)
 	if err != nil {
+		if errors.As(err, &distribution.ErrRepositoryUnknown{}) {
+			// No `tags` folder, so no tags and therefore nothing to import. Just handle this gracefully and return.
+			// The import will be completed successfully.
+			return nil
+		}
 		return fmt.Errorf("reading tags: %w", err)
 	}
 
