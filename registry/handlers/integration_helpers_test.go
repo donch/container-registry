@@ -403,7 +403,7 @@ func seedMultipleFSManifestsWithTag(t *testing.T, env *testEnv, tagName string, 
 	}
 }
 
-func assertImportStatus(t *testing.T, importURL, repoPath string, expectedStatus migration.RepositoryStatus) {
+func assertImportStatus(t *testing.T, importURL, repoPath string, expectedStatus migration.RepositoryStatus, detail string) {
 	t.Helper()
 
 	req, err := http.NewRequest(http.MethodGet, importURL, nil)
@@ -427,6 +427,7 @@ func assertImportStatus(t *testing.T, importURL, repoPath string, expectedStatus
 		Name:   repositoryName(repoPath),
 		Path:   repoPath,
 		Status: expectedStatus,
+		Detail: detail,
 	}
 
 	require.Equal(t, expectedStatusResponse, s)
