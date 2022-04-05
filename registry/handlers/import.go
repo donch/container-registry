@@ -212,6 +212,7 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 	}
 
 	go func() {
+		defer ih.panicRecoverer(dbRepo)
 		defer ih.releaseImportSemaphore()
 
 		importer := datastore.NewImporter(
@@ -252,7 +253,7 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 
 		// ensure correlation ID is forwarded to the notifier
 		notifCtx = correlation.ContextWithCorrelation(notifCtx, correlationID)
-		ih.sendImportNotification(notifCtx, err)
+		ih.sendImportNotification(notifCtx)
 	}()
 
 	w.WriteHeader(http.StatusAccepted)
@@ -342,48 +343,25 @@ func (ih *importHandler) runImport(ctx context.Context, importer *datastore.Impo
 
 	if ih.preImport {
 		if err := importer.PreImport(ctx, dbRepo.Path); err != nil {
-			multiErrs = multierror.Append(multiErrs, err)
-			dbRepo.MigrationStatus = migration.RepositoryStatusPreImportFailed
-			dbRepo.MigrationError = sql.NullString{String: multiErrs.Error(), Valid: true}
-
-			if err := ih.Update(ctx, dbRepo); err != nil {
-				multiErrs = multierror.Append(multiErrs, fmt.Errorf("updating migration status after failed pre import: %w", err))
-				dbRepo.MigrationError.String = multiErrs.Error()
-			}
-
-			return multiErrs
+			ih.updateRepoWithError(ctx, dbRepo, err, multiErrs)
+			return multiErrs.ErrorOrNil()
 		}
 
 		dbRepo.MigrationStatus = migration.RepositoryStatusPreImportComplete
-		if err := ih.Update(ctx, dbRepo); err != nil {
-			multiErrs = multierror.Append(multiErrs, fmt.Errorf("updating migration status after successful pre import: %w", err))
-			dbRepo.MigrationError = sql.NullString{String: multiErrs.Error(), Valid: true}
-		}
+		ih.updateSuccessfulRepo(ctx, dbRepo, multiErrs)
 
 		return multiErrs.ErrorOrNil()
 	}
 
 	if err := importer.Import(ctx, dbRepo.Path); err != nil {
-		multiErrs = multierror.Append(multiErrs, err)
-		dbRepo.MigrationStatus = migration.RepositoryStatusImportFailed
-		dbRepo.MigrationError = sql.NullString{String: multiErrs.Error(), Valid: true}
-
-		if err := ih.Update(ctx, dbRepo); err != nil {
-			multiErrs = multierror.Append(multiErrs, fmt.Errorf("updating migration status after failed final import: %w", err))
-			dbRepo.MigrationError.String = multiErrs.Error()
-		}
-
-		return multiErrs
+		ih.updateRepoWithError(ctx, dbRepo, err, multiErrs)
+		return multiErrs.ErrorOrNil()
 	}
 
 	dbRepo.MigrationStatus = migration.RepositoryStatusImportComplete
-	if err := ih.Update(ctx, dbRepo); err != nil {
-		multiErrs = multierror.Append(multiErrs, fmt.Errorf("updating migration status after successful final import: %w", err))
-		dbRepo.MigrationError = sql.NullString{String: multiErrs.Error(), Valid: true}
-		return multiErrs
-	}
+	ih.updateSuccessfulRepo(ctx, dbRepo, multiErrs)
 
-	return nil
+	return multiErrs.ErrorOrNil()
 }
 
 // The API spec for this route only specifies 'pre' or 'final'.
@@ -400,7 +378,7 @@ func isImportTypePre(r *http.Request) (bool, error) {
 	}
 }
 
-func (ih *importHandler) sendImportNotification(ctx context.Context, importErr error) {
+func (ih *importHandler) sendImportNotification(ctx context.Context) {
 	if ih.App.importNotifier == nil {
 		return
 	}
@@ -418,21 +396,6 @@ func (ih *importHandler) sendImportNotification(ctx context.Context, importErr e
 		l.WithError(err).Error("sending import notification")
 		errortracking.Capture(err, errortracking.WithContext(ctx))
 		return
-	}
-
-	if importErr != nil && !errors.Is(importErr, context.Canceled) {
-		dbRepo.MigrationStatus = migration.RepositoryStatusImportFailed
-		if ih.preImport {
-			dbRepo.MigrationStatus = migration.RepositoryStatusPreImportFailed
-		}
-
-		dbRepo.MigrationError.String = importErr.Error()
-
-		if err := ih.Update(ctx, dbRepo); err != nil {
-			l.WithError(err).Error("updating failed import before sending notification")
-			errortracking.Capture(err, errortracking.WithContext(ctx))
-			return
-		}
 	}
 
 	importNotification := &migration.Notification{
@@ -595,6 +558,65 @@ func (ih *importHandler) checkOngoingImportStatus(importCtx context.Context, don
 
 		case <-done:
 			return
+		}
+	}
+}
+
+// updateSuccessfulRepo is called after a successful (pre)import
+func (ih *importHandler) updateSuccessfulRepo(importCtx context.Context, dbRepo *models.Repository, multiErrs *multierror.Error) {
+	if err := ih.Update(importCtx, dbRepo); err != nil {
+		errStr := "updating migration status after successful final import"
+		if ih.preImport {
+			errStr = "updating migration status after successful pre import"
+		}
+		updateErr := fmt.Errorf("%s: %w", errStr, err)
+		multiErrs = multierror.Append(multiErrs, updateErr)
+
+		log.GetLogger(log.WithContext(importCtx)).WithError(updateErr).Error("failed to update migration status at the end of import")
+		// try to update one last time to catch edge cases where importCtx might get canceled by the time we get here
+		ih.updateRepoWithError(importCtx, dbRepo, updateErr, multiErrs)
+	}
+}
+
+// updateRepoWithError is called when a repository has failed to (pre)import. A possible failure is a
+// context.Deadline so we need to make sure that the repository is updated in the database correctly by using
+// a new context with its own timeout.
+// A context.Canceled importErr is not a reason to mark the repository migration status as failed, because this repository
+// was manually canceled by the DELETE endpoint, so this error should be skipped in this case.
+func (ih *importHandler) updateRepoWithError(importCtx context.Context, dbRepo *models.Repository, importErr error, multiErrs *multierror.Error) {
+	if importErr == nil || errors.Is(importErr, context.Canceled) {
+		return
+	}
+
+	multiErrs = multierror.Append(multiErrs, importErr)
+
+	errStr := "updating repository after failed final import"
+	dbRepo.MigrationError = sql.NullString{String: importErr.Error(), Valid: true}
+	dbRepo.MigrationStatus = migration.RepositoryStatusImportFailed
+	if ih.preImport {
+		errStr = "updating repository after failed pre import"
+		dbRepo.MigrationStatus = migration.RepositoryStatusPreImportFailed
+	}
+
+	updateCtx, updateCtxCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer updateCtxCancel()
+
+	updateCtx = correlation.ContextWithCorrelation(updateCtx, correlation.ExtractFromContext(importCtx))
+
+	if err := ih.Update(updateCtx, dbRepo); err != nil {
+		updateErr := fmt.Errorf("%s: %w", errStr, err)
+		multiErrs = multierror.Append(multiErrs, updateErr)
+
+		log.GetLogger(log.WithContext(importCtx)).WithError(updateErr).Error("failed to update migration status at the end of import")
+	}
+}
+
+func (ih *importHandler) panicRecoverer(dbRepo *models.Repository) func() {
+	return func() {
+		if r := recover(); r != nil {
+			multiErr := &multierror.Error{}
+			ih.updateRepoWithError(ih.Context, dbRepo, fmt.Errorf("%v", r), multiErr)
+			log.GetLogger(log.WithContext(ih.Context)).WithFields(log.Fields{"r": r}).WithError(multiErr.ErrorOrNil()).Error("recovered from panic inside import handler")
 		}
 	}
 }
