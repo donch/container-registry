@@ -134,6 +134,7 @@ func TestGitlabAPI_RepositoryImport_Get(t *testing.T) {
 		Name:   repositoryName(repoPath),
 		Path:   repoPath,
 		Status: migration.RepositoryStatusImportComplete,
+		Detail: "final import completed successfully",
 	}
 
 	require.Equal(t, expectedStatus, s)
@@ -527,6 +528,7 @@ func TestGitlabAPI_RepositoryImport_PreImportInProgress(t *testing.T) {
 		Name:   repositoryName(repoPath),
 		Path:   repoPath,
 		Status: migration.RepositoryStatusPreImportInProgress,
+		Detail: string(migration.RepositoryStatusPreImportInProgress),
 	}
 
 	require.Equal(t, expectedStatus, s)
@@ -620,6 +622,7 @@ func TestGitlabAPI_RepositoryImport_ImportInProgress(t *testing.T) {
 		Name:   repositoryName(repoPath),
 		Path:   repoPath,
 		Status: migration.RepositoryStatusImportInProgress,
+		Detail: string(migration.RepositoryStatusImportInProgress),
 	}
 
 	require.Equal(t, expectedStatus, s)
@@ -812,7 +815,7 @@ func TestGitlabAPI_RepositoryImport_Put_Import_PreImportCanceled(t *testing.T) {
 	)
 
 	// Get the import status
-	assertImportStatus(t, preImportURL, repoPath, migration.RepositoryStatusPreImportCanceled)
+	assertImportStatus(t, preImportURL, repoPath, migration.RepositoryStatusPreImportCanceled, "pre import was canceled manually")
 
 	// attempting a final import should not be allowed
 	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"final"}})
@@ -1690,7 +1693,7 @@ func TestGitlabAPI_RepositoryImport_Delete_PreImportInProgress(t *testing.T) {
 	)
 
 	// Get the import status
-	assertImportStatus(t, preImportURL, repoPath, migration.RepositoryStatusPreImportCanceled)
+	assertImportStatus(t, preImportURL, repoPath, migration.RepositoryStatusPreImportCanceled, "pre import was canceled manually")
 }
 
 func TestGitlabAPI_RepositoryImport_Delete_ImportInProgress(t *testing.T) {
@@ -1766,7 +1769,7 @@ func TestGitlabAPI_RepositoryImport_Delete_ImportInProgress(t *testing.T) {
 	)
 
 	// Get the import status
-	assertImportStatus(t, importURL, repoPath, migration.RepositoryStatusImportCanceled)
+	assertImportStatus(t, importURL, repoPath, migration.RepositoryStatusImportCanceled, "final import was canceled manually")
 }
 
 func TestGitlabAPI_RepositoryImport_Delete_PreImportComplete_BadRequest(t *testing.T) {
@@ -1805,7 +1808,7 @@ func TestGitlabAPI_RepositoryImport_Delete_PreImportComplete_BadRequest(t *testi
 	checkBodyHasErrorCodes(t, "failed to cancel (pre)import", resp, v1.ErrorCodeImportCannotBeCanceled)
 
 	// Get the import status
-	assertImportStatus(t, importURL, repoPath, migration.RepositoryStatusPreImportComplete)
+	assertImportStatus(t, importURL, repoPath, migration.RepositoryStatusPreImportComplete, "pre import completed successfully")
 }
 
 func TestGitlabAPI_RepositoryImport_Delete_ImportComplete_BadRequest(t *testing.T) {
@@ -1879,7 +1882,7 @@ func TestGitlabAPI_RepositoryImport_Delete_ImportComplete_BadRequest(t *testing.
 	checkBodyHasErrorCodes(t, "failed to cancel (pre)import", resp, v1.ErrorCodeImportCannotBeCanceled)
 
 	// Get the import status
-	assertImportStatus(t, importURL, repoPath, migration.RepositoryStatusImportComplete)
+	assertImportStatus(t, importURL, repoPath, migration.RepositoryStatusImportComplete, "final import completed successfully")
 }
 
 func TestGitlabAPI_RepositoryImport_Delete_NotFound(t *testing.T) {

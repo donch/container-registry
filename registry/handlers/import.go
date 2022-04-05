@@ -93,6 +93,7 @@ func (ih *importHandler) GetImport(w http.ResponseWriter, r *http.Request) {
 		Name:   dbRepo.Name,
 		Path:   dbRepo.Path,
 		Status: dbRepo.MigrationStatus,
+		Detail: getImportDetail(dbRepo),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
