@@ -614,27 +614,24 @@ func TestGitlabAPI_RepositoryImport_ImportInProgress(t *testing.T) {
 }
 
 func TestGitlabAPI_RepositoryImport_Put_PreImportFailed(t *testing.T) {
-	// FIXME
-	t.Skip("Skipped, see https://gitlab.com/gitlab-org/container-registry/-/issues/633")
-
 	rootDir := t.TempDir()
 	migrationDir := filepath.Join(rootDir, "/new")
 
-	repoPath := "notags/repo"
+	repoPath := "old/repo"
+	tagName := "import-tag"
 
 	mockedImportNotifSrv := newMockImportNotification(t, repoPath)
 
 	env := newTestEnv(t,
 		withFSDriver(rootDir),
 		withMigrationEnabled,
+		withMigrationTestSlowImport(-1),
 		withMigrationRootDirectory(migrationDir),
 		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)))
 	t.Cleanup(env.Shutdown)
 	env.requireDB(t)
 
-	// Push up a image to the old side of the registry, but do not push any tags,
-	// the pre import will start without error, but the actual pre import will fail.
-	seedRandomSchema2Manifest(t, env, repoPath, putByDigest, writeToFilesystemOnly)
+	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
 
 	repoRef, err := reference.WithName(repoPath)
 	require.NoError(t, err)
@@ -653,7 +650,7 @@ func TestGitlabAPI_RepositoryImport_Put_PreImportFailed(t *testing.T) {
 
 	mockedImportNotifSrv.waitForImportNotification(
 		t, repoPath, string(migration.RepositoryStatusPreImportFailed),
-		"pre importing tagged manifests: reading tags: unknown repository name=notags/repo", 2*time.Second,
+		"negative testing delay", 2*time.Second,
 	)
 
 	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"final"}})
@@ -683,32 +680,10 @@ func TestGitlabAPI_RepositoryImport_Put_PreImportFailed(t *testing.T) {
 	// an error that could be misleading.
 	mockedImportNotifSrv.waitForImportNotification(
 		t, repoPath, string(migration.RepositoryStatusPreImportFailed),
-		"pre importing tagged manifests: reading tags: unknown repository name=notags/repo", 2*time.Second,
+		"negative testing delay", 2*time.Second,
 	)
 
-	req, err = http.NewRequest(http.MethodGet, importURL, nil)
-	require.NoError(t, err)
-
-	resp, err = http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	defer resp.Body.Close()
-
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-
-	b, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	var s handlers.RepositoryImportStatus
-	err = json.Unmarshal(b, &s)
-	require.NoError(t, err)
-
-	expectedStatus := handlers.RepositoryImportStatus{
-		Name:   repositoryName(repoPath),
-		Path:   repoPath,
-		Status: migration.RepositoryStatusPreImportFailed,
-	}
-
-	require.Equal(t, expectedStatus, s)
+	assertImportStatus(t, importURL, repoPath, migration.RepositoryStatusPreImportFailed, "negative testing delay")
 }
 
 func TestGitlabAPI_RepositoryImport_Put_RepositoryNotPresentOnOldSide(t *testing.T) {
