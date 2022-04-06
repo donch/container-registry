@@ -5,6 +5,7 @@ package handlers_test
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -22,6 +23,7 @@ import (
 	v2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/docker/distribution/registry/handlers"
 	"github.com/docker/distribution/registry/internal/migration"
+	"github.com/hashicorp/go-multierror"
 	"github.com/stretchr/testify/require"
 )
 
@@ -831,6 +833,76 @@ func TestGitlabAPI_RepositoryImport_Put_Import_PreImportCanceled(t *testing.T) {
 	// Pre import should start
 	require.Equal(t, http.StatusFailedDependency, resp.StatusCode)
 	checkBodyHasErrorCodes(t, "a previous pre import was canceled", resp, v1.ErrorCodePreImportCanceled)
+}
+
+func TestGitlabAPI_RepositoryImport_Put_Import_PreImport_Retry(t *testing.T) {
+	rootDir := t.TempDir()
+	migrationDir := filepath.Join(rootDir, "/new")
+	repoPath := "old/repo"
+	tagName := "import-tag"
+
+	mockedImportNotifSrv := newMockImportNotification(t, repoPath)
+	env := newTestEnv(
+		t, withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+		withMigrationTestSlowImport(-1),
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)),
+	)
+	t.Cleanup(env.Shutdown)
+
+	env.requireDB(t)
+
+	// Push up an image to the old side of the registry, so we can migrate it below.
+	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
+
+	// Begin a pre-import
+	repoRef, err := reference.WithName(repoPath)
+	require.NoError(t, err)
+
+	preImportURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"pre"}})
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPut, preImportURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Pre import should start
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	mockedImportNotifSrv.waitForImportNotification(
+		t,
+		repoPath,
+		string(migration.RepositoryStatusPreImportFailed),
+		"negative testing delay",
+		5*time.Second,
+	)
+
+	var multiErrs *multierror.Error
+	multiErrs = multierror.Append(multiErrs, errors.New("negative testing delay"))
+
+	// Get the import status
+	assertImportStatus(t, preImportURL, repoPath, migration.RepositoryStatusPreImportFailed, multiErrs.Error())
+
+	// reset delay
+	env.app.Config.Migration.TestSlowImport = waitForever
+
+	// retry pre import
+	req, err = http.NewRequest(http.MethodPut, preImportURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Pre import should start
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	// Get the import status
+	assertImportStatus(t, preImportURL, repoPath, migration.RepositoryStatusPreImportInProgress, string(migration.RepositoryStatusPreImportInProgress))
 }
 
 func TestGitlabAPI_RepositoryImport_Migration_PreImportInProgress(t *testing.T) {

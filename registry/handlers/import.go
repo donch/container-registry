@@ -179,6 +179,11 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	if dbRepo != nil {
+		// Cleanup migration error when retrying a failed import
+		dbRepo.MigrationError = sql.NullString{}
+	}
+
 	dbRepo, err = ih.createOrUpdateRepo(ih.Context, dbRepo)
 	if err != nil {
 		err = errcode.FromUnknownError(err)
