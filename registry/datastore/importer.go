@@ -20,7 +20,10 @@ import (
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-var errImportCanceled = errors.New("repository import has been canceled")
+var (
+	errImportCanceled       = errors.New("repository import has been canceled")
+	errNegativeTestingDelay = errors.New("negative testing delay")
+)
 
 // Importer populates the registry database with filesystem metadata. This is only meant to be used for an initial
 // one-off migration, starting with an empty database.
@@ -996,6 +999,10 @@ func (imp *Importer) PreImport(ctx context.Context, path string) error {
 
 	if err = imp.preImportTaggedManifests(ctx, fsRepo, dbRepo); err != nil {
 		return fmt.Errorf("pre importing tagged manifests: %w", err)
+	}
+
+	if imp.testingDelay < 0 {
+		return errNegativeTestingDelay
 	}
 
 	// This should only delay during testing.
