@@ -5,7 +5,6 @@ package handlers_test
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -23,7 +22,6 @@ import (
 	v2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/docker/distribution/registry/handlers"
 	"github.com/docker/distribution/registry/internal/migration"
-	"github.com/hashicorp/go-multierror"
 	"github.com/stretchr/testify/require"
 )
 
@@ -881,11 +879,8 @@ func TestGitlabAPI_RepositoryImport_Put_Import_PreImport_Retry(t *testing.T) {
 		5*time.Second,
 	)
 
-	var multiErrs *multierror.Error
-	multiErrs = multierror.Append(multiErrs, errors.New("negative testing delay"))
-
 	// Get the import status
-	assertImportStatus(t, preImportURL, repoPath, migration.RepositoryStatusPreImportFailed, multiErrs.Error())
+	assertImportStatus(t, preImportURL, repoPath, migration.RepositoryStatusPreImportFailed, "negative testing delay")
 
 	// reset delay
 	env.app.Config.Migration.TestSlowImport = waitForever
