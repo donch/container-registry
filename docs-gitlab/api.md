@@ -324,6 +324,7 @@ DELETE /gitlab/v1/import/<path>/
 | Attribute     | Type    | Required | Default   | Description                                                  |
 | ------------- | ------- | -------- | --------- | ------------------------------------------------------------ |
 | `path`        | String  | Yes      |           | The full path of the target repository. Equivalent to the `name` parameter in the `/v2/` API, described in the [OCI Distribution Spec](https://github.com/opencontainers/distribution-spec/blob/main/spec.md). The same pattern validation applies. |
+| `force`       | Bool    | No       |           | When `force=true`, any non-native migrated repository will be marked as `import_canceled` regardless of the previous migration status. |
 
 #### Authentication
 
