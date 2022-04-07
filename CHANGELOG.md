@@ -1,3 +1,17 @@
+# [3.38.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.37.1-gitlab...v3.38.0-gitlab) (2022-04-07)
+
+
+### Bug Fixes
+
+* cleanup migration error when retrying a failed import ([b749274](https://gitlab.com/gitlab-org/container-registry/commit/b749274aa963918735e105b13d7839ea6dfdcccc))
+* **handlers:** update import status when failed with a different context ([e3e7c1f](https://gitlab.com/gitlab-org/container-registry/commit/e3e7c1fc7a30ccb943a4c9c8eee20a3385d957de))
+
+
+### Features
+
+* **handlers:** expose migration_error to GET import route ([37af549](https://gitlab.com/gitlab-org/container-registry/commit/37af5498f84d474cb1f213da8511c69795f9ce79))
+* **handlers:** force final import cancellation ([becaea6](https://gitlab.com/gitlab-org/container-registry/commit/becaea690359a5328d363ec4506be9213453b22a))
+
 ## [3.37.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.37.0-gitlab...v3.37.1-gitlab) (2022-04-04)
 
 
