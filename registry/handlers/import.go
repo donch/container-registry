@@ -105,7 +105,10 @@ func (ih *importHandler) GetImport(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-const importTypeQueryParamKey = "import_type"
+const (
+	importTypeQueryParamKey   = "import_type"
+	importDeleteForceParamKey = "force"
+)
 
 // StartRepositoryImport begins a repository import.
 func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Request) {
@@ -491,15 +494,24 @@ func (ih *importHandler) CancelRepositoryImport(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// TODO: allow forcing import cancellation
-	// https://gitlab.com/gitlab-org/container-registry/-/issues/631
-	if cancelable := cancelableStatuses[dbRepo.MigrationStatus]; !cancelable {
+	forceDelete := false
+	if r.URL.Query().Get(importDeleteForceParamKey) == "true" {
+		if dbRepo.MigrationStatus == migration.RepositoryStatusNative {
+			detail := v1.ErrorCodeImportCannotBeCanceledDetail(ih.Repository, string(dbRepo.MigrationStatus))
+			ih.Errors = append(ih.Errors, v1.ErrorCodeImportCannotBeCanceled.WithDetail(detail))
+			return
+		}
+
+		forceDelete = true
+	}
+
+	if cancelable := cancelableStatuses[dbRepo.MigrationStatus]; !forceDelete && !cancelable {
 		detail := v1.ErrorCodeImportCannotBeCanceledDetail(ih.Repository, string(dbRepo.MigrationStatus))
 		ih.Errors = append(ih.Errors, v1.ErrorCodeImportCannotBeCanceled.WithDetail(detail))
 		return
 	}
 
-	if err := ih.cancelImport(dbRepo); err != nil {
+	if err := ih.cancelImport(dbRepo, forceDelete); err != nil {
 		ih.Errors = append(ih.Errors, errcode.FromUnknownError(err))
 		return
 	}
@@ -507,16 +519,21 @@ func (ih *importHandler) CancelRepositoryImport(w http.ResponseWriter, r *http.R
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (ih *importHandler) cancelImport(dbRepo *models.Repository) error {
+func (ih *importHandler) cancelImport(dbRepo *models.Repository, forced bool) error {
 	toStatus := migration.RepositoryStatusImportCanceled
-	detail := "import canceled"
-	if dbRepo.MigrationStatus == migration.RepositoryStatusPreImportInProgress {
+	detail := "final import canceled"
+	if dbRepo.MigrationStatus == migration.RepositoryStatusPreImportInProgress ||
+		dbRepo.MigrationStatus == migration.RepositoryStatusPreImportComplete {
 		toStatus = migration.RepositoryStatusPreImportCanceled
 		detail = "pre import canceled"
 	}
 
+	if forced {
+		detail = "forced cancelation"
+	}
+
 	dbRepo.MigrationStatus = toStatus
-	dbRepo.MigrationError = sql.NullString{String: detail}
+	dbRepo.MigrationError = sql.NullString{String: detail, Valid: true}
 
 	if err := ih.Update(ih, dbRepo); err != nil {
 		return fmt.Errorf("updating migration status trying to cancel import: %w", err)
