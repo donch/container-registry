@@ -251,7 +251,7 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 
 		err = ih.runImport(importCtx, importer, dbRepo)
 		if err != nil {
-			l.WithError(err).Error("importing repository")
+			l.WithError(err).Error("repository import failed")
 			errortracking.Capture(err, errortracking.WithContext(importCtx), errortracking.WithRequest(r))
 		}
 		report(true, err)
@@ -347,7 +347,7 @@ func (ih *importHandler) createOrUpdateRepo(ctx context.Context, dbRepo *models.
 }
 
 func (ih *importHandler) runImport(ctx context.Context, importer *datastore.Importer, dbRepo *models.Repository) error {
-	var multiErrs *multierror.Error
+	multiErrs := &multierror.Error{}
 
 	if ih.preImport {
 		if err := importer.PreImport(ctx, dbRepo.Path); err != nil {
