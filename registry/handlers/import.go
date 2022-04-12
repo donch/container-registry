@@ -187,7 +187,7 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 		dbRepo.MigrationError = sql.NullString{}
 	}
 
-	dbRepo, err = ih.createOrUpdateRepo(ih.Context, dbRepo)
+	dbRepo, err = ih.createOrUpdateRepo(dbRepo)
 	if err != nil {
 		err = errcode.FromUnknownError(err)
 		ih.Errors = append(ih.Errors, err)
@@ -203,6 +203,8 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 	// See: https://gitlab.com/gitlab-org/container-registry/-/issues/617a
 	migrationDriver, err := migrationDriver(ih.App.Config)
 	if err != nil {
+		// try to update status from `(pre_)import_in_progress` to `(pre_)import_failed` before heading out
+		ih.updateRepoWithError(ih.Context, dbRepo, err, &multierror.Error{})
 		err = errcode.FromUnknownError(err)
 		ih.Errors = append(ih.Errors, err)
 
@@ -212,6 +214,8 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 
 	bts, err := storage.NewBlobTransferService(ih.App.driver, migrationDriver)
 	if err != nil {
+		// try to update status from `(pre_)import_in_progress` to `(pre_)import_failed` before heading out
+		ih.updateRepoWithError(ih.Context, dbRepo, err, &multierror.Error{})
 		err = errcode.FromUnknownError(err)
 		ih.Errors = append(ih.Errors, err)
 
@@ -322,7 +326,7 @@ func (ih *importHandler) shouldImport(dbRepo *models.Repository) (bool, error) {
 	return true, nil
 }
 
-func (ih *importHandler) createOrUpdateRepo(ctx context.Context, dbRepo *models.Repository) (*models.Repository, error) {
+func (ih *importHandler) createOrUpdateRepo(dbRepo *models.Repository) (*models.Repository, error) {
 	var status migration.RepositoryStatus
 	if ih.preImport {
 		status = migration.RepositoryStatusPreImportInProgress
