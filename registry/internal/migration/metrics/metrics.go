@@ -6,7 +6,8 @@ import (
 )
 
 var (
-	tagCountHist *prometheus.HistogramVec
+	tagCountHist   *prometheus.HistogramVec
+	layerCountHist prometheus.Histogram
 )
 
 const (
@@ -15,6 +16,9 @@ const (
 
 	tagCountName = "tag_counts"
 	tagCountDesc = "A histogram of tag counts per repository (pre)import."
+
+	layerCountName = "layer_counts"
+	layerCountDesc = "A histogram of layer counts per (pre)imported manifest."
 )
 
 func init() {
@@ -29,7 +33,18 @@ func init() {
 		[]string{importTypeLabel},
 	)
 
+	layerCountHist = prometheus.NewHistogram(
+		prometheus.HistogramOpts{
+			Namespace: metrics.NamespacePrefix,
+			Subsystem: subsystem,
+			Name:      layerCountName,
+			Help:      layerCountDesc,
+			Buckets:   []float64{1, 2, 5, 10, 25, 50, 100, 200},
+		},
+	)
+
 	prometheus.MustRegister(tagCountHist)
+	prometheus.MustRegister(layerCountHist)
 }
 
 type importType string
@@ -42,6 +57,11 @@ const (
 func (t importType) String() string {
 	return string(t)
 }
+
 func TagCount(t importType, count int) {
 	tagCountHist.WithLabelValues(t.String()).Observe(float64(count))
+}
+
+func LayerCount(count int) {
+	layerCountHist.Observe(float64(count))
 }

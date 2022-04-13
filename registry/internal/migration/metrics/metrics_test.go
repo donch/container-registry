@@ -67,3 +67,29 @@ registry_migration_tag_counts_count{import_type="pre"} 1
 	err := testutil.GatherAndCompare(prometheus.DefaultGatherer, &expected, CountsFullName)
 	require.NoError(t, err)
 }
+
+func TestLayerCount(t *testing.T) {
+	LayerCount(1)
+	LayerCount(100)
+
+	var expected bytes.Buffer
+	expected.WriteString(`
+# HELP registry_migration_layer_counts A histogram of layer counts per (pre)imported manifest.
+# TYPE registry_migration_layer_counts histogram
+registry_migration_layer_counts_bucket{le="1"} 1
+registry_migration_layer_counts_bucket{le="2"} 1
+registry_migration_layer_counts_bucket{le="5"} 1
+registry_migration_layer_counts_bucket{le="10"} 1
+registry_migration_layer_counts_bucket{le="25"} 1
+registry_migration_layer_counts_bucket{le="50"} 1
+registry_migration_layer_counts_bucket{le="100"} 2
+registry_migration_layer_counts_bucket{le="200"} 2
+registry_migration_layer_counts_bucket{le="+Inf"} 2
+registry_migration_layer_counts_sum 101
+registry_migration_layer_counts_count 2
+`)
+	CountFullName := fmt.Sprintf("%s_%s_%s", metrics.NamespacePrefix, subsystem, layerCountName)
+
+	err := testutil.GatherAndCompare(prometheus.DefaultGatherer, &expected, CountFullName)
+	require.NoError(t, err)
+}
