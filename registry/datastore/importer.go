@@ -15,6 +15,7 @@ import (
 	v2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/docker/distribution/registry/datastore/models"
 	"github.com/docker/distribution/registry/internal/migration"
+	"github.com/docker/distribution/registry/internal/migration/metrics"
 	"github.com/docker/distribution/registry/storage/driver"
 	"github.com/opencontainers/go-digest"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
@@ -448,6 +449,7 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 	}
 
 	total := len(fsTags)
+	metrics.TagCount(metrics.ImportTypeFinal, total)
 	semaphore := make(chan struct{}, imp.tagConcurrency)
 	tagResChan := make(chan *tagLookupResponse)
 
@@ -598,6 +600,7 @@ func (imp *Importer) preImportTaggedManifests(ctx context.Context, fsRepo distri
 	}
 
 	total := len(fsTags)
+	metrics.TagCount(metrics.ImportTypePre, total)
 
 	for i, fsTag := range fsTags {
 		l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": dbRepo.Path, "tag_name": fsTag, "count": i + 1, "total": total})
