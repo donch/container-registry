@@ -166,7 +166,7 @@ func (imp *Importer) importLayer(ctx context.Context, dbRepo *models.Repository,
 		return fmt.Errorf("linking layer blob to repository: %w", err)
 	}
 
-	if err := imp.transferBlob(ctx, dbLayer.Digest); err != nil {
+	if err := imp.transferBlob(ctx, dbLayer.Digest, dbLayer.Size, metrics.BlobTypeLayer); err != nil {
 		return err
 	}
 
@@ -207,7 +207,7 @@ func (imp *Importer) importLayers(ctx context.Context, dbRepo *models.Repository
 	return nil
 }
 
-func (imp *Importer) transferBlob(ctx context.Context, d digest.Digest) error {
+func (imp *Importer) transferBlob(ctx context.Context, d digest.Digest, size int64, t metrics.BlobType) error {
 	if imp.dryRun || imp.blobTransferService == nil {
 		return nil
 	}
@@ -221,11 +221,13 @@ func (imp *Importer) transferBlob(ctx context.Context, d digest.Digest) error {
 		noop = true
 	}
 
-	end := time.Since(start).Seconds()
+	duration := time.Since(start).Seconds()
+	metrics.BlobTransfer(duration, float64(size), t)
 	log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
 		"noop":       noop,
 		"digest":     d,
-		"duration_s": end,
+		"duration_s": duration,
+		"blob_type":  t.String(),
 	}).Info("blob transfer complete")
 
 	return nil
@@ -263,7 +265,7 @@ func (imp *Importer) importManifestV2(ctx context.Context, fsRepo distribution.R
 		return nil, err
 	}
 
-	if err = imp.transferBlob(ctx, m.Config().Digest); err != nil {
+	if err = imp.transferBlob(ctx, m.Config().Digest, m.Config().Size, metrics.BlobTypeConfig); err != nil {
 		return nil, err
 	}
 
@@ -765,7 +767,7 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 
 			// Even if we found the blob in the database, try to transfer in case it's
 			// not present in blob storage on the transfer side.
-			if err = imp.transferBlob(ctx, desc.Digest); err != nil {
+			if err = imp.transferBlob(ctx, desc.Digest, desc.Size, metrics.BlobTypeUnknown); err != nil {
 				return err
 			}
 
