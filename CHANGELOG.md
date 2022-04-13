@@ -1,3 +1,17 @@
+# [3.39.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.38.0-gitlab...v3.39.0-gitlab) (2022-04-13)
+
+
+### Bug Fixes
+
+* properly initialize multierror during imports ([3e33781](https://gitlab.com/gitlab-org/container-registry/commit/3e33781a7443a8093bd4069fe8ecaab0b260b6ed))
+
+
+### Features
+
+* add histogram for counting imported layers per manifest ([7fea14a](https://gitlab.com/gitlab-org/container-registry/commit/7fea14a53021987e4004d514abe6c2f9e340aae4))
+* add histogram metric to monitor the number of imported tags ([4eeab85](https://gitlab.com/gitlab-org/container-registry/commit/4eeab85a1a56a30dc68fa06789709f1f28c9d397))
+* add histograms for blob transfer durations and byte sizes ([dc959bb](https://gitlab.com/gitlab-org/container-registry/commit/dc959bbd1bd5134db9afd973fecc6ef7250237be))
+
 # [3.38.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.37.1-gitlab...v3.38.0-gitlab) (2022-04-07)
 
 
