@@ -175,6 +175,8 @@ func (imp *Importer) importLayer(ctx context.Context, dbRepo *models.Repository,
 
 func (imp *Importer) importLayers(ctx context.Context, dbRepo *models.Repository, fsRepo distribution.Repository, dbManifest *models.Manifest, fsLayers []distribution.Descriptor) error {
 	total := len(fsLayers)
+	metrics.LayerCount(total)
+
 	for i, fsLayer := range fsLayers {
 		l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
 			"repository": dbRepo.Path,
