@@ -555,6 +555,24 @@ func TestImporter_Import_NoTagsPrefix(t *testing.T) {
 	validateImport(t, suite.db)
 }
 
+func TestImporter_PreImport_MissingRevision(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "missing-revisions")
+	err := imp.PreImport(suite.ctx, "a-missing-revisions")
+	require.NoError(t, err)
+	validateImport(t, suite.db)
+}
+
+func TestImporter_Import_MissingRevision(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "missing-revisions")
+	err := imp.Import(suite.ctx, "a-missing-revisions")
+	require.NoError(t, err)
+	validateImport(t, suite.db)
+}
+
 func TestImporter_Import_CannotCommitAfterImportWasCanceled(t *testing.T) {
 	require.NoError(t, testutil.TruncateAllTables(suite.db))
 
