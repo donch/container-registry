@@ -396,15 +396,12 @@ func (imp *Importer) importManifests(ctx context.Context, fsRepo distribution.Re
 			"count":      index,
 		})
 
-		m, err := manifestService.Get(ctx, dgst)
+		m, err := getFsManifest(ctx, manifestService, dgst, l)
 		if err != nil {
-			if errors.As(err, &distribution.ErrManifestEmpty{}) {
-				// This manifest is empty, which means it's unrecoverable, and therefore we should simply log, leave it
-				// behind and continue
-				l.Warn("empty manifest payload, skipping")
-				return nil
-			}
-			return fmt.Errorf("retrieving manifest %q from filesystem: %w", dgst, err)
+			return err
+		}
+		if m == nil {
+			return nil
 		}
 
 		l = l.WithFields(log.Fields{"type": fmt.Sprintf("%T", m)})
@@ -426,6 +423,34 @@ func (imp *Importer) importManifests(ctx context.Context, fsRepo distribution.Re
 	})
 
 	return err
+}
+
+// getFsManifest retrieves a manifest from the filesystem. In case the manifest is empty or the corresponding revision
+// is unknown (rare unexpected errors, likely due to a past bug or data corruption) it simply logs a warning message and
+// returns a nil distribution.Manifest and nil error to the caller. In such case, the import of this manifest should be
+// skipped, and an appropriate warn log message is emitted within this function.
+func getFsManifest(ctx context.Context, manifestService distribution.ManifestService, dgst digest.Digest, l log.Logger) (distribution.Manifest, error) {
+	m, err := manifestService.Get(ctx, dgst)
+	if err != nil {
+		if errors.As(err, &distribution.ErrManifestEmpty{}) {
+			// This manifest is empty, which means it's unrecoverable, and therefore we should simply log, leave it
+			// behind and continue
+			l.Warn("empty manifest payload, skipping")
+			return nil, nil
+		}
+		if errors.As(err, &distribution.ErrManifestUnknownRevision{}) {
+			// This manifest does not have a corresponding revision on the filesystem (unexpected, likely due to a
+			// past bug) and as such, attempting to pull if from the API (on the old code path) will return a not
+			// found error (even though the manifest does exist). We should preserve whatever is the behavior on the
+			// old code path, so pulling this manifest should also fail on the new code path. Therefore, just log
+			// and skip.
+			l.Warn("unknown manifest revision, skipping")
+			return nil, nil
+		}
+		return nil, fmt.Errorf("retrieving manifest %q from filesystem: %w", dgst, err)
+	}
+
+	return m, nil
 }
 
 type tagLookupResponse struct {
@@ -522,15 +547,12 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 			return fmt.Errorf("finding tagged manifest in database: %w", err)
 		}
 		if dbManifest == nil {
-			m, err := manifestService.Get(lookupCtx, desc.Digest)
+			m, err := getFsManifest(lookupCtx, manifestService, desc.Digest, l)
 			if err != nil {
-				if errors.As(err, &distribution.ErrManifestEmpty{}) {
-					// This manifest is empty, which means it's unrecoverable, and therefore we should simply log, leave it
-					// behind and continue
-					l.Warn("empty manifest payload, skipping")
-					return nil
-				}
-				return fmt.Errorf("retrieving manifest %q from filesystem: %w", desc.Digest, err)
+				return err
+			}
+			if m == nil {
+				return nil
 			}
 
 			switch fsManifest := m.(type) {
@@ -640,15 +662,12 @@ func (imp *Importer) preImportManifest(ctx context.Context, fsRepo distribution.
 
 	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": dbRepo.Path, "digest": dgst})
 
-	m, err := manifestService.Get(ctx, dgst)
+	m, err := getFsManifest(ctx, manifestService, dgst, l)
 	if err != nil {
-		if errors.As(err, &distribution.ErrManifestEmpty{}) {
-			// This manifest is empty, which means it's unrecoverable, and therefore we should simply log, leave it
-			// behind and continue
-			l.Warn("empty manifest payload, skipping")
-			return nil
-		}
-		return fmt.Errorf("retrieving manifest %q from filesystem: %w", dgst, err)
+		return err
+	}
+	if m == nil {
+		return nil
 	}
 
 	switch fsManifest := m.(type) {
