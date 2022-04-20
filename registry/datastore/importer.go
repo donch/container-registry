@@ -425,17 +425,17 @@ func (imp *Importer) importManifests(ctx context.Context, fsRepo distribution.Re
 	return err
 }
 
-// getFsManifest retrieves a manifest from the filesystem. In case the manifest is empty or the corresponding revision
-// is unknown (rare unexpected errors, likely due to a past bug or data corruption) it simply logs a warning message and
-// returns a nil distribution.Manifest and nil error to the caller. In such case, the import of this manifest should be
-// skipped, and an appropriate warn log message is emitted within this function.
+// getFsManifest retrieves a manifest from the filesystem. In case the manifest is empty, the corresponding revision
+// is unknown (rare unexpected errors, likely due to a past bug or data corruption) or it's an unsupported v1 schema,
+// it simply logs a warning message and returns a nil distribution.Manifest and nil error to the caller. In such case,
+// the import of this manifest should be skipped, and an appropriate warn log message is emitted within this function.
 func getFsManifest(ctx context.Context, manifestService distribution.ManifestService, dgst digest.Digest, l log.Logger) (distribution.Manifest, error) {
 	m, err := manifestService.Get(ctx, dgst)
 	if err != nil {
 		if errors.As(err, &distribution.ErrManifestEmpty{}) {
 			// This manifest is empty, which means it's unrecoverable, and therefore we should simply log, leave it
 			// behind and continue
-			l.Warn("empty manifest payload, skipping")
+			l.WithError(err).Warn("empty manifest payload, skipping")
 			return nil, nil
 		}
 		if errors.As(err, &distribution.ErrManifestUnknownRevision{}) {
@@ -444,7 +444,12 @@ func getFsManifest(ctx context.Context, manifestService distribution.ManifestSer
 			// found error (even though the manifest does exist). We should preserve whatever is the behavior on the
 			// old code path, so pulling this manifest should also fail on the new code path. Therefore, just log
 			// and skip.
-			l.Warn("unknown manifest revision, skipping")
+			l.WithError(err).Warn("unknown manifest revision, skipping")
+			return nil, nil
+		}
+		if errors.Is(err, distribution.ErrSchemaV1Unsupported) {
+			// v1 schema manifests are no longer supported (both writes and reads), so just log a warning and skip
+			l.WithError(err).Warn("unsupported v1 manifest, skipping")
 			return nil, nil
 		}
 		return nil, fmt.Errorf("retrieving manifest %q from filesystem: %w", dgst, err)
