@@ -1,3 +1,12 @@
+## [3.39.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.39.0-gitlab...v3.39.1-gitlab) (2022-04-20)
+
+
+### Bug Fixes
+
+* gracefully handle missing manifest revisions during imports ([dc31a55](https://gitlab.com/gitlab-org/container-registry/commit/dc31a55756bdb66e3a1298fc43f3ae8e3e6466a7))
+* gracefully handle soft-deleted repositories during imports ([f74d5e2](https://gitlab.com/gitlab-org/container-registry/commit/f74d5e2e56201fcc2860d86a59da595ac46efb22))
+* gracefully handle unsupported schema v1 manifests during imports ([7e408f8](https://gitlab.com/gitlab-org/container-registry/commit/7e408f88357a11e69cd811b95f8adb4aeb5b6ddf))
+
 # [3.39.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.38.0-gitlab...v3.39.0-gitlab) (2022-04-13)
 
 
