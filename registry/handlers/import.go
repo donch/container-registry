@@ -336,7 +336,11 @@ func (ih *importHandler) createOrUpdateRepo(dbRepo *models.Repository) (*models.
 
 	var err error
 	if dbRepo == nil {
-		dbRepo, err = ih.CreateByPath(ih.Context, ih.Repository.Named().Name(), datastore.WithMigrationStatus(status))
+		// Although here we already know that the repo does not exist, we have to account for the possibility of it
+		// existing but being soft-deleted (thus invisible to the previous find query). In such case we have to undo
+		// the soft-delete and update the migration status from `native` to `(pre_)import_in_progress`. Therefore,
+		// we reuse the existing CreateOrFindByPath method (same as used at the API level) instead of CreateByPath.
+		dbRepo, err = ih.CreateOrFindByPath(ih.Context, ih.Repository.Named().Name(), datastore.WithMigrationStatus(status))
 		if err != nil {
 			return dbRepo, fmt.Errorf("creating repository for import: %w", err)
 		}

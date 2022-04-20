@@ -1087,14 +1087,16 @@ func (s *repositoryStore) CreateOrFind(ctx context.Context, r *models.Repository
 	}
 
 	// if not, proceed with creation attempt...
-	// DO UPDATE SET deleted_at = NULL is a temporary measure for the duration of
-	// https://gitlab.com/gitlab-org/container-registry/-/issues/570. If a repo record already exists for `path` but is
-	// marked as soft deleted, we should undo the soft delete and proceed gracefully.
+	// ON CONFLICT (path) DO UPDATE SET is a temporary measure until
+	// https://gitlab.com/gitlab-org/container-registry/-/issues/625. If a repo record already exists for `path` but is
+	// marked as soft deleted, we should undo the soft delete and proceed gracefully. Additionally, we also update the
+	// `migration_status` as this method is also used by the Importer and in such case we want to switch the `native`
+	// status to `(pre_)import_in_progress`.
 	q := `INSERT INTO repositories (top_level_namespace_id, name, path, parent_id, migration_status)
 			VALUES ($1, $2, $3, $4, $5)
 		ON CONFLICT (path)
 			DO UPDATE SET
-				deleted_at = NULL
+				deleted_at = NULL, migration_status = $5
 		RETURNING
 			id, created_at, deleted_at` // deleted_at returned for test validation purposes only
 

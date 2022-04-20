@@ -2095,4 +2095,19 @@ func TestRepositoryStore_CreateOrFindByPath_SoftDeleted(t *testing.T) {
 	require.NotNil(t, r)
 	require.False(t, r.DeletedAt.Valid)
 	require.Zero(t, r.DeletedAt.Time)
+
+	// ensure that the `migration_status` is also updated to a new value (if applicable)
+	require.Equal(t, migration.RepositoryStatusNative, r.MigrationStatus)
+	err = softDeleteRepository(suite.ctx, suite.db, r)
+	require.NoError(t, err)
+
+	r, err = s.CreateOrFindByPath(
+		suite.ctx,
+		"gitlab-org/gitlab-test",
+		datastore.WithMigrationStatus(migration.RepositoryStatusPreImportInProgress),
+	)
+
+	r, err = s.FindByPath(suite.ctx, "gitlab-org/gitlab-test")
+	require.NoError(t, err)
+	require.Equal(t, migration.RepositoryStatusPreImportInProgress, r.MigrationStatus)
 }
