@@ -573,6 +573,24 @@ func TestImporter_Import_MissingRevision(t *testing.T) {
 	validateImport(t, suite.db)
 }
 
+func TestImporter_PreImport_SchemaV1(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "happy-path")
+	err := imp.PreImport(suite.ctx, "d-schema1")
+	require.NoError(t, err)
+	validateImport(t, suite.db)
+}
+
+func TestImporter_Import_SchemaV1(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "happy-path")
+	err := imp.Import(suite.ctx, "d-schema1")
+	require.NoError(t, err)
+	validateImport(t, suite.db)
+}
+
 func TestImporter_Import_CannotCommitAfterImportWasCanceled(t *testing.T) {
 	require.NoError(t, testutil.TruncateAllTables(suite.db))
 
