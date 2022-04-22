@@ -951,7 +951,7 @@ ListLoop:
 	// need to chunk objects into groups of deleteMax per s3 restrictions
 	total := len(s3Objects)
 	for i := 0; i < total; i += deleteMax {
-		_, err := d.S3.DeleteObjectsWithContext(
+		resp, err := d.S3.DeleteObjectsWithContext(
 			ctx,
 			&s3.DeleteObjectsInput{
 				Bucket: aws.String(d.Bucket),
@@ -962,6 +962,18 @@ ListLoop:
 			})
 		if err != nil {
 			return err
+		}
+
+		// even if err is nil (200 OK response) it's not guaranteed that all files have been successfully deleted,
+		// we need to check the []*s3.Error slice within the S3 response and make sure it's empty
+		if len(resp.Errors) > 0 {
+			// parse s3.Error errors and return a single storagedriver.MultiError
+			var errs error
+			for _, s3e := range resp.Errors {
+				err := fmt.Errorf("deleting file '%s': '%s'", *s3e.Key, *s3e.Message)
+				errs = multierror.Append(errs, err)
+			}
+			return errs
 		}
 	}
 	return nil
