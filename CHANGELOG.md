@@ -1,3 +1,15 @@
+## [3.39.2](https://gitlab.com/gitlab-org/container-registry/compare/v3.39.1-gitlab...v3.39.2-gitlab) (2022-04-22)
+
+
+### Bug Fixes
+
+* always fully pre-import manifests once, even on retries ([0152b7b](https://gitlab.com/gitlab-org/container-registry/commit/0152b7bf4d091f05300d297ac9ebbfaf9f357398))
+
+
+### Reverts
+
+* gracefully handle missing manifest revisions during imports ([a597466](https://gitlab.com/gitlab-org/container-registry/commit/a59746686641d60dcd8625995a5ba0e781e17005))
+
 ## [3.39.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.39.0-gitlab...v3.39.1-gitlab) (2022-04-20)
 
 
