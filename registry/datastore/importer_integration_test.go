@@ -591,6 +591,57 @@ func TestImporter_Import_SchemaV1(t *testing.T) {
 	validateImport(t, suite.db)
 }
 
+func TestImporter_PreImport_FailureDueToInvalidManifestReferencesDoesNotSucceedOnRetry(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	// first pre-import attempt, should fail
+	imp := newImporterWithRoot(t, suite.db, "unknown-layer-mediatype")
+	err := imp.PreImport(suite.ctx, "a-simple")
+	expectedErr := "pre importing tagged manifests: pre importing manifest: pre importing manifest: importing layers: creating layer blob: unknown media type: application/foo.bar.layer.v1.tar+gzip"
+	require.EqualError(t, err, expectedErr)
+
+	// retry, should fail with the exact same error
+	err = imp.PreImport(suite.ctx, "a-simple")
+	require.EqualError(t, err, expectedErr)
+
+	// validate DB state
+	validateImport(t, suite.db)
+}
+
+func TestImporter_PreImport_FailureDueToInvalidManifestListReferencesDoesNotSucceedOnRetry(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	// first pre-import attempt, should fail
+	imp := newImporterWithRoot(t, suite.db, "bad-manifest-list-ref")
+	err := imp.PreImport(suite.ctx, "multi-arch")
+	expectedErr := `pre importing tagged manifests: pre importing manifest: pre importing manifest list: retrieving referenced manifest "sha256:597bd5c319cc09d6bb295b4ef23cac50ec7c373fff5fe923cfd246ec09967b31" from filesystem: unknown manifest name=multi-arch revision=sha256:597bd5c319cc09d6bb295b4ef23cac50ec7c373fff5fe923cfd246ec09967b31`
+	require.EqualError(t, err, expectedErr)
+
+	// retry, should fail with the exact same error
+	err = imp.PreImport(suite.ctx, "multi-arch")
+	require.EqualError(t, err, expectedErr)
+
+	// validate DB state
+	validateImport(t, suite.db)
+}
+
+func TestImporter_PreImport_FailureDueToInvalidManifestListManifestReferencesDoesNotSucceedOnRetry(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	// first pre-import attempt, should fail
+	imp := newImporterWithRoot(t, suite.db, "manifest-list-bad-manifest-ref")
+	err := imp.PreImport(suite.ctx, "multi-arch")
+	expectedErr := `pre importing tagged manifests: pre importing manifest: pre importing manifest list: importing layers: creating layer blob: unknown media type: application/foo.bar.layer.v1.tar+gzip`
+	require.EqualError(t, err, expectedErr)
+
+	// retry, should fail with the exact same error
+	err = imp.PreImport(suite.ctx, "multi-arch")
+	require.EqualError(t, err, expectedErr)
+
+	// validate DB state
+	validateImport(t, suite.db)
+}
+
 func TestImporter_Import_CannotCommitAfterImportWasCanceled(t *testing.T) {
 	require.NoError(t, testutil.TruncateAllTables(suite.db))
 

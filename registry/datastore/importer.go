@@ -24,6 +24,7 @@ import (
 var (
 	errImportCanceled       = errors.New("repository import has been canceled")
 	errNegativeTestingDelay = errors.New("negative testing delay")
+	errManifestSkip         = errors.New("the manifest is invalid and its (pre)import should be skipped")
 )
 
 // Importer populates the registry database with filesystem metadata. This is only meant to be used for an initial
@@ -398,10 +399,10 @@ func (imp *Importer) importManifests(ctx context.Context, fsRepo distribution.Re
 
 		m, err := getFsManifest(ctx, manifestService, dgst, l)
 		if err != nil {
+			if errors.Is(err, errManifestSkip) {
+				return nil
+			}
 			return err
-		}
-		if m == nil {
-			return nil
 		}
 
 		l = l.WithFields(log.Fields{"type": fmt.Sprintf("%T", m)})
@@ -427,8 +428,9 @@ func (imp *Importer) importManifests(ctx context.Context, fsRepo distribution.Re
 
 // getFsManifest retrieves a manifest from the filesystem. In case the manifest is empty, the corresponding revision
 // is unknown (rare unexpected errors, likely due to a past bug or data corruption) or it's an unsupported v1 schema,
-// it simply logs a warning message and returns a nil distribution.Manifest and nil error to the caller. In such case,
-// the import of this manifest should be skipped, and an appropriate warn log message is emitted within this function.
+// it simply logs a warning message and returns a nil distribution.Manifest and errManifestSkip error to the caller.
+// In such case, the import of this manifest should be skipped, and an appropriate warn log message is emitted within
+// this function.
 func getFsManifest(ctx context.Context, manifestService distribution.ManifestService, dgst digest.Digest, l log.Logger) (distribution.Manifest, error) {
 	m, err := manifestService.Get(ctx, dgst)
 	if err != nil {
@@ -436,7 +438,7 @@ func getFsManifest(ctx context.Context, manifestService distribution.ManifestSer
 			// This manifest is empty, which means it's unrecoverable, and therefore we should simply log, leave it
 			// behind and continue
 			l.WithError(err).Warn("empty manifest payload, skipping")
-			return nil, nil
+			return nil, errManifestSkip
 		}
 		if errors.As(err, &distribution.ErrManifestUnknownRevision{}) {
 			// This manifest does not have a corresponding revision on the filesystem (unexpected, likely due to a
@@ -445,12 +447,12 @@ func getFsManifest(ctx context.Context, manifestService distribution.ManifestSer
 			// old code path, so pulling this manifest should also fail on the new code path. Therefore, just log
 			// and skip.
 			l.WithError(err).Warn("unknown manifest revision, skipping")
-			return nil, nil
+			return nil, errManifestSkip
 		}
 		if errors.Is(err, distribution.ErrSchemaV1Unsupported) {
 			// v1 schema manifests are no longer supported (both writes and reads), so just log a warning and skip
 			l.WithError(err).Warn("unsupported v1 manifest, skipping")
-			return nil, nil
+			return nil, errManifestSkip
 		}
 		return nil, fmt.Errorf("retrieving manifest %q from filesystem: %w", dgst, err)
 	}
@@ -554,10 +556,10 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 		if dbManifest == nil {
 			m, err := getFsManifest(lookupCtx, manifestService, desc.Digest, l)
 			if err != nil {
+				if errors.Is(err, errManifestSkip) {
+					continue
+				}
 				return err
-			}
-			if m == nil {
-				return nil
 			}
 
 			switch fsManifest := m.(type) {
@@ -633,6 +635,8 @@ func (imp *Importer) preImportTaggedManifests(ctx context.Context, fsRepo distri
 	total := len(fsTags)
 	metrics.TagCount(metrics.ImportTypePre, total)
 
+	doneManifests := map[digest.Digest]struct{}{}
+
 	for i, fsTag := range fsTags {
 		l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": dbRepo.Path, "tag_name": fsTag, "count": i + 1, "total": total})
 		l.Info("processing tag")
@@ -643,16 +647,27 @@ func (imp *Importer) preImportTaggedManifests(ctx context.Context, fsRepo distri
 			return fmt.Errorf("reading tag %q from filesystem: %w", fsTag, err)
 		}
 
-		// Find corresponding manifest in DB or filesystem.
-		var dbManifest *models.Manifest
-		dbManifest, err = imp.repositoryStore.FindManifestByDigest(ctx, dbRepo, desc.Digest)
-		if err != nil {
-			return fmt.Errorf("finding tagged manifests in database: %w", err)
-		}
-		if dbManifest == nil {
+		// We should always fully pre-import a manifest (the manifest itself and its references) at least once per
+		// pre-import run to avoid running into https://gitlab.com/gitlab-org/container-registry/-/issues/652. However,
+		// there is no need to re-import the same manifest multiple times per pre-import (e.g. the same manifest with
+		// multiple tags). Therefore, we keep a list of pre-imported manifests per run and only pre-import each once.
+		if _, ok := doneManifests[desc.Digest]; ok {
+			// for precaution, just double check that it does indeed exist on the database
+			dbManifest, err := imp.repositoryStore.FindManifestByDigest(ctx, dbRepo, desc.Digest)
+			if err != nil {
+				return fmt.Errorf("finding tagged manifests in database: %w", err)
+			}
+			if dbManifest == nil {
+				return fmt.Errorf("previously pre-imported manifest %q not found in database", desc.Digest.String())
+			}
+		} else {
 			if err := imp.preImportManifest(ctx, fsRepo, dbRepo, desc.Digest); err != nil {
+				if errors.Is(err, errManifestSkip) {
+					continue
+				}
 				return fmt.Errorf("pre importing manifest: %w", err)
 			}
+			doneManifests[desc.Digest] = struct{}{}
 		}
 	}
 
@@ -670,9 +685,6 @@ func (imp *Importer) preImportManifest(ctx context.Context, fsRepo distribution.
 	m, err := getFsManifest(ctx, manifestService, dgst, l)
 	if err != nil {
 		return err
-	}
-	if m == nil {
-		return nil
 	}
 
 	switch fsManifest := m.(type) {
