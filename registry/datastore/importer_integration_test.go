@@ -560,7 +560,7 @@ func TestImporter_PreImport_MissingRevision(t *testing.T) {
 
 	imp := newImporterWithRoot(t, suite.db, "missing-revisions")
 	err := imp.PreImport(suite.ctx, "a-missing-revisions")
-	require.NoError(t, err)
+	require.EqualError(t, err, `pre importing tagged manifests: pre importing manifest: retrieving manifest "sha256:d8fe96223ecee05dc6911ac60ae8d2a3c3618260ebe50bf15407cfeb0de5b102" from filesystem: unknown manifest name=a-missing-revisions revision=sha256:d8fe96223ecee05dc6911ac60ae8d2a3c3618260ebe50bf15407cfeb0de5b102`)
 	validateImport(t, suite.db)
 }
 
@@ -569,7 +569,7 @@ func TestImporter_Import_MissingRevision(t *testing.T) {
 
 	imp := newImporterWithRoot(t, suite.db, "missing-revisions")
 	err := imp.Import(suite.ctx, "a-missing-revisions")
-	require.NoError(t, err)
+	require.EqualError(t, err, `importing tags: retrieving manifest "sha256:d8fe96223ecee05dc6911ac60ae8d2a3c3618260ebe50bf15407cfeb0de5b102" from filesystem: unknown manifest name=a-missing-revisions revision=sha256:d8fe96223ecee05dc6911ac60ae8d2a3c3618260ebe50bf15407cfeb0de5b102`)
 	validateImport(t, suite.db)
 }
 
