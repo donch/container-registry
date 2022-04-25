@@ -4,6 +4,7 @@
 ### Bug Fixes
 
 * always fully pre-import manifests once, even on retries ([0152b7b](https://gitlab.com/gitlab-org/container-registry/commit/0152b7bf4d091f05300d297ac9ebbfaf9f357398))
+* Added missing error checking on S3 driver delete operation #551([5aa8995](https://gitlab.com/gitlab-org/container-registry/-/commit/5aa89957a002e2bad37630a21c8561f2e77f52a3))
 
 
 ### Reverts
