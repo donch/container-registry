@@ -600,6 +600,84 @@ func TestManifestStore_Create_InvalidConfigMediaType(t *testing.T) {
 	require.Equal(t, m.Configuration.MediaType, mtErr.MediaType)
 }
 
+func TestManifestStore_CreateOrFind(t *testing.T) {
+	reloadManifestFixtures(t)
+	require.NoError(t, testutil.TruncateTables(suite.db, testutil.ManifestsTable))
+
+	s := datastore.NewManifestStore(suite.db)
+	m := &models.Manifest{
+		NamespaceID:   2,
+		RepositoryID:  7,
+		SchemaVersion: 2,
+		MediaType:     "application/vnd.docker.distribution.manifest.v2+json",
+		Digest:        "sha256:46b163863b462eadc1b17dca382ccbfb08a853cffc79e2049607f95455cc44fa",
+		Payload:       models.Payload(`{"schemaVersion":2,"mediaType":"...","config":{}}`),
+	}
+	err := s.CreateOrFind(suite.ctx, m)
+
+	require.NoError(t, err)
+	require.NotEmpty(t, m.ID)
+	require.NotEmpty(t, m.CreatedAt)
+
+	// attempt to create same manifest
+	m2 := &models.Manifest{
+		NamespaceID:   2,
+		RepositoryID:  7,
+		SchemaVersion: 2,
+		MediaType:     "application/vnd.docker.distribution.manifest.v2+json",
+		Digest:        "sha256:46b163863b462eadc1b17dca382ccbfb08a853cffc79e2049607f95455cc44fa",
+		Payload:       models.Payload(`{"schemaVersion":2,"mediaType":"...","config":{}}`),
+	}
+
+	err = s.CreateOrFind(suite.ctx, m2)
+
+	require.NoError(t, err)
+	require.Equal(t, m, m2)
+}
+
+func TestManifestStore_CreateOrFind_InvalidMediaType(t *testing.T) {
+	reloadManifestFixtures(t)
+	require.NoError(t, testutil.TruncateTables(suite.db, testutil.ManifestsTable))
+
+	s := datastore.NewManifestStore(suite.db)
+	m := &models.Manifest{
+		NamespaceID:   2,
+		RepositoryID:  7,
+		SchemaVersion: 2,
+		MediaType:     "application/vnd.foo.manifest.v2+json",
+		Digest:        "sha256:46b163863b462eadc1b17dca382ccbfb08a853cffc79e2049607f95455cc44fa",
+		Payload:       models.Payload(`{"schemaVersion":2,"mediaType":"...","config":{}}`),
+	}
+	err := s.CreateOrFind(suite.ctx, m)
+	var mtErr datastore.ErrUnknownMediaType
+	require.ErrorAs(t, err, &mtErr)
+	require.Equal(t, m.MediaType, mtErr.MediaType)
+}
+
+func TestManifestStore_CreateOrFind_InvalidConfigMediaType(t *testing.T) {
+	reloadManifestFixtures(t)
+	require.NoError(t, testutil.TruncateTables(suite.db, testutil.ManifestsTable))
+
+	s := datastore.NewManifestStore(suite.db)
+	m := &models.Manifest{
+		NamespaceID:   2,
+		RepositoryID:  7,
+		SchemaVersion: 2,
+		MediaType:     "application/vnd.docker.distribution.manifest.v2+json",
+		Digest:        "sha256:46b163863b462eadc1b17dca382ccbfb08a853cffc79e2049607f95455cc44fa",
+		Payload:       models.Payload(`{"schemaVersion":2,"mediaType":"...","config":{}}`),
+		Configuration: &models.Configuration{
+			MediaType: "application/vnd.foo.container.image.v1+json",
+			Digest:    "sha256:ea8a54fd13889d3649d0a4e45735116474b8a650815a2cda4940f652158579b9",
+			Payload:   models.Payload(`{"foo": "bar"}`),
+		},
+	}
+	err := s.CreateOrFind(suite.ctx, m)
+	var mtErr datastore.ErrUnknownMediaType
+	require.ErrorAs(t, err, &mtErr)
+	require.Equal(t, m.Configuration.MediaType, mtErr.MediaType)
+}
+
 func TestManifestStore_AssociateLayerBlob(t *testing.T) {
 	reloadManifestFixtures(t)
 	require.NoError(t, testutil.TruncateTables(suite.db, testutil.LayersTable))

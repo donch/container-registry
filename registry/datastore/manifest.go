@@ -26,6 +26,7 @@ type ManifestReader interface {
 // ManifestWriter is the interface that defines write operations for a Manifest store.
 type ManifestWriter interface {
 	Create(ctx context.Context, m *models.Manifest) error
+	CreateOrFind(ctx context.Context, m *models.Manifest) error
 	AssociateManifest(ctx context.Context, ml *models.Manifest, m *models.Manifest) error
 	DissociateManifest(ctx context.Context, ml *models.Manifest, m *models.Manifest) error
 	AssociateLayerBlob(ctx context.Context, m *models.Manifest, b *models.Blob) error
@@ -303,6 +304,64 @@ func (s *manifestStore) Create(ctx context.Context, m *models.Manifest) error {
 	return nil
 }
 
+// CreateOrFind attempts to create a manifest. If the manifest already exists (same digest in the scope of a given repository)
+// that record is loaded from the database into m. This is similar to a repositoryStore.FindManifestByDigest followed by
+// a Create, but without being  prone to race conditions on write operations between the corresponding read (FindManifestByDigest)
+// and write (Create) operations.
+// Separate Find* and Create method calls should be preferred to this when race conditions are not a concern.
+func (s *manifestStore) CreateOrFind(ctx context.Context, m *models.Manifest) error {
+	defer metrics.InstrumentQuery("manifest_create_or_find")()
+	q := `INSERT INTO manifests (top_level_namespace_id, repository_id, total_size, schema_version, media_type_id, digest, payload,
+				configuration_media_type_id, configuration_blob_digest, configuration_payload, non_conformant, non_distributable_layers)
+			VALUES ($1, $2, $3, $4, $5, decode($6, 'hex'), $7, $8, decode($9, 'hex'), $10, $11, $12)
+			ON CONFLICT (top_level_namespace_id, repository_id, digest) DO NOTHING
+		RETURNING
+			id, created_at`
+
+	dgst, err := NewDigest(m.Digest)
+	if err != nil {
+		return err
+	}
+	mediaTypeID, err := mapMediaType(ctx, s.db, m.MediaType)
+	if err != nil {
+		return fmt.Errorf("mapping manifest media type: %w", err)
+	}
+
+	var configDgst sql.NullString
+	var configMediaTypeID sql.NullInt32
+	var configPayload *models.Payload
+	if m.Configuration != nil {
+		dgst, err := NewDigest(m.Configuration.Digest)
+		if err != nil {
+			return err
+		}
+		configDgst.Valid = true
+		configDgst.String = dgst.String()
+		id, err := mapMediaType(ctx, s.db, m.Configuration.MediaType)
+		if err != nil {
+			return fmt.Errorf("mapping config media type: %w", err)
+		}
+		configMediaTypeID.Valid = true
+		configMediaTypeID.Int32 = int32(id)
+		configPayload = &m.Configuration.Payload
+	}
+
+	row := s.db.QueryRowContext(ctx, q, m.NamespaceID, m.RepositoryID, m.TotalSize, m.SchemaVersion, mediaTypeID, dgst, m.Payload,
+		configMediaTypeID, configDgst, configPayload, m.NonConformant, m.NonDistributableLayers)
+	if err := row.Scan(&m.ID, &m.CreatedAt); err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("creating manifest: %w", err)
+		}
+		tmp, err := findManifestByDigest(ctx, s.db, m.NamespaceID, m.RepositoryID, dgst)
+		if err != nil {
+			return err
+		}
+		*m = *tmp
+	}
+
+	return nil
+}
+
 // AssociateManifest associates a manifest with a manifest list. It does nothing if already associated.
 func (s *manifestStore) AssociateManifest(ctx context.Context, ml *models.Manifest, m *models.Manifest) error {
 	defer metrics.InstrumentQuery("manifest_associate_manifest")()
@@ -429,4 +488,35 @@ func (s *manifestStore) Delete(ctx context.Context, namespaceID, repositoryID, i
 		return nil, err
 	}
 	return &dgst, nil
+}
+
+// findManifestByDigest finds a manifest by digest, repository and top level namespace ID
+func findManifestByDigest(ctx context.Context, db Queryer, namespaceID, repositoryID int64, dgst Digest) (*models.Manifest, error) {
+	q := `SELECT
+			m.id,
+			m.top_level_namespace_id,
+			m.repository_id,
+			m.total_size,
+			m.schema_version,
+			mt.media_type,
+			encode(m.digest, 'hex') as digest,
+			m.payload,
+			mtc.media_type as configuration_media_type,
+			encode(m.configuration_blob_digest, 'hex') as configuration_blob_digest,
+			m.configuration_payload,
+			m.non_conformant,
+			m.non_distributable_layers,
+			m.created_at
+		FROM
+			manifests AS m
+			JOIN media_types AS mt ON mt.id = m.media_type_id
+			LEFT JOIN media_types AS mtc ON mtc.id = m.configuration_media_type_id
+		WHERE
+			m.top_level_namespace_id = $1
+			AND m.repository_id = $2
+			AND m.digest = decode($3, 'hex')`
+
+	row := db.QueryRowContext(ctx, q, namespaceID, repositoryID, dgst)
+
+	return scanFullManifest(row)
 }

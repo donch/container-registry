@@ -93,6 +93,20 @@ func (mr *MockManifestStoreMockRecorder) Create(arg0, arg1 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockManifestStore)(nil).Create), arg0, arg1)
 }
 
+// CreateOrFind mocks base method.
+func (m *MockManifestStore) CreateOrFind(arg0 context.Context, arg1 *models.Manifest) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateOrFind", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateOrFind indicates an expected call of CreateOrFind.
+func (mr *MockManifestStoreMockRecorder) CreateOrFind(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateOrFind", reflect.TypeOf((*MockManifestStore)(nil).CreateOrFind), arg0, arg1)
+}
+
 // Delete mocks base method.
 func (m *MockManifestStore) Delete(arg0 context.Context, arg1, arg2, arg3 int64) (*digest.Digest, error) {
 	m.ctrl.T.Helper()
