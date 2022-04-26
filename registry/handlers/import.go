@@ -466,7 +466,7 @@ func (ih *importHandler) maxConcurrentImportsMiddleware(handler http.Handler) ht
 		log.GetLogger(log.WithContext(ih.Context)).WithFields(log.Fields{
 			"repository":             ih.Repository.Named().Name(),
 			"max_concurrent_imports": capacity,
-		}).Warn("import has been rate limited")
+		}).Warn("registry instance is already running maximum concurrent imports")
 
 		detail := v1.ErrorCodeImportRateLimitedDetail(ih.Repository)
 		ih.Errors = append(ih.Errors, v1.ErrorCodeImportRateLimited.WithDetail(detail))
