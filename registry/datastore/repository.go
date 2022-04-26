@@ -676,37 +676,13 @@ func (s *repositoryStore) Manifests(ctx context.Context, r *models.Repository) (
 // FindManifestByDigest finds a manifest by digest within a repository.
 func (s *repositoryStore) FindManifestByDigest(ctx context.Context, r *models.Repository, d digest.Digest) (*models.Manifest, error) {
 	defer metrics.InstrumentQuery("repository_find_manifest_by_digest")()
-	q := `SELECT
-			m.id,
-			m.top_level_namespace_id,
-			m.repository_id,
-			m.total_size,
-			m.schema_version,
-			mt.media_type,
-			encode(m.digest, 'hex') as digest,
-			m.payload,
-			mtc.media_type as configuration_media_type,
-			encode(m.configuration_blob_digest, 'hex') as configuration_blob_digest,
-			m.configuration_payload,
-			m.non_conformant,
-			m.non_distributable_layers,
-			m.created_at
-		FROM
-			manifests AS m
-			JOIN media_types AS mt ON mt.id = m.media_type_id
-			LEFT JOIN media_types AS mtc ON mtc.id = m.configuration_media_type_id
-		WHERE
-			m.top_level_namespace_id = $1
-			AND m.repository_id = $2
-			AND m.digest = decode($3, 'hex')`
 
 	dgst, err := NewDigest(d)
 	if err != nil {
 		return nil, err
 	}
-	row := s.db.QueryRowContext(ctx, q, r.NamespaceID, r.ID, dgst)
 
-	return scanFullManifest(row)
+	return findManifestByDigest(ctx, s.db, r.NamespaceID, r.ID, dgst)
 }
 
 // FindManifestByTagName finds a manifest by tag name within a repository.
