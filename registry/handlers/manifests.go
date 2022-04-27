@@ -341,7 +341,6 @@ func newDBManifestGetter(imh *manifestHandler, req *http.Request) (*dbManifestGe
 
 func (g *dbManifestGetter) GetByTag(ctx context.Context, tagName string) (distribution.Manifest, digest.Digest, error) {
 	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": g.repoPath, "tag_name": tagName})
-	l.Debug("getting manifest by tag from database")
 
 	dbRepo, err := g.FindByPath(ctx, g.repoPath)
 	if err != nil {
@@ -353,6 +352,7 @@ func (g *dbManifestGetter) GetByTag(ctx context.Context, tagName string) (distri
 		return nil, "", distribution.ErrTagUnknown{Tag: tagName}
 	}
 
+	l.WithFields(log.Fields{"db_migration_status": dbRepo.MigrationStatus}).Info("getting manifest by tag from database")
 	dbManifest, err := g.FindManifestByTagName(ctx, dbRepo, tagName)
 	if err != nil {
 		return nil, "", err
@@ -396,6 +396,7 @@ func (g *dbManifestGetter) GetByDigest(ctx context.Context, dgst digest.Digest) 
 			Revision: dgst,
 		}
 	}
+	l.WithFields(log.Fields{"db_migration_status": dbRepo.MigrationStatus}).Info("getting manifest by digest from database")
 
 	// Find manifest by its digest
 	dbManifest, err := g.FindManifestByDigest(ctx, dbRepo, dgst)
@@ -912,7 +913,6 @@ func dbPutManifestV2(imh *manifestHandler, mfst distribution.ManifestV2, payload
 	repoPath := imh.Repository.Named().Name()
 
 	l := log.GetLogger(log.WithContext(imh)).WithFields(log.Fields{"repository": repoPath, "manifest_digest": imh.Digest, "schema_version": mfst.Version().SchemaVersion})
-	l.Debug("putting manifest")
 
 	// create or find target repository
 	rStore := datastore.NewRepositoryStore(imh.App.db, datastore.WithRepositoryCache(imh.repoCache))
@@ -920,6 +920,7 @@ func dbPutManifestV2(imh *manifestHandler, mfst distribution.ManifestV2, payload
 	if err != nil {
 		return err
 	}
+	l.WithFields(log.Fields{"db_migration_status": dbRepo.MigrationStatus}).Info("putting manifest")
 
 	// Find the config now to ensure that the config's blob is associated with the repository.
 	dbCfgBlob, err := dbFindRepositoryBlob(imh.Context, rStore, mfst.Config(), dbRepo.Path)
