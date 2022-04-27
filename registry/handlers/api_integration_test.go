@@ -22,6 +22,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -1631,6 +1632,7 @@ func TestAPIConformance(t *testing.T) {
 		manifest_Put_Schema2_ByDigest_LayersNotAssociatedWithRepository,
 		manifest_Put_Schema2_ByTag,
 		manifest_Put_Schema2_ByTag_IsIdempotent,
+		manifest_Put_Schema2_ByTag_SameDigest_Parallel_IsIdempotent,
 		manifest_Put_Schema2_MissingConfig,
 		manifest_Put_Schema2_MissingConfigAndLayers,
 		manifest_Put_Schema2_MissingLayers,
@@ -1825,6 +1827,44 @@ func manifest_Put_Schema2_ByTag_IsIdempotent(t *testing.T, opts ...configOpt) {
 	require.Equal(t, dgst.String(), resp.Header.Get("Docker-Content-Digest"))
 }
 
+func manifest_Put_Schema2_ByTag_SameDigest_Parallel_IsIdempotent(t *testing.T, opts ...configOpt) {
+	env := newTestEnv(t, opts...)
+	defer env.Shutdown()
+
+	tagName1 := "idempotentag-one"
+	tagName2 := "idempotentag-two"
+	repoPath := "schema2/idempotent"
+
+	deserializedManifest := seedRandomSchema2Manifest(t, env, repoPath)
+
+	// Build URLs and headers.
+	manifestURL1 := buildManifestTagURL(t, env, repoPath, tagName1)
+	manifestURL2 := buildManifestTagURL(t, env, repoPath, tagName2)
+
+	_, payload, err := deserializedManifest.Payload()
+	require.NoError(t, err)
+
+	dgst := digest.FromBytes(payload)
+
+	manifestDigestURL := buildManifestDigestURL(t, env, repoPath, deserializedManifest)
+
+	wg := &sync.WaitGroup{}
+	// Put the same manifest digest with tag one and two to test idempotentcy.
+	for _, manifestURL := range []string{manifestURL1, manifestURL2} {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resp := putManifest(t, "putting manifest by tag no error", manifestURL, schema2.MediaTypeManifest, deserializedManifest.Manifest)
+			defer resp.Body.Close()
+			require.Equal(t, http.StatusCreated, resp.StatusCode)
+			require.Equal(t, "nosniff", resp.Header.Get("X-Content-Type-Options"))
+			require.Equal(t, manifestDigestURL, resp.Header.Get("Location"))
+			require.Equal(t, dgst.String(), resp.Header.Get("Docker-Content-Digest"))
+		}()
+	}
+
+	wg.Wait()
+}
 func manifest_Put_Schema2_ReuseTagManifestToManifest(t *testing.T, opts ...configOpt) {
 	env := newTestEnv(t, opts...)
 	defer env.Shutdown()

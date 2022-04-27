@@ -970,7 +970,8 @@ func dbPutManifestV2(imh *manifestHandler, mfst distribution.ManifestV2, payload
 		m.NonDistributableLayers = len(ll) < len(mfst.Layers())
 
 		mStore := datastore.NewManifestStore(imh.App.db)
-		if err := mStore.Create(imh, m); err != nil {
+		// Use CreateOrFind to prevent race conditions while pushing the same manifest with digest for different tags
+		if err := mStore.CreateOrFind(imh, m); err != nil {
 			return err
 		}
 
