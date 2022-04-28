@@ -506,9 +506,6 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 			panic(fmt.Sprintf("unable to configure authorization (%s): %v", authType, err))
 		}
 		app.accessController = accessController
-		if authType == "htpasswd" {
-			log.Warn("DEPRECATION NOTICE: Support for htpasswd authentication is deprecated and will be removed in 2022-05-22. See https://gitlab.com/gitlab-org/container-registry/-/issues/608 for more details")
-		}
 		log.WithField("auth_type", authType).Debug("configured access controller")
 	}
 
