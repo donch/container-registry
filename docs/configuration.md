@@ -201,9 +201,6 @@ auth:
     service: token-service
     issuer: registry-token-issuer
     rootcertbundle: /root/certs/bundle
-  htpasswd:
-    realm: basic-realm
-    path: /path/to/htpasswd
 middleware:
   registry:
     - name: ARegistryMiddleware
@@ -716,16 +713,12 @@ auth:
     service: token-service
     issuer: registry-token-issuer
     rootcertbundle: /root/certs/bundle
-  htpasswd:
-    realm: basic-realm
-    path: /path/to/htpasswd
 ```
 
 The `auth` option is **optional**. Possible auth providers include:
 
 - [`silly`](#silly)
 - [`token`](#token)
-- [`htpasswd`](#htpasswd)
 - [`none`]
 
 You can configure only one authentication provider.
@@ -762,30 +755,6 @@ security.
 
 For more information about Token based authentication configuration, see the
 [specification](spec/auth/token.md).
-
-### `htpasswd`
-
-> **DEPRECATION NOTICE**: Support for `htpasswd` is deprecated and will be removed in 2022-05-22. See https://gitlab.com/gitlab-org/container-registry/-/issues/608 for more details.
-
-The _htpasswd_ authentication backed allows you to configure basic
-authentication using an
-[Apache htpasswd file](https://httpd.apache.org/docs/2.4/programs/htpasswd.html).
-The only supported password format is
-[`bcrypt`](http://en.wikipedia.org/wiki/Bcrypt). Entries with other hash types
-are ignored. The `htpasswd` file is loaded once, at startup. If the file is
-invalid, the registry will display an error and will not start.
-
-> **Warning**: If the `htpasswd` file is missing, the file will be created and provisioned with a default user and automatically generated password.
-> The password will be printed to stdout.
-
-> **Warning**: Only use the `htpasswd` authentication scheme with TLS
-> configured, since basic authentication sends passwords as part of the HTTP
-> header.
-
-| Parameter | Required | Description                                           |
-|-----------|----------|-------------------------------------------------------|
-| `realm`   | yes      | The realm in which the registry server authenticates. |
-| `path`    | yes      | The path to the `htpasswd` file to load at startup.   |
 
 ## `middleware`
 
