@@ -1,19 +1,17 @@
 # Root directory of the project (absolute path).
 ROOTDIR=$(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
+GOLANGCI_VERSION ?= v1.45.0
+
 # Used to populate version variable in main package.
 VERSION=$(shell git describe --tags --match 'v[0-9]*' --dirty='.m' --always)
 REVISION=$(shell git rev-parse HEAD)$(shell if ! git diff --no-ext-diff --quiet --exit-code; then echo .m; fi)
 BUILD_TIME=$(shell date -u +"%Y-%m-%dT%H:%M:%S")
 
-# Build with go modules.
-GOPROXY ?= https://proxy.golang.org
-GO111MODULE=on
-
 PKG=github.com/docker/distribution
 
 # Project packages.
-PACKAGES=$(shell go list -tags "${BUILDTAGS}" ./... | grep -v /vendor/)
+PACKAGES=$(shell go list -tags "${BUILDTAGS}" ./...)
 INTEGRATION_PACKAGE=${PKG}
 COVERAGE_PACKAGES=$(filter-out ${PKG}/registry/storage/driver/%,${PACKAGES})
 
@@ -49,7 +47,7 @@ all: binaries
 
 check: ## run golangci-lint, with defaults
 	@echo "$(WHALE) $@"
-	golangci-lint run
+	go run github.com/golangci/golangci-lint/cmd/golangci-lint@${GOLANGCI_VERSION} run
 
 test: ## run tests, except integration test with test.short
 	@echo "$(WHALE) $@"
