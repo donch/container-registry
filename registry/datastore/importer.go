@@ -635,6 +635,11 @@ func (imp *Importer) preImportTaggedManifests(ctx context.Context, fsRepo distri
 		// read tag details from the filesystem
 		desc, err := tagService.Get(ctx, fsTag)
 		if err != nil {
+			if errors.As(err, &distribution.ErrTagUnknown{}) {
+				// this tag was most likely deleted since all tags were listed, log and skip
+				l.WithError(err).Warn("tag no longer exists, skipping")
+				continue
+			}
 			return fmt.Errorf("reading tag %q from filesystem: %w", fsTag, err)
 		}
 
