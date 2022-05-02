@@ -445,6 +445,13 @@ func getFsManifest(ctx context.Context, manifestService distribution.ManifestSer
 			l.WithError(err).Warn("unsupported v1 manifest, skipping")
 			return nil, errManifestSkip
 		}
+		if errors.Is(err, digest.ErrDigestInvalidFormat) {
+			// The manifest link is corrupted. Although its payload may still be present in common blob storage, this
+			// manifest is no longer accessible from the outside in the scope of the current repository. For security
+			// reasons we should not repair the broken link and therefore just log a warning and skip.
+			l.WithError(err).Warn("broken manifest link, skipping")
+			return nil, errManifestSkip
+		}
 		return nil, fmt.Errorf("retrieving manifest %q from filesystem: %w", dgst, err)
 	}
 

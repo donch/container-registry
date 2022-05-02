@@ -255,7 +255,7 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 
 		err = ih.runImport(importCtx, importer, dbRepo)
 		if err != nil {
-			l.WithError(err).Error("repository import failed")
+			l.WithError(err).WithFields(log.Fields{"repository": dbRepo.Path}).Error("repository import failed")
 			errortracking.Capture(err, errortracking.WithContext(importCtx), errortracking.WithRequest(r))
 		}
 		report(true, err)
