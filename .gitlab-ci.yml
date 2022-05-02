@@ -198,7 +198,14 @@ middleware:storage-googlecdn:
   extends: .go-version-matrix
   stage: integration
   needs: []
-  script: go test -v -coverprofile=coverage.out $PACKAGE -args -check.v -test.short
+  variables:
+    TEST_SHORT_FLAG: "-test.short"
+  rules:
+    - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
+      variables:
+        TEST_SHORT_FLAG: ""
+    - when: always
+  script: go test -v -coverprofile=coverage.out $PACKAGE -args -check.v $TEST_SHORT_FLAG
 
 filesystem:
   <<: *storage-driver-test
