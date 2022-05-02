@@ -1,3 +1,15 @@
+## [3.39.3](https://gitlab.com/gitlab-org/container-registry/compare/v3.39.2-gitlab...v3.39.3-gitlab) (2022-05-02)
+
+
+### Bug Fixes
+
+* **datastore:** do not attempt to import non-distributable layers ([7449428](https://gitlab.com/gitlab-org/container-registry/commit/74494287abdcdbe99841424970a5363426e4b10b))
+* **datastore:** gracefully handle manifest broken link during imports ([32bc992](https://gitlab.com/gitlab-org/container-registry/commit/32bc9924bb56b676dd00efd13efefe890686be26))
+* **datastore:** gracefully handle tags deleted between list and import ([1c1a6d6](https://gitlab.com/gitlab-org/container-registry/commit/1c1a6d6fa5e3c589d1e3185a5167681017da138f))
+* **datastore:** gracefully handle tags with broken links during imports ([2b53c0d](https://gitlab.com/gitlab-org/container-registry/commit/2b53c0d3ff9adbfcfb77fb12c7a0ef1bf77c13f4))
+* **datastore:** race condition pushing two or more manifests by tag with the same digest ([54accd5](https://gitlab.com/gitlab-org/container-registry/commit/54accd53272b211046538aec5c23c008c35cfb86))
+* **handlers:** clarify log message when registry is at max concurrent imports ([aa3825c](https://gitlab.com/gitlab-org/container-registry/commit/aa3825c662596f9772ef61c356faff75566e5c01))
+
 ## [3.39.2](https://gitlab.com/gitlab-org/container-registry/compare/v3.39.1-gitlab...v3.39.2-gitlab) (2022-04-22)
 
 
