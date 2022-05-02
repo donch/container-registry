@@ -473,6 +473,24 @@ func TestImporter_PreImport_BadTagLink(t *testing.T) {
 	require.EqualError(t, err, `pre importing tagged manifests: reading tag "3.11.6" from filesystem: invalid checksum digest format`)
 }
 
+func TestImporter_PreImport_BadManifestLink(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "bad-manifest-link")
+	err := imp.PreImport(suite.ctx, "alpine")
+	require.NoError(t, err)
+	validateImport(t, suite.db)
+}
+
+func TestImporter_Import_BadManifestLink(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "bad-manifest-link")
+	err := imp.Import(suite.ctx, "alpine")
+	require.NoError(t, err)
+	validateImport(t, suite.db)
+}
+
 func TestImporter_PreImport_BadManifestListRef(t *testing.T) {
 	require.NoError(t, testutil.TruncateAllTables(suite.db))
 
