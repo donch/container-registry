@@ -514,9 +514,15 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 
 				desc, err := tagService.Get(lookupCtx, t)
 				if err != nil {
+					l := l.WithFields(log.Fields{"tag_name": t})
+					if errors.Is(err, digest.ErrDigestInvalidFormat) {
+						// the tag link is corrupted, just log a warning and skip
+						l.WithError(err).Warn("broken tag link, skipping")
+						return
+					}
 					cancel()
 					// this log entry allows us to determine the root cause for the outer context cancellation error
-					l.WithFields(log.Fields{"tag_name": t}).WithError(err).Error("reading tag details, cancelling context")
+					l.WithError(err).Error("error reading tag details, canceling context")
 					return
 				}
 
@@ -645,6 +651,11 @@ func (imp *Importer) preImportTaggedManifests(ctx context.Context, fsRepo distri
 			if errors.As(err, &distribution.ErrTagUnknown{}) {
 				// this tag was most likely deleted since all tags were listed, log and skip
 				l.WithError(err).Warn("tag no longer exists, skipping")
+				continue
+			}
+			if errors.Is(err, digest.ErrDigestInvalidFormat) {
+				// the tag link is corrupted, just log a warning and skip
+				l.WithError(err).Warn("broken tag link, skipping")
 				continue
 			}
 			return fmt.Errorf("reading tag %q from filesystem: %w", fsTag, err)

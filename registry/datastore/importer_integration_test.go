@@ -309,9 +309,8 @@ func TestImporter_ImportAll_BadTagLink(t *testing.T) {
 
 	imp := newImporterWithRoot(t, suite.db, "bad-tag-link")
 	err := imp.ImportAll(suite.ctx)
-	// Depending on if there was time for the DB driver to be called, and in which stage that call was, we may get a
-	// "context canceled" error wrapped in a "timeout" error or not, so a full error string assertion would be flaky.
-	require.Regexp(t, `importing tags: finding tagged manifest in database: scanning manifest: (?:timeout:\s)?context canceled`, err)
+	require.NoError(t, err)
+	validateImport(t, suite.db)
 }
 
 func TestImporter_Import(t *testing.T) {
@@ -377,9 +376,8 @@ func TestImporter_Import_BadTagLink(t *testing.T) {
 
 	imp := newImporterWithRoot(t, suite.db, "bad-tag-link")
 	err := imp.Import(suite.ctx, "alpine")
-	// Depending on if there was time for the DB driver to be called, and in which stage that call was, we may get a
-	// "context canceled" error wrapped in a "timeout" error or not, so a full error string assertion would be flaky.
-	require.Regexp(t, `importing tags: finding tagged manifest in database: scanning manifest: (?:timeout:\s)?context canceled`, err)
+	require.NoError(t, err)
+	validateImport(t, suite.db)
 }
 
 func TestImporter_Import_BadTagLink_WithConcurrency(t *testing.T) {
@@ -387,9 +385,9 @@ func TestImporter_Import_BadTagLink_WithConcurrency(t *testing.T) {
 
 	imp := newImporterWithRoot(t, suite.db, "bad-tag-link", datastore.WithTagConcurrency(5))
 	err := imp.Import(suite.ctx, "alpine")
-	// Depending on if there was time for the DB driver to be called, and in which stage that call was, we may get a
-	// "context canceled" error wrapped in a "timeout" error or not, so a full error string assertion would be flaky.
-	require.Regexp(t, `importing tags: finding tagged manifest in database: scanning manifest: (?:timeout:\s)?context canceled`, err)
+	// Just check that there was no error, we can't validate against golden files as with concurrency the order of rows
+	// may change.
+	require.NoError(t, err)
 }
 
 func TestImporter_Import_AbortsIfDatabaseIsNotEmpty(t *testing.T) {
@@ -470,7 +468,8 @@ func TestImporter_PreImport_BadTagLink(t *testing.T) {
 
 	imp := newImporterWithRoot(t, suite.db, "bad-tag-link")
 	err := imp.PreImport(suite.ctx, "alpine")
-	require.EqualError(t, err, `pre importing tagged manifests: reading tag "3.11.6" from filesystem: invalid checksum digest format`)
+	require.NoError(t, err)
+	validateImport(t, suite.db)
 }
 
 func TestImporter_PreImport_BadManifestLink(t *testing.T) {
