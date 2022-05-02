@@ -294,8 +294,8 @@ func (imp *Importer) importManifestV2(ctx context.Context, fsRepo distribution.R
 		return nil, err
 	}
 
-	// import manifest layers
-	if err := imp.importLayers(ctx, dbRepo, fsRepo, dbManifest, m.Layers()); err != nil {
+	// Import manifess stored locally on the registry.
+	if err := imp.importLayers(ctx, dbRepo, fsRepo, dbManifest, m.DistributableLayers()); err != nil {
 		return nil, fmt.Errorf("importing layers: %w", err)
 	}
 
