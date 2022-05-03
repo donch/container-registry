@@ -335,13 +335,12 @@ func (d *driver) Reader(ctx context.Context, path string, offset int64) (io.Read
 	res, err := getObject(d.client, d.bucket, d.pathToKey(path), offset)
 	if err != nil {
 		if res != nil {
+			defer res.Body.Close()
 			if res.StatusCode == http.StatusNotFound {
-				res.Body.Close()
 				return nil, storagedriver.PathNotFoundError{Path: path}
 			}
 
 			if res.StatusCode == http.StatusRequestedRangeNotSatisfiable {
-				res.Body.Close()
 				obj, err := storageStatObject(ctx, d.storageClient, d.bucket, d.pathToKey(path))
 				if err != nil {
 					return nil, err
@@ -600,6 +599,9 @@ func (w *writer) Size() int64 {
 func (w *writer) init(path string) error {
 	res, err := getObject(w.client, w.bucket, w.name, 0)
 	if err != nil {
+		if res != nil {
+			res.Body.Close()
+		}
 		return err
 	}
 	defer res.Body.Close()

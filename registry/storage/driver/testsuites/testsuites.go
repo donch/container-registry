@@ -847,7 +847,9 @@ func (suite *DriverSuite) TestURLFor(c *check.C) {
 	}
 	c.Assert(err, check.IsNil)
 
-	response, _ = http.Head(url)
+	response, err = http.Head(url)
+	c.Assert(err, check.IsNil)
+	response.Body.Close()
 	c.Assert(response.StatusCode, check.Equals, 200)
 	c.Assert(response.ContentLength, check.Equals, int64(32))
 }
@@ -1068,6 +1070,7 @@ func (suite *DriverSuite) TestConcurrentStreamReads(c *check.C) {
 		offset := rand.Int63n(int64(len(contents)))
 		reader, err := suite.StorageDriver.Reader(suite.ctx, filename, offset)
 		c.Assert(err, check.IsNil)
+		defer reader.Close()
 
 		readContents, err := io.ReadAll(reader)
 		c.Assert(err, check.IsNil)

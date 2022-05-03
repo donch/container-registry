@@ -403,6 +403,8 @@ func (ms *manifests) Exists(ctx context.Context, dgst digest.Digest) (bool, erro
 		return false, err
 	}
 
+	defer resp.Body.Close()
+
 	if SuccessStatus(resp.StatusCode) {
 		return true, nil
 	} else if resp.StatusCode == http.StatusNotFound {

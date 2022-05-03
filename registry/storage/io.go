@@ -18,6 +18,8 @@ func getContent(ctx context.Context, driver driver.StorageDriver, p string) ([]b
 		return nil, err
 	}
 
+	defer r.Close()
+
 	return readAllLimited(r, maxBlobGetSize)
 }
 

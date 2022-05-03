@@ -39,6 +39,7 @@ func TestSimpleRead(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error allocating file reader: %v", err)
 	}
+	defer fr.Close()
 
 	verifier := dgst.Verifier()
 	io.Copy(verifier, fr)
@@ -65,6 +66,8 @@ func TestFileReaderSeek(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error creating file reader: %v", err)
 	}
+
+	defer fr.Close()
 
 	// Seek all over the place, in blocks of pattern size and make sure we get
 	// the right data.
@@ -160,6 +163,7 @@ func TestFileReaderNonExistentFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error initializing reader: %v", err)
 	}
+	defer fr.Close()
 
 	var buf [1024]byte
 

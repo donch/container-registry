@@ -65,6 +65,8 @@ func fetchGoogleIPs(url string) (googleIPResponse, error) {
 		return response, err
 	}
 
+	defer resp.Body.Close()
+
 	if resp.StatusCode != 200 {
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
