@@ -226,10 +226,11 @@ func TestSimpleBlobUpload(t *testing.T) {
 		t.Errorf("Mismatching digest with restored blob")
 	}
 
-	_, err = bs.Open(ctx, expectedDigest)
+	br, err := bs.Open(ctx, expectedDigest)
 	if err != nil {
 		t.Errorf("Unexpected error opening blob")
 	}
+	defer br.Close()
 
 	// Reuse state to test delete with a delete-disabled registry
 	registry, err = NewRegistry(ctx, driver, BlobDescriptorCacheProvider(memory.NewInMemoryBlobDescriptorCacheProvider()), EnableRedirect)

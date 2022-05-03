@@ -137,6 +137,8 @@ func TestAppDistribtionDispatcher(t *testing.T) {
 		resp, err := http.Get(u.String())
 		require.NoError(t, err)
 
+		resp.Body.Close()
+
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 	}
 }

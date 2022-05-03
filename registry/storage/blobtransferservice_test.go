@@ -52,12 +52,14 @@ func TestTransferBlob(t *testing.T) {
 	// Ensure source and target blobs are the same.
 	sr, err := sourceBlobs.Open(source.ctx, srcDesc.Digest)
 	require.NoError(t, err)
+	defer sr.Close()
 
 	sourceContent, err := io.ReadAll(sr)
 	require.NoError(t, err)
 
 	tr, err := target.driver.Reader(target.ctx, blobDataPath, 0)
 	require.NoError(t, err)
+	defer tr.Close()
 
 	targetContent, err := io.ReadAll(tr)
 	require.NoError(t, err)

@@ -245,6 +245,7 @@ func TestURLFor_Download(t *testing.T) {
 
 	resp, err := http.Get(gcsURL)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	body, err := io.ReadAll(resp.Body)
@@ -270,6 +271,7 @@ func TestURLFor_Download(t *testing.T) {
 
 	resp, err = http.Get(cdnURL)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	body, err = io.ReadAll(resp.Body)

@@ -582,6 +582,7 @@ func (d *driver) GetContent(ctx context.Context, path string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer reader.Close()
 	return io.ReadAll(reader)
 }
 

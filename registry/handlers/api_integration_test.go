@@ -564,6 +564,7 @@ func blob_Get(t *testing.T, opts ...configOpt) {
 	// fetch layer
 	res, err := http.Get(blobURL)
 	require.NoError(t, err)
+	defer res.Body.Close()
 	require.Equal(t, http.StatusOK, res.StatusCode)
 
 	// verify response headers
@@ -608,6 +609,7 @@ func TestBlobAPI_Get_BlobNotInDatabase(t *testing.T) {
 	// fetch layer
 	res, err := http.Get(blobURL)
 	require.NoError(t, err)
+	defer res.Body.Close()
 	require.Equal(t, http.StatusNotFound, res.StatusCode)
 }
 
@@ -624,6 +626,7 @@ func blob_Get_RepositoryNotFound(t *testing.T, opts ...configOpt) {
 
 	resp, err := http.Get(blobURL)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	require.Equal(t, http.StatusNotFound, resp.StatusCode)
 	checkBodyHasErrorCodes(t, "repository not found", resp, v2.ErrorCodeBlobUnknown)
 }
@@ -641,11 +644,13 @@ func blob_Get_BlobNotFound(t *testing.T, opts ...configOpt) {
 	// delete blob link from repository
 	res, err := httpDelete(location)
 	require.NoError(t, err)
+	defer res.Body.Close()
 	require.Equal(t, http.StatusAccepted, res.StatusCode)
 
 	// test
 	res, err = http.Get(location)
 	require.NoError(t, err)
+	defer res.Body.Close()
 	require.Equal(t, http.StatusNotFound, res.StatusCode)
 	checkBodyHasErrorCodes(t, "blob not found", res, v2.ErrorCodeBlobUnknown)
 }
@@ -669,6 +674,7 @@ func TestBlobAPI_GetBlobFromFilesystemAfterDatabaseWrites(t *testing.T) {
 	// fetch layer
 	res, err := http.Get(blobURL)
 	require.NoError(t, err)
+	defer res.Body.Close()
 	require.Equal(t, http.StatusOK, res.StatusCode)
 
 	// verify response headers
@@ -710,6 +716,7 @@ func TestBlobAPI_GetBlobFromFilesystemAfterDatabaseWrites_DisableMirrorFS(t *tes
 	// fetch layer
 	res, err := http.Get(blobURL)
 	require.NoError(t, err)
+	defer res.Body.Close()
 	require.Equal(t, http.StatusNotFound, res.StatusCode)
 }
 
@@ -774,11 +781,13 @@ func blob_Head_BlobNotFound(t *testing.T, opts ...configOpt) {
 	// delete blob link from repository
 	res, err := httpDelete(location)
 	require.NoError(t, err)
+	defer res.Body.Close()
 	require.Equal(t, http.StatusAccepted, res.StatusCode)
 
 	// test
 	res, err = http.Head(location)
 	require.NoError(t, err)
+	defer res.Body.Close()
 	require.Equal(t, http.StatusNotFound, res.StatusCode)
 	require.Equal(t, http.NoBody, res.Body)
 }
@@ -795,6 +804,7 @@ func blob_Delete_Disabled(t *testing.T, opts ...configOpt) {
 	// Attempt to delete blob link from repository.
 	res, err := httpDelete(location)
 	require.NoError(t, err)
+	defer res.Body.Close()
 	require.Equal(t, http.StatusMethodNotAllowed, res.StatusCode)
 }
 
@@ -811,17 +821,20 @@ func blob_Delete_AlreadyDeleted(t *testing.T, opts ...configOpt) {
 	// delete blob link from repository
 	res, err := httpDelete(location)
 	require.NoError(t, err)
+	defer res.Body.Close()
 	require.Equal(t, http.StatusAccepted, res.StatusCode)
 
 	// test
 	res, err = http.Head(location)
 	require.NoError(t, err)
+	defer res.Body.Close()
 	require.Equal(t, http.StatusNotFound, res.StatusCode)
 	require.Equal(t, http.NoBody, res.Body)
 
 	// Attempt to delete blob link from repository again.
 	res, err = httpDelete(location)
 	require.NoError(t, err)
+	defer res.Body.Close()
 	require.Equal(t, http.StatusNotFound, res.StatusCode)
 }
 
@@ -845,6 +858,7 @@ func blob_Delete_UnknownRepository(t *testing.T, opts ...configOpt) {
 	// delete blob link from repository
 	res, err := httpDelete(location)
 	require.NoError(t, err)
+	defer res.Body.Close()
 	require.Equal(t, http.StatusNotFound, res.StatusCode)
 }
 
@@ -878,6 +892,7 @@ func TestRelativeURL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error doing layer push relative url: %v", err)
 	}
+	defer resp.Body.Close()
 	checkResponse(t, "relativeurl blob upload", resp, http.StatusCreated)
 	u, err = url.Parse(resp.Header.Get("Location"))
 	if err != nil {
@@ -915,6 +930,7 @@ func TestRelativeURL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error doing layer push relative url: %v", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "relativeurl blob upload", resp, http.StatusCreated)
 	u, err = url.Parse(resp.Header.Get("Location"))
@@ -943,6 +959,7 @@ func TestBlobDeleteDisabled(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error deleting when disabled: %v", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "status of disabled delete", resp, http.StatusMethodNotAllowed)
 }
@@ -970,6 +987,7 @@ func testBlobAPI(t *testing.T, env *testEnv, args blobArgs) *testEnv {
 	if err != nil {
 		t.Fatalf("unexpected error getting upload status: %v", err)
 	}
+	defer resp.Body.Close()
 	checkResponse(t, "status of deleted upload", resp, http.StatusNoContent)
 	checkHeaders(t, resp, http.Header{
 		"Location":           []string{"*"},
@@ -986,6 +1004,7 @@ func testBlobAPI(t *testing.T, env *testEnv, args blobArgs) *testEnv {
 	if err != nil {
 		t.Fatalf("unexpected error sending delete request: %v", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "deleting upload", resp, http.StatusNoContent)
 
@@ -994,6 +1013,7 @@ func testBlobAPI(t *testing.T, env *testEnv, args blobArgs) *testEnv {
 	if err != nil {
 		t.Fatalf("unexpected error getting upload status: %v", err)
 	}
+	defer resp.Body.Close()
 	checkResponse(t, "status of deleted upload", resp, http.StatusNotFound)
 
 	// -----------------------------------------
@@ -1003,6 +1023,7 @@ func testBlobAPI(t *testing.T, env *testEnv, args blobArgs) *testEnv {
 	if err != nil {
 		t.Fatalf("unexpected error doing bad layer push: %v", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "bad layer push", resp, http.StatusBadRequest)
 	checkBodyHasErrorCodes(t, "bad layer push", resp, v2.ErrorCodeDigestInvalid)
@@ -1059,6 +1080,7 @@ func testBlobAPI(t *testing.T, env *testEnv, args blobArgs) *testEnv {
 	if err != nil {
 		t.Fatalf("unexpected error checking head on existing layer: %v", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "checking head on existing layer", resp, http.StatusOK)
 	checkHeaders(t, resp, http.Header{
@@ -1072,6 +1094,7 @@ func testBlobAPI(t *testing.T, env *testEnv, args blobArgs) *testEnv {
 	if err != nil {
 		t.Fatalf("unexpected error fetching layer: %v", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "fetching layer", resp, http.StatusOK)
 	checkHeaders(t, resp, http.Header{
@@ -1094,6 +1117,7 @@ func testBlobAPI(t *testing.T, env *testEnv, args blobArgs) *testEnv {
 	if err != nil {
 		t.Fatalf("unexpected error fetching layer: %v", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "fetching layer bad digest", resp, http.StatusBadRequest)
 
@@ -1102,6 +1126,7 @@ func testBlobAPI(t *testing.T, env *testEnv, args blobArgs) *testEnv {
 	if err != nil {
 		t.Fatalf("unexpected error fetching layer: %v", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "fetching layer", resp, http.StatusOK)
 	checkHeaders(t, resp, http.Header{
@@ -1123,6 +1148,7 @@ func testBlobAPI(t *testing.T, env *testEnv, args blobArgs) *testEnv {
 	if err != nil {
 		t.Fatalf("Error constructing request: %s", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "fetching layer with etag", resp, http.StatusNotModified)
 
@@ -1132,7 +1158,9 @@ func testBlobAPI(t *testing.T, env *testEnv, args blobArgs) *testEnv {
 		t.Fatalf("Error constructing request: %s", err)
 	}
 	req.Header.Set("If-None-Match", "")
-	resp, _ = http.DefaultClient.Do(req)
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
 	checkResponse(t, "fetching layer with invalid etag", resp, http.StatusOK)
 
 	// Missing tests:
@@ -1158,6 +1186,7 @@ func testBlobDelete(t *testing.T, env *testEnv, args blobArgs) {
 	if err != nil {
 		t.Fatalf("unexpected error deleting layer: %v", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "deleting layer", resp, http.StatusAccepted)
 	checkHeaders(t, resp, http.Header{
@@ -1171,6 +1200,7 @@ func testBlobDelete(t *testing.T, env *testEnv, args blobArgs) {
 	if err != nil {
 		t.Fatalf("unexpected error checking head on existing layer: %v", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "checking existence of deleted layer", resp, http.StatusNotFound)
 
@@ -1179,6 +1209,7 @@ func testBlobDelete(t *testing.T, env *testEnv, args blobArgs) {
 	if err != nil {
 		t.Fatalf("unexpected error deleting layer: %v", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "deleting layer", resp, http.StatusNotFound)
 
@@ -1189,6 +1220,7 @@ func testBlobDelete(t *testing.T, env *testEnv, args blobArgs) {
 	if err != nil {
 		t.Fatalf("unexpected error fetching layer: %v", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "deleting layer bad digest", resp, http.StatusBadRequest)
 
@@ -1212,6 +1244,7 @@ func testBlobDelete(t *testing.T, env *testEnv, args blobArgs) {
 	if err != nil {
 		t.Fatalf("unexpected error checking head on existing layer: %v", err)
 	}
+	defer resp.Body.Close()
 
 	layerLength, _ := layerFile.Seek(0, io.SeekEnd)
 	checkResponse(t, "checking head on reuploaded layer", resp, http.StatusOK)
@@ -1244,6 +1277,7 @@ func TestDeleteDisabled(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error deleting layer: %v", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "deleting layer with delete disabled", resp, http.StatusMethodNotAllowed)
 }
@@ -1372,6 +1406,7 @@ func TestBlobMount_Migration_FromNewToNewRepoWithMigrationRoot(t *testing.T) {
 
 	resp, err := httpDelete(layerURL)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 
 	require.Equal(t, http.StatusAccepted, resp.StatusCode)
 }
@@ -1419,6 +1454,7 @@ func TestBlobMount_Migration_FromNewToNewRepoWithMigrationRootFSMirroringDisable
 
 	resp, err := httpDelete(layerURL)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 
 	require.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
@@ -1454,6 +1490,7 @@ func TestDeleteReadOnly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error deleting layer: %v", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "deleting layer in read-only mode", resp, http.StatusMethodNotAllowed)
 }
@@ -5477,6 +5514,7 @@ func testManifestAPIManifestList(t *testing.T, env *testEnv, args manifestArgs) 
 	checkErr(t, err, "building manifest url")
 
 	resp = putManifest(t, "putting manifest list no error", manifestURL, manifestlist.MediaTypeManifestList, deserializedManifestList)
+	defer resp.Body.Close()
 	checkResponse(t, "putting manifest list no error", resp, http.StatusCreated)
 	checkHeaders(t, resp, http.Header{
 		"Location":              []string{manifestDigestURL},
@@ -5486,6 +5524,7 @@ func testManifestAPIManifestList(t *testing.T, env *testEnv, args manifestArgs) 
 	// --------------------
 	// Push by digest -- should get same result
 	resp = putManifest(t, "putting manifest list by digest", manifestDigestURL, manifestlist.MediaTypeManifestList, deserializedManifestList)
+	defer resp.Body.Close()
 	checkResponse(t, "putting manifest list by digest", resp, http.StatusCreated)
 	checkHeaders(t, resp, http.Header{
 		"Location":              []string{manifestDigestURL},
@@ -5572,6 +5611,7 @@ func testManifestAPIManifestList(t *testing.T, env *testEnv, args manifestArgs) 
 	if err != nil {
 		t.Fatalf("Error constructing request: %s", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "fetching manifest by name with etag", resp, http.StatusNotModified)
 
@@ -5585,6 +5625,7 @@ func testManifestAPIManifestList(t *testing.T, env *testEnv, args manifestArgs) 
 	if err != nil {
 		t.Fatalf("Error constructing request: %s", err)
 	}
+	defer resp.Body.Close()
 
 	checkResponse(t, "fetching manifest by dgst with etag", resp, http.StatusNotModified)
 }
@@ -5600,6 +5641,7 @@ func testManifestDelete(t *testing.T, env *testEnv, args manifestArgs) {
 	// Delete by digest
 	resp, err := httpDelete(manifestDigestURL)
 	checkErr(t, err, "deleting manifest by digest")
+	defer resp.Body.Close()
 
 	checkResponse(t, "deleting manifest", resp, http.StatusAccepted)
 	checkHeaders(t, resp, http.Header{
@@ -5618,12 +5660,14 @@ func testManifestDelete(t *testing.T, env *testEnv, args manifestArgs) {
 	// Delete already deleted manifest by digest
 	resp, err = httpDelete(manifestDigestURL)
 	checkErr(t, err, "re-deleting manifest by digest")
+	defer resp.Body.Close()
 
 	checkResponse(t, "re-deleting manifest", resp, http.StatusNotFound)
 
 	// --------------------
 	// Re-upload manifest by digest
 	resp = putManifest(t, "putting manifest", manifestDigestURL, args.mediaType, manifest)
+	defer resp.Body.Close()
 	checkResponse(t, "putting manifest", resp, http.StatusCreated)
 	checkHeaders(t, resp, http.Header{
 		"Location":              []string{manifestDigestURL},
@@ -5650,6 +5694,7 @@ func testManifestDelete(t *testing.T, env *testEnv, args manifestArgs) {
 
 	resp, err = httpDelete(unknownManifestDigestURL)
 	checkErr(t, err, "delting unknown manifest by digest")
+	defer resp.Body.Close()
 	checkResponse(t, "fetching deleted manifest", resp, http.StatusNotFound)
 
 	// --------------------
@@ -5658,6 +5703,7 @@ func testManifestDelete(t *testing.T, env *testEnv, args manifestArgs) {
 	tagRef, _ := reference.WithTag(imageName, tag)
 	manifestTagURL, _ := env.builder.BuildManifestURL(tagRef)
 	resp = putManifest(t, "putting manifest by tag", manifestTagURL, args.mediaType, manifest)
+	defer resp.Body.Close()
 	checkResponse(t, "putting manifest by tag", resp, http.StatusCreated)
 	checkHeaders(t, resp, http.Header{
 		"Location":              []string{manifestDigestURL},
@@ -5698,6 +5744,7 @@ func testManifestDelete(t *testing.T, env *testEnv, args manifestArgs) {
 	// Delete by digest
 	resp, err = httpDelete(manifestDigestURL)
 	checkErr(t, err, "deleting manifest by digest")
+	defer resp.Body.Close()
 
 	checkResponse(t, "deleting manifest with tag", resp, http.StatusAccepted)
 	checkHeaders(t, resp, http.Header{
@@ -6707,10 +6754,13 @@ func TestRegistryAsCacheMutationAPIs(t *testing.T) {
 	require.NoError(t, err)
 
 	resp := putManifest(t, "putting manifest", manifestURL, schema2.MediaTypeManifest, deserializedManifest)
+	defer resp.Body.Close()
 	checkResponse(t, "putting signed manifest to cache", resp, errcode.ErrorCodeUnsupported.Descriptor().HTTPStatusCode)
 
 	// Manifest Delete
-	resp, _ = httpDelete(manifestURL)
+	resp, err = httpDelete(manifestURL)
+	require.NoError(t, err)
+	defer resp.Body.Close()
 	checkResponse(t, "deleting signed manifest from cache", resp, errcode.ErrorCodeUnsupported.Descriptor().HTTPStatusCode)
 
 	// Blob upload initialization
@@ -6730,7 +6780,9 @@ func TestRegistryAsCacheMutationAPIs(t *testing.T) {
 	// Blob Delete
 	ref, _ := reference.WithDigest(imageName, digestSha256EmptyTar)
 	blobURL, _ := env.builder.BuildBlobURL(ref)
-	resp, _ = httpDelete(blobURL)
+	resp, err = httpDelete(blobURL)
+	require.NoError(t, err)
+	defer resp.Body.Close()
 	checkResponse(t, "deleting blob from cache", resp, errcode.ErrorCodeUnsupported.Descriptor().HTTPStatusCode)
 }
 
@@ -6813,6 +6865,7 @@ func TestManifestAPI_Get_Config(t *testing.T) {
 
 	res, err := http.Get(digestURL)
 	require.NoError(t, err)
+	defer res.Body.Close()
 	require.Equal(t, http.StatusNotFound, res.StatusCode)
 }
 

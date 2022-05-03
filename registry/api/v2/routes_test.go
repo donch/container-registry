@@ -312,6 +312,8 @@ func checkTestRouter(t *testing.T, testCases []routeTestCase, prefix string, dee
 			t.Fatalf("error issuing get request: %v", err)
 		}
 
+		defer resp.Body.Close()
+
 		if testcase.StatusCode == 0 {
 			// Override default, zero-value
 			testcase.StatusCode = http.StatusOK
@@ -326,7 +328,6 @@ func checkTestRouter(t *testing.T, testCases []routeTestCase, prefix string, dee
 		}
 
 		if testcase.StatusCode != http.StatusOK {
-			resp.Body.Close()
 			// We don't care about json response.
 			continue
 		}
@@ -356,7 +357,6 @@ func checkTestRouter(t *testing.T, testCases []routeTestCase, prefix string, dee
 			t.Fatalf("actual does not equal expected: %#v != %#v", actualRouteInfo, testcase)
 		}
 
-		resp.Body.Close()
 	}
 }
 

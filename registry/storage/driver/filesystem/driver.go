@@ -357,6 +357,8 @@ func (d *driver) TransferTo(ctx context.Context, destDriver storagedriver.Storag
 		return err
 	}
 
+	defer src.Close()
+
 	dest, err := destDriver.Writer(ctx, destPath, false)
 	if err != nil {
 		return storagedriver.PartialTransferError{SourcePath: srcPath, DestinationPath: destPath, Cause: err}
