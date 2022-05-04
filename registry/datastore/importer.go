@@ -515,6 +515,11 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 				desc, err := tagService.Get(lookupCtx, t)
 				if err != nil {
 					l := l.WithFields(log.Fields{"tag_name": t})
+					if errors.As(err, &distribution.ErrTagUnknown{}) {
+						// the tag link is missing, just log a warning and skip
+						l.WithError(err).Warn("missing tag link, skipping")
+						return
+					}
 					if errors.Is(err, digest.ErrDigestInvalidFormat) {
 						// the tag link is corrupted, just log a warning and skip
 						l.WithError(err).Warn("broken tag link, skipping")
@@ -649,8 +654,8 @@ func (imp *Importer) preImportTaggedManifests(ctx context.Context, fsRepo distri
 		desc, err := tagService.Get(ctx, fsTag)
 		if err != nil {
 			if errors.As(err, &distribution.ErrTagUnknown{}) {
-				// this tag was most likely deleted since all tags were listed, log and skip
-				l.WithError(err).Warn("tag no longer exists, skipping")
+				// this tag was either deleted since all tags were listed or the link was missing already, log and skip
+				l.WithError(err).Warn("missing tag link, skipping")
 				continue
 			}
 			if errors.Is(err, digest.ErrDigestInvalidFormat) {
