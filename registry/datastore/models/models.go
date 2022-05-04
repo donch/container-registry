@@ -49,6 +49,11 @@ func (r *Repository) IsTopLevel() bool {
 	return !strings.Contains(r.Path, "/")
 }
 
+// TopLevelPathSegment returns the top-level path segment.
+func (r *Repository) TopLevelPathSegment() string {
+	return strings.Split(r.Path, "/")[0]
+}
+
 // Repositories is a slice of Repository pointers.
 type Repositories []*Repository
 

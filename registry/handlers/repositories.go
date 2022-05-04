@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/docker/distribution/log"
@@ -10,6 +11,7 @@ import (
 	v1 "github.com/docker/distribution/registry/api/gitlab/v1"
 	v2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/docker/distribution/registry/datastore"
+	"github.com/docker/distribution/registry/datastore/models"
 	"github.com/gorilla/handlers"
 )
 
@@ -87,14 +89,39 @@ func (h *repositoryHandler) GetRepository(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if repo == nil {
-		h.Errors = append(h.Errors, v2.ErrorCodeNameUnknown)
-		return
+		// If the caller is requesting the aggregated size of repository `foo/bar` including descendants, it might be
+		// the case that `foo/bar` does not exist but there is an e.g. `foo/bar/car`. In such case we should not raise a
+		// 404 if the base repository (`foo/bar`) does not exist. This is required to allow retrieving the Project level
+		// usage when there is no "root" repository for such project but there is at least one sub-repository.
+		if !withSize || sizeVal != sizeQueryParamSelfWithDescendantsValue {
+			h.Errors = append(h.Errors, v2.ErrorCodeNameUnknown)
+			return
+		}
+		// If this is the case, we need to find the corresponding top-level namespace. That must exist. If not we
+		// throw a 404 Not Found here.
+		repo = &models.Repository{Path: h.Repository.Named().Name()}
+		ns := datastore.NewNamespaceStore(h.db)
+		n, err := ns.FindByName(h.Context, repo.TopLevelPathSegment())
+		if err != nil {
+			h.Errors = append(h.Errors, errcode.FromUnknownError(err))
+			return
+		}
+		if n == nil {
+			h.Errors = append(h.Errors, v2.ErrorCodeNameUnknown)
+			return
+		}
+		// path and namespace ID are the two required parameters for the queries in repositoryStore.SizeWithDescendants,
+		// so we must fill those. We also fill the name for consistency on the response.
+		repo.NamespaceID = n.ID
+		repo.Name = repo.Path[strings.LastIndex(repo.Path, "/")+1:]
 	}
 
 	resp := RepositoryAPIResponse{
-		Name:      repo.Name,
-		Path:      repo.Path,
-		CreatedAt: timeToString(repo.CreatedAt),
+		Name: repo.Name,
+		Path: repo.Path,
+	}
+	if !repo.CreatedAt.IsZero() {
+		resp.CreatedAt = timeToString(repo.CreatedAt)
 	}
 	if repo.UpdatedAt.Valid {
 		resp.UpdatedAt = timeToString(repo.UpdatedAt.Time)

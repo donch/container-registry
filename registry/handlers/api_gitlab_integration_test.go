@@ -1261,6 +1261,63 @@ func TestGitlabAPI_Repository_Get(t *testing.T) {
 	checkBodyHasErrorCodes(t, "wrong response body error code", resp, v1.ErrorCodeInvalidQueryParamValue)
 }
 
+func TestGitlabAPI_Repository_Get_SizeWithDescendants_NonExistingBase(t *testing.T) {
+	env := newTestEnv(t, disableMirrorFS)
+	t.Cleanup(env.Shutdown)
+	env.requireDB(t)
+
+	// creating sub repository by pushing an image to it
+	targetRepoPath := "foo/bar/car"
+	dm := seedRandomSchema2Manifest(t, env, targetRepoPath, putByTag("latest"))
+	var expectedSize int64
+	for _, d := range dm.Layers() {
+		expectedSize += d.Size
+	}
+
+	// get size with descendants of base (non-existing) repository
+	baseRepoPath := "foo/bar"
+	baseRepoRef, err := reference.WithName(baseRepoPath)
+	u, err := env.builder.BuildGitlabV1RepositoryURL(baseRepoRef, url.Values{
+		"size": []string{"self_with_descendants"},
+	})
+	require.NoError(t, err)
+
+	resp, err := http.Get(u)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	r := handlers.RepositoryAPIResponse{}
+	p, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	err = json.Unmarshal(p, &r)
+	require.NoError(t, err)
+
+	require.Equal(t, "bar", r.Name)
+	require.Equal(t, baseRepoPath, r.Path)
+	require.Equal(t, *r.Size, expectedSize)
+	require.Empty(t, r.CreatedAt)
+	require.Empty(t, r.UpdatedAt)
+}
+
+func TestGitlabAPI_Repository_Get_SizeWithDescendants_NonExistingTopLevel(t *testing.T) {
+	env := newTestEnv(t, disableMirrorFS)
+	t.Cleanup(env.Shutdown)
+	env.requireDB(t)
+
+	baseRepoPath := "foo/bar"
+	baseRepoRef, err := reference.WithName(baseRepoPath)
+	u, err := env.builder.BuildGitlabV1RepositoryURL(baseRepoRef, url.Values{
+		"size": []string{"self_with_descendants"},
+	})
+	require.NoError(t, err)
+
+	resp, err := http.Get(u)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+}
+
 func TestGitlabAPI_RepositoryImport_MaxConcurrentImports(t *testing.T) {
 	rootDir := t.TempDir()
 

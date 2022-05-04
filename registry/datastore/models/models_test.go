@@ -12,3 +12,10 @@ func TestRepository_IsTopLevel(t *testing.T) {
 	r.Path = "foo/bar"
 	require.False(t, r.IsTopLevel())
 }
+
+func TestRepository_TopLevelPathSegment(t *testing.T) {
+	r := &Repository{Path: "foo"}
+	require.Equal(t, "foo", r.TopLevelPathSegment())
+	r.Path = "foo/bar"
+	require.Equal(t, "foo", r.TopLevelPathSegment())
+}

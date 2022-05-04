@@ -1037,7 +1037,7 @@ func (s *repositoryStore) CreateOrFind(ctx context.Context, r *models.Repository
 	}
 
 	if r.NamespaceID == 0 {
-		n := &models.Namespace{Name: strings.Split(r.Path, "/")[0]}
+		n := &models.Namespace{Name: r.TopLevelPathSegment()}
 		ns := NewNamespaceStore(s.db)
 		if err := ns.SafeFindOrCreate(ctx, n); err != nil {
 			return fmt.Errorf("finding or creating namespace: %w", err)
