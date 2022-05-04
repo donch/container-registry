@@ -1,3 +1,21 @@
+# [3.40.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.39.3-gitlab...v3.40.0-gitlab) (2022-05-04)
+
+
+### Bug Fixes
+
+* add missing Close call for serveral resources ([78d0aaf](https://gitlab.com/gitlab-org/container-registry/commit/78d0aafcdfae94e3bd6a76661c42a62419baaf51))
+* gracefully handle missing tag links during final imports ([3cdbfa3](https://gitlab.com/gitlab-org/container-registry/commit/3cdbfa307b4e38aacf033d2daab2f06294369ebd))
+
+
+### Features
+
+* add support for ArtifactHUB media types ([d58f4b3](https://gitlab.com/gitlab-org/container-registry/commit/d58f4b3778e1e4f3df999ce32be9dd827b4c5efb))
+* add support for CNAB media types ([986b213](https://gitlab.com/gitlab-org/container-registry/commit/986b2132efcaf07a04302c39eaca8562f4f83b97))
+* add support for cosign media types ([247849e](https://gitlab.com/gitlab-org/container-registry/commit/247849e6c014f25ef4ddac528453cfbab8b8a901))
+* add support for OPA media types ([73c83ff](https://gitlab.com/gitlab-org/container-registry/commit/73c83ffc7e5ef39a5917a427f691d0f831a5d73d))
+* add support for SIF media types ([d80268e](https://gitlab.com/gitlab-org/container-registry/commit/d80268ed969058a962f854745df62931500f30df))
+* add support for WASM media types ([210317a](https://gitlab.com/gitlab-org/container-registry/commit/210317ab53b21e3eae9243f5a360319c519a2814))
+
 ## [3.39.3](https://gitlab.com/gitlab-org/container-registry/compare/v3.39.2-gitlab...v3.39.3-gitlab) (2022-05-02)
 
 
