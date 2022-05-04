@@ -390,6 +390,34 @@ func TestImporter_Import_BadTagLink_WithConcurrency(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestImporter_PreImport_MissingTagLink(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "missing-tag-link")
+	err := imp.PreImport(suite.ctx, "alpine")
+	require.NoError(t, err)
+	validateImport(t, suite.db)
+}
+
+func TestImporter_Import_MissingTagLink(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "missing-tag-link")
+	err := imp.Import(suite.ctx, "alpine")
+	require.NoError(t, err)
+	validateImport(t, suite.db)
+}
+
+func TestImporter_Import_MissingTagLink_WithConcurrency(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "missing-tag-link", datastore.WithTagConcurrency(2))
+	err := imp.Import(suite.ctx, "alpine")
+	// Just check that there was no error, we can't validate against golden files as with concurrency the order of rows
+	// may change.
+	require.NoError(t, err)
+}
+
 func TestImporter_Import_AbortsIfDatabaseIsNotEmpty(t *testing.T) {
 	driver := newFilesystemStorageDriver(t)
 	registry := newRegistry(t, driver)
