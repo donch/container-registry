@@ -461,6 +461,7 @@ func getFsManifest(ctx context.Context, manifestService distribution.ManifestSer
 type tagLookupResponse struct {
 	name string
 	desc distribution.Descriptor
+	err  error
 }
 
 func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Repository, dbRepo *models.Repository) error {
@@ -487,12 +488,7 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 	semaphore := make(chan struct{}, imp.tagConcurrency)
 	tagResChan := make(chan *tagLookupResponse)
 
-	// Start a goroutine to concurrently dispatch tag details lookup, up to  the configured tag concurrency at once.
-	// If a tag lookup fails, lookupCtx is cancelled. Therefore, any operation using lookupCtx from now onwards will be
-	// automatically aborted.
-	lookupCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
+	// Start a goroutine to concurrently dispatch tag details lookup, up to the configured tag concurrency at once.
 	go func() {
 		var wg sync.WaitGroup
 		for _, tag := range fsTags {
@@ -500,8 +496,8 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 			wg.Add(1)
 
 			select {
-			case <-lookupCtx.Done():
-				// exit earlier if a tag lookup failed
+			case <-ctx.Done():
+				// Exit earlier if a tag lookup or import failed.
 				return
 			default:
 			}
@@ -512,26 +508,8 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 					wg.Done()
 				}()
 
-				desc, err := tagService.Get(lookupCtx, t)
-				if err != nil {
-					l := l.WithFields(log.Fields{"tag_name": t})
-					if errors.As(err, &distribution.ErrTagUnknown{}) {
-						// the tag link is missing, just log a warning and skip
-						l.WithError(err).Warn("missing tag link, skipping")
-						return
-					}
-					if errors.Is(err, digest.ErrDigestInvalidFormat) {
-						// the tag link is corrupted, just log a warning and skip
-						l.WithError(err).Warn("broken tag link, skipping")
-						return
-					}
-					cancel()
-					// this log entry allows us to determine the root cause for the outer context cancellation error
-					l.WithError(err).Error("error reading tag details, canceling context")
-					return
-				}
-
-				tagResChan <- &tagLookupResponse{t, desc}
+				desc, err := tagService.Get(ctx, t)
+				tagResChan <- &tagLookupResponse{t, desc, err}
 			}(tag)
 		}
 
@@ -547,23 +525,36 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 		i++
 		fsTag := tRes.name
 		desc := tRes.desc
+		err := tRes.err
 
-		l := l.WithFields(log.Fields{
-			"tag_name": fsTag,
-			"count":    i,
-			"total":    total,
-			"digest":   desc.Digest,
-		})
+		l := l.WithFields(log.Fields{"tag_name": fsTag, "count": i, "total": total, "digest": desc.Digest})
 		l.Info("importing tag")
+
+		if err != nil {
+			l := l.WithError(err)
+
+			if errors.As(err, &distribution.ErrTagUnknown{}) {
+				// The tag link is missing, log a warning and skip.
+				l.Warn("missing tag link, skipping")
+				continue
+			}
+			if errors.Is(err, digest.ErrDigestInvalidFormat) {
+				// The tag link is corrupted, log a warning and skip.
+				l.Warn("broken tag link, skipping")
+				continue
+			}
+
+			return fmt.Errorf("reading tag details: %w", err)
+		}
 
 		// Find corresponding manifest in DB or filesystem.
 		var dbManifest *models.Manifest
-		dbManifest, err = imp.repositoryStore.FindManifestByDigest(lookupCtx, dbRepo, desc.Digest)
+		dbManifest, err = imp.repositoryStore.FindManifestByDigest(ctx, dbRepo, desc.Digest)
 		if err != nil {
 			return fmt.Errorf("finding tagged manifest in database: %w", err)
 		}
 		if dbManifest == nil {
-			m, err := getFsManifest(lookupCtx, manifestService, desc.Digest, l)
+			m, err := getFsManifest(ctx, manifestService, desc.Digest, l)
 			if err != nil {
 				if errors.Is(err, errManifestSkip) {
 					continue
@@ -574,10 +565,10 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 			switch fsManifest := m.(type) {
 			case *manifestlist.DeserializedManifestList:
 				l.Info("importing manifest list")
-				dbManifest, err = imp.importManifestList(lookupCtx, fsRepo, dbRepo, fsManifest, desc.Digest)
+				dbManifest, err = imp.importManifestList(ctx, fsRepo, dbRepo, fsManifest, desc.Digest)
 			default:
 				l.Info("importing manifest")
-				dbManifest, err = imp.importManifest(lookupCtx, fsRepo, dbRepo, fsManifest, desc.Digest)
+				dbManifest, err = imp.importManifest(ctx, fsRepo, dbRepo, fsManifest, desc.Digest)
 			}
 			if err != nil {
 				if errors.Is(err, distribution.ErrSchemaV1Unsupported) {
@@ -589,7 +580,7 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 		}
 
 		dbTag := &models.Tag{Name: fsTag, RepositoryID: dbRepo.ID, ManifestID: dbManifest.ID, NamespaceID: dbRepo.NamespaceID}
-		if err := imp.tagStore.CreateOrUpdate(lookupCtx, dbTag); err != nil {
+		if err := imp.tagStore.CreateOrUpdate(ctx, dbTag); err != nil {
 			l.WithError(err).Error("creating tag")
 		}
 	}

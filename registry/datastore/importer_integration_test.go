@@ -418,6 +418,33 @@ func TestImporter_Import_MissingTagLink_WithConcurrency(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// lastTagErrorDriver mocks an unknown storage driver error when reading the
+// tag in the last-tag-error repository only.
+type lastTagErrorDriver struct {
+	*filesystem.Driver
+}
+
+func (d *lastTagErrorDriver) GetContent(ctx context.Context, path string) ([]byte, error) {
+	tagLinkFile := "/docker/registry/v2/repositories/last-tag-error/_manifests/tags/2.1.1/current/link"
+	if path == tagLinkFile {
+		return []byte{}, errors.New("test tag details read error")
+	}
+
+	return d.Driver.GetContent(ctx, path)
+}
+
+func TestImporter_Import_LastTagError(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	driver := &lastTagErrorDriver{newFilesystemStorageDriverWithRoot(t, "last-tag-error")}
+	registry := newRegistry(t, driver)
+
+	imp := datastore.NewImporter(suite.db, registry)
+	err := imp.Import(suite.ctx, "last-tag-error")
+
+	require.EqualError(t, err, "importing tags: reading tag details: test tag details read error")
+}
+
 func TestImporter_Import_AbortsIfDatabaseIsNotEmpty(t *testing.T) {
 	driver := newFilesystemStorageDriver(t)
 	registry := newRegistry(t, driver)
