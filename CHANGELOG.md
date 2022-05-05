@@ -1,3 +1,17 @@
+# [3.41.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.40.0-gitlab...v3.41.0-gitlab) (2022-05-05)
+
+
+### Bug Fixes
+
+* allow query aggregated size of repositories under an unknown base path ([89c2d3b](https://gitlab.com/gitlab-org/container-registry/commit/89c2d3b0cb9d37a4579325f0ba46f2c52e3fc49a))
+* **datastore:** do not ignore last tag lookup error when importing tags ([4b149b2](https://gitlab.com/gitlab-org/container-registry/commit/4b149b23b323b80abdcbbb425b10fcb803aeb831))
+
+
+### Features
+
+* add support for additional WASM media types ([e8c58c8](https://gitlab.com/gitlab-org/container-registry/commit/e8c58c80f99b0327f33b30e090b94f6c72c7a25a))
+* add support for Gardener media types ([967b1a5](https://gitlab.com/gitlab-org/container-registry/commit/967b1a551e4335c09a01e4b2c5691c2076462c33))
+
 # [3.40.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.39.3-gitlab...v3.40.0-gitlab) (2022-05-04)
 
 
