@@ -175,6 +175,38 @@ func TestNewBlobTransferService(t *testing.T) {
 	require.EqualError(t, err, "destination driver cannot be nil")
 }
 
+func TestTransferFailedErrorWithNilInnerErrors(t *testing.T) {
+	bothNil := distribution.ErrBlobTransferFailed{
+		Digest:     digest.FromString("blob"),
+		Cleanup:    false,
+		Reason:     nil,
+		CleanupErr: nil,
+	}
+
+	require.EqualError(t, bothNil,
+		`failed to transfer blob digest="sha256:fa2c8cc4f28176bbeed4b736df569a34c79cd3723e9ec42f9674b4d46ac6b8b8" cleanup=false cleanupError=<nil>: <nil>`)
+
+	cleanupNil := distribution.ErrBlobTransferFailed{
+		Digest:     digest.FromString("blob"),
+		Cleanup:    false,
+		Reason:     errors.New("fake test reason"),
+		CleanupErr: nil,
+	}
+
+	require.EqualError(t, cleanupNil,
+		`failed to transfer blob digest="sha256:fa2c8cc4f28176bbeed4b736df569a34c79cd3723e9ec42f9674b4d46ac6b8b8" cleanup=false cleanupError=<nil>: fake test reason`)
+
+	reasonNil := distribution.ErrBlobTransferFailed{
+		Digest:     digest.FromString("blob"),
+		Cleanup:    true,
+		Reason:     nil,
+		CleanupErr: errors.New("fake cleanup error"),
+	}
+
+	require.EqualError(t, reasonNil,
+		`failed to transfer blob digest="sha256:fa2c8cc4f28176bbeed4b736df569a34c79cd3723e9ec42f9674b4d46ac6b8b8" cleanup=true cleanupError=fake cleanup error: <nil>`)
+}
+
 func uploadLayer(t *testing.T, e *env, layer io.ReadSeeker, dgst digest.Digest) distribution.Descriptor {
 	t.Helper()
 
