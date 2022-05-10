@@ -193,6 +193,10 @@ func (imp *Importer) importLayers(ctx context.Context, dbRepo *models.Repository
 				l.Warn("blob is not linked to repository, skipping blob import")
 				continue
 			}
+			if errors.Is(err, digest.ErrDigestInvalidFormat) {
+				l.WithError(err).Warn("broken layer link, skipping manifest import")
+				return errManifestSkip
+			}
 			return fmt.Errorf("checking for access to blob with digest %s on repository %s: %w", fsLayer.Digest, fsRepo.Named().Name(), err)
 		}
 
@@ -240,10 +244,16 @@ func (imp *Importer) importManifestV2(ctx context.Context, fsRepo distribution.R
 		return nil, fmt.Errorf("parsing manifest payload: %w", err)
 	}
 
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": dbRepo.Path})
+
 	// get configuration blob payload
 	blobStore := fsRepo.Blobs(ctx)
 	configPayload, err := blobStore.Get(ctx, m.Config().Digest)
 	if err != nil {
+		if errors.Is(err, digest.ErrDigestInvalidFormat) {
+			l.WithError(err).Warn("broken configuration layer link, skipping")
+			return nil, errManifestSkip
+		}
 		return nil, fmt.Errorf("obtaining configuration payload: %w", err)
 	}
 
@@ -253,8 +263,7 @@ func (imp *Importer) importManifestV2(ctx context.Context, fsRepo distribution.R
 		Size:      m.Config().Size,
 	}
 
-	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
-		"repository": dbRepo.Path,
+	l = l.WithFields(log.Fields{
 		"digest":     dbConfigBlob.Digest,
 		"media_type": dbConfigBlob.MediaType,
 		"size":       dbConfigBlob.Size,
@@ -575,6 +584,10 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 					l.WithError(err).Warn("skipping v1 manifest import")
 					continue
 				}
+				if errors.Is(err, errManifestSkip) {
+					l.WithError(err).Warn("skipping manifest import")
+					continue
+				}
 				return fmt.Errorf("importing manifest: %w", err)
 			}
 		}
@@ -708,6 +721,10 @@ func (imp *Importer) preImportManifest(ctx context.Context, fsRepo distribution.
 		if _, err := imp.importManifest(ctx, fsRepo, dbRepo, fsManifest, dgst); err != nil {
 			if errors.Is(err, distribution.ErrSchemaV1Unsupported) {
 				l.WithError(err).Warn("skipping v1 manifest import")
+				return nil
+			}
+			if errors.Is(err, errManifestSkip) {
+				l.WithError(err).Warn("skipping manifest import")
 				return nil
 			}
 			return fmt.Errorf("pre importing manifest: %w", err)

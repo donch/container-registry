@@ -663,6 +663,24 @@ func TestImporter_Import_SchemaV1(t *testing.T) {
 	validateImport(t, suite.db)
 }
 
+func TestImporter_PreImport_EmptyLayerLinks(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "empty-layer-links")
+	err := imp.PreImport(suite.ctx, "broken-layer-links")
+	require.NoError(t, err)
+	validateImport(t, suite.db)
+}
+
+func TestImporter_Import_EmptyLayerLinks(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "empty-layer-links")
+	err := imp.Import(suite.ctx, "broken-layer-links")
+	require.NoError(t, err)
+	validateImport(t, suite.db)
+}
+
 func TestImporter_PreImport_FailureDueToInvalidManifestReferencesDoesNotSucceedOnRetry(t *testing.T) {
 	require.NoError(t, testutil.TruncateAllTables(suite.db))
 
