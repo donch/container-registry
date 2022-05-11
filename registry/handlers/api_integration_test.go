@@ -6296,7 +6296,8 @@ func newTestEnvWithConfig(t *testing.T, config *configuration.Configuration) *te
 		}
 	}
 
-	app := registryhandlers.NewApp(ctx, config)
+	app, err := registryhandlers.NewApp(ctx, config)
+	require.NoError(t, err)
 	handler := correlation.InjectCorrelationID(app, correlation.WithPropagation())
 
 	var out io.Writer

@@ -116,7 +116,7 @@ type App struct {
 // NewApp takes a configuration and returns a configured app, ready to serve
 // requests. The app only implements ServeHTTP and can be wrapped in other
 // handlers accordingly.
-func NewApp(ctx context.Context, config *configuration.Configuration) *App {
+func NewApp(ctx context.Context, config *configuration.Configuration) (*App, error) {
 	app := &App{
 		Config:             config,
 		Context:            ctx,
@@ -155,7 +155,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 		// TODO(stevvooe): Move the creation of a service into a protected
 		// method, where this is created lazily. Its status can be queried via
 		// a health check.
-		panic(err)
+		return nil, err
 	}
 
 	log := dcontext.GetLogger(app)
@@ -163,7 +163,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 	if config.Migration.Enabled {
 		md, err := migrationDriver(config)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 		app.migrationDriver = md
 		app.importSemaphore = make(chan struct{}, config.Migration.MaxConcurrentImports)
@@ -175,7 +175,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 				config.Migration.ImportNotification.Timeout,
 			)
 			if err != nil {
-				log.WithError(err).Fatal("could not create import notifier")
+				return nil, fmt.Errorf("could not create import notifier: %w", err)
 			}
 
 			app.importNotifier = notifier
@@ -187,18 +187,18 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 		if v, ok := mc["uploadpurging"]; ok {
 			purgeConfig, ok = v.(map[interface{}]interface{})
 			if !ok {
-				panic("uploadpurging config key must contain additional keys")
+				return nil, fmt.Errorf("uploadpurging config key must contain additional keys")
 			}
 		}
 		if v, ok := mc["readonly"]; ok {
 			readOnly, ok := v.(map[interface{}]interface{})
 			if !ok {
-				panic("readonly config key must contain additional keys")
+				return nil, fmt.Errorf("readonly config key must contain additional keys")
 			}
 			if readOnlyEnabled, ok := readOnly["enabled"]; ok {
 				app.readOnly, ok = readOnlyEnabled.(bool)
 				if !ok {
-					panic("readonly's enabled config key must have a boolean value")
+					return nil, fmt.Errorf("readonly's enabled config key must have a boolean value")
 				}
 
 				if app.readOnly {
@@ -211,26 +211,32 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 		}
 	}
 
-	startUploadPurger(app, app.driver, log, purgeConfig)
+	if err := startUploadPurger(app, app.driver, log, purgeConfig); err != nil {
+		return nil, err
+	}
 
 	// Also start an upload purger for the new root directory if we're migrating
 	// to a different root directory.
 	if app.Config.Migration.Enabled && distinctMigrationRootDirectory(config) {
-		startUploadPurger(app, app.migrationDriver, log, purgeConfig)
+		if err := startUploadPurger(app, app.migrationDriver, log, purgeConfig); err != nil {
+			return nil, err
+		}
 	}
 
 	app.driver, err = applyStorageMiddleware(app.driver, config.Middleware["storage"])
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	if app.Config.Migration.Enabled {
 		app.migrationDriver, err = applyStorageMiddleware(app.migrationDriver, config.Middleware["storage"])
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 	}
 
-	app.configureSecret(config)
+	if err := app.configureSecret(config); err != nil {
+		return nil, err
+	}
 	app.configureEvents(config)
 	app.configureRedis(config)
 
@@ -243,7 +249,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 	if config.HTTP.Host != "" {
 		u, err := url.Parse(config.HTTP.Host)
 		if err != nil {
-			panic(fmt.Sprintf(`could not parse http "host" parameter: %v`, err))
+			return nil, fmt.Errorf(`could not parse http "host" parameter: %w`, err)
 		}
 		app.httpHost = *u
 	}
@@ -272,7 +278,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 		case nil:
 			// disable is not mandatory as we default to false, so do nothing if it doesn't exist
 		default:
-			panic(fmt.Sprintf("invalid type %T for 'storage.redirect.disable' (boolean)", v))
+			return nil, fmt.Errorf("invalid type %T for 'storage.redirect.disable' (boolean)", v)
 		}
 	}
 	if redirectDisabled {
@@ -302,11 +308,11 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 			d = v
 		case string:
 			if d, err = time.ParseDuration(v); err != nil {
-				panic(fmt.Errorf("%q value for 'storage.redirect.expirydelay' is not a valid duration", v))
+				return nil, fmt.Errorf("%q value for 'storage.redirect.expirydelay' is not a valid duration", v)
 			}
 		case nil:
 		default:
-			panic(fmt.Errorf("invalid type %[1]T for 'storage.redirect.expirydelay' (duration)", delay))
+			return nil, fmt.Errorf("invalid type %[1]T for 'storage.redirect.expirydelay' (duration)", delay)
 		}
 		if d > 0 {
 			l = l.WithField("expiry_delay_s", d.Seconds())
@@ -331,7 +337,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 				for i, s := range config.Validation.Manifests.URLs.Allow {
 					// Validate via compilation.
 					if _, err := regexp.Compile(s); err != nil {
-						panic(fmt.Sprintf("validation.manifests.urls.allow: %s", err))
+						return nil, fmt.Errorf("validation.manifests.urls.allow: %w", err)
 					}
 					// Wrap with non-capturing group.
 					config.Validation.Manifests.URLs.Allow[i] = fmt.Sprintf("(?:%s)", s)
@@ -343,7 +349,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 				for i, s := range config.Validation.Manifests.URLs.Deny {
 					// Validate via compilation.
 					if _, err := regexp.Compile(s); err != nil {
-						panic(fmt.Sprintf("validation.manifests.urls.deny: %s", err))
+						return nil, fmt.Errorf("validation.manifests.urls.deny: %w", err)
 					}
 					// Wrap with non-capturing group.
 					config.Validation.Manifests.URLs.Deny[i] = fmt.Sprintf("(?:%s)", s)
@@ -387,7 +393,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 			}),
 		)
 		if err != nil {
-			log.Fatalf(fmt.Sprintf("failed to construct database connection: %v", err))
+			return nil, fmt.Errorf("failed to construct database connection: %w", err)
 		}
 
 		// Skip postdeployment migrations to prevent pending post deployment
@@ -395,10 +401,10 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 		m := migrations.NewMigrator(db.DB, migrations.SkipPostDeployment)
 		pending, err := m.HasPending()
 		if err != nil {
-			panic(fmt.Sprintf("failed to check database migrations status: %v", err))
+			return nil, fmt.Errorf("failed to check database migrations status: %w", err)
 		}
 		if pending {
-			log.Fatalf("there are pending database migrations, use the 'registry database migrate' CLI " +
+			return nil, fmt.Errorf("there are pending database migrations, use the 'registry database migrate' CLI " +
 				"command to check and apply them")
 		}
 
@@ -455,13 +461,13 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 		switch v {
 		case "redis":
 			if app.redis == nil {
-				panic("redis configuration required to use for layerinfo cache")
+				return nil, fmt.Errorf("redis configuration required to use for layerinfo cache")
 			}
 			cacheProvider := rediscache.NewRedisBlobDescriptorCacheProvider(app.redis)
 			localOptions := append(options, storage.BlobDescriptorCacheProvider(cacheProvider))
 			app.registry, err = storage.NewRegistry(app, app.driver, localOptions...)
 			if err != nil {
-				panic("could not create registry: " + err.Error())
+				return nil, fmt.Errorf("could not create registry: %w", err)
 			}
 			log.Info("using redis blob descriptor cache")
 		case "inmemory":
@@ -469,7 +475,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 			localOptions := append(options, storage.BlobDescriptorCacheProvider(cacheProvider))
 			app.registry, err = storage.NewRegistry(app, app.driver, localOptions...)
 			if err != nil {
-				panic("could not create registry: " + err.Error())
+				return nil, fmt.Errorf("could not create registry: %w", err)
 			}
 			log.Info("using inmemory blob descriptor cache")
 		default:
@@ -485,17 +491,19 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 		// configure the registry if no cache section is available.
 		app.registry, err = storage.NewRegistry(app.Context, app.driver, options...)
 		if err != nil {
-			panic("could not create registry: " + err.Error())
+			return nil, fmt.Errorf("could not create registry: %w", err)
 		}
 	}
 
 	app.registry, err = applyRegistryMiddleware(app, app.registry, config.Middleware["registry"])
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	if config.Migration.Enabled {
-		app.migrationRegistry = migrationRegistry(app.Context, app.migrationDriver, config, options...)
+		if app.migrationRegistry, err = migrationRegistry(app.Context, app.migrationDriver, config, options...); err != nil {
+			return nil, err
+		}
 	}
 
 	authType := config.Auth.Type()
@@ -503,7 +511,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 	if authType != "" && !strings.EqualFold(authType, "none") {
 		accessController, err := auth.GetAccessController(config.Auth.Type(), config.Auth.Parameters())
 		if err != nil {
-			panic(fmt.Sprintf("unable to configure authorization (%s): %v", authType, err))
+			return nil, fmt.Errorf("unable to configure authorization (%s): %w", authType, err)
 		}
 		app.accessController = accessController
 		log.WithField("auth_type", authType).Debug("configured access controller")
@@ -513,7 +521,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 	if config.Proxy.RemoteURL != "" {
 		app.registry, err = proxy.NewRegistryPullThroughCache(ctx, app.registry, app.driver, config.Proxy)
 		if err != nil {
-			panic(err.Error())
+			return nil, err
 		}
 		app.isCache = true
 		log.WithField("remote", config.Proxy.RemoteURL).Info("registry configured as a proxy cache")
@@ -524,7 +532,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 		log.Warn("registry does not implement RepositoryRemover. Will not be able to delete repos and tags")
 	}
 
-	return app
+	return app, nil
 }
 
 func migrationDriver(config *configuration.Configuration) (storagedriver.StorageDriver, error) {
@@ -547,17 +555,12 @@ func migrationDriver(config *configuration.Configuration) (storagedriver.Storage
 	return driver, nil
 }
 
-func migrationRegistry(ctx context.Context, driver storagedriver.StorageDriver, config *configuration.Configuration, options ...storage.RegistryOption) distribution.Namespace {
+func migrationRegistry(ctx context.Context, driver storagedriver.StorageDriver, config *configuration.Configuration, options ...storage.RegistryOption) (distribution.Namespace, error) {
 	if config.Migration.DisableMirrorFS {
 		options = append(options, storage.DisableMirrorFS)
 	}
 
-	registry, err := storage.NewRegistry(ctx, driver, options...)
-	if err != nil {
-		panic(err)
-	}
-
-	return registry
+	return storage.NewRegistry(ctx, driver, options...)
 }
 
 func distinctMigrationRootDirectory(config *configuration.Configuration) bool {
@@ -728,9 +731,9 @@ func startOnlineGC(ctx context.Context, db *datastore.DB, storageDriver storaged
 // process. Because the configuration and app are tightly coupled,
 // implementing this properly will require a refactor. This method may panic
 // if called twice in the same process.
-func (app *App) RegisterHealthChecks(healthRegistries ...*health.Registry) {
+func (app *App) RegisterHealthChecks(healthRegistries ...*health.Registry) error {
 	if len(healthRegistries) > 1 {
-		panic("RegisterHealthChecks called with more than one registry")
+		return fmt.Errorf("RegisterHealthChecks called with more than one registry")
 	}
 	healthRegistry := health.DefaultRegistry
 	if len(healthRegistries) == 1 {
@@ -805,6 +808,7 @@ func (app *App) RegisterHealthChecks(healthRegistries ...*health.Registry) {
 			healthRegistry.Register(tcpChecker.Addr, health.PeriodicChecker(checker, interval))
 		}
 	}
+	return nil
 }
 
 var routeMetricsMiddleware = metricskit.NewHandlerFactory(
@@ -952,15 +956,16 @@ func (app *App) configureRedis(configuration *configuration.Configuration) {
 
 // configureSecret creates a random secret if a secret wasn't included in the
 // configuration.
-func (app *App) configureSecret(configuration *configuration.Configuration) {
+func (app *App) configureSecret(configuration *configuration.Configuration) error {
 	if configuration.HTTP.Secret == "" {
 		var secretBytes [randomSecretSize]byte
 		if _, err := cryptorand.Read(secretBytes[:]); err != nil {
-			panic(fmt.Sprintf("could not generate random bytes for HTTP secret: %v", err))
+			return fmt.Errorf("could not generate random bytes for HTTP secret: %w", err)
 		}
 		configuration.HTTP.Secret = string(secretBytes[:])
 		dcontext.GetLogger(app).Warn("No HTTP secret provided - generated random secret. This may cause problems with uploads if multiple registries are behind a load-balancer. To provide a shared secret, fill in http.secret in the configuration file or set the REGISTRY_HTTP_SECRET environment variable.")
 	}
+	return nil
 }
 
 func (app *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -1569,15 +1574,15 @@ func uploadPurgeDefaultConfig() map[interface{}]interface{} {
 	return config
 }
 
-func badPurgeUploadConfig(reason string) {
-	panic(fmt.Sprintf("Unable to parse upload purge configuration: %s", reason))
+func badPurgeUploadConfig(reason string) error {
+	return fmt.Errorf("Unable to parse upload purge configuration: %s", reason)
 }
 
 // startUploadPurger schedules a goroutine which will periodically
 // check upload directories for old files and delete them
-func startUploadPurger(ctx context.Context, storageDriver storagedriver.StorageDriver, log dcontext.Logger, config map[interface{}]interface{}) {
+func startUploadPurger(ctx context.Context, storageDriver storagedriver.StorageDriver, log dcontext.Logger, config map[interface{}]interface{}) error {
 	if config["enabled"] == false {
-		return
+		return nil
 	}
 
 	var purgeAgeDuration time.Duration
@@ -1586,14 +1591,14 @@ func startUploadPurger(ctx context.Context, storageDriver storagedriver.StorageD
 	if ok {
 		ageStr, ok := purgeAge.(string)
 		if !ok {
-			badPurgeUploadConfig("age is not a string")
+			return badPurgeUploadConfig("age is not a string")
 		}
 		purgeAgeDuration, err = time.ParseDuration(ageStr)
 		if err != nil {
-			badPurgeUploadConfig(fmt.Sprintf("Cannot parse duration: %s", err.Error()))
+			return badPurgeUploadConfig(fmt.Sprintf("Cannot parse duration: %s", err.Error()))
 		}
 	} else {
-		badPurgeUploadConfig("age missing")
+		return badPurgeUploadConfig("age missing")
 	}
 
 	var intervalDuration time.Duration
@@ -1601,15 +1606,15 @@ func startUploadPurger(ctx context.Context, storageDriver storagedriver.StorageD
 	if ok {
 		intervalStr, ok := interval.(string)
 		if !ok {
-			badPurgeUploadConfig("interval is not a string")
+			return badPurgeUploadConfig("interval is not a string")
 		}
 
 		intervalDuration, err = time.ParseDuration(intervalStr)
 		if err != nil {
-			badPurgeUploadConfig(fmt.Sprintf("Cannot parse interval: %s", err.Error()))
+			return badPurgeUploadConfig(fmt.Sprintf("Cannot parse interval: %s", err.Error()))
 		}
 	} else {
-		badPurgeUploadConfig("interval missing")
+		return badPurgeUploadConfig("interval missing")
 	}
 
 	var dryRunBool bool
@@ -1617,10 +1622,10 @@ func startUploadPurger(ctx context.Context, storageDriver storagedriver.StorageD
 	if ok {
 		dryRunBool, ok = dryRun.(bool)
 		if !ok {
-			badPurgeUploadConfig("cannot parse dryrun")
+			return badPurgeUploadConfig("cannot parse dryrun")
 		}
 	} else {
-		badPurgeUploadConfig("dryrun missing")
+		return badPurgeUploadConfig("dryrun missing")
 	}
 
 	go func() {
@@ -1636,6 +1641,8 @@ func startUploadPurger(ctx context.Context, storageDriver storagedriver.StorageD
 			time.Sleep(intervalDuration)
 		}
 	}()
+
+	return nil
 }
 
 // GracefulShutdown allows the app to free any resources before shutdown.
