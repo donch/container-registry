@@ -154,13 +154,9 @@ func (imp *Importer) findOrCreateDBManifest(ctx context.Context, dbRepo *models.
 	return dbManifest, nil
 }
 
-func (imp *Importer) importLayer(ctx context.Context, dbRepo *models.Repository, dbManifest *models.Manifest, dbLayer *models.Blob) error {
+func (imp *Importer) importLayer(ctx context.Context, dbRepo *models.Repository, dbLayer *models.Blob) error {
 	if err := imp.blobStore.CreateOrFind(ctx, dbLayer); err != nil {
 		return fmt.Errorf("creating layer blob: %w", err)
-	}
-
-	if err := imp.manifestStore.AssociateLayerBlob(ctx, dbManifest, dbLayer); err != nil {
-		return fmt.Errorf("associating layer blob with manifest: %w", err)
 	}
 
 	if err := imp.repositoryStore.LinkBlob(ctx, dbRepo, dbLayer.Digest); err != nil {
@@ -174,9 +170,11 @@ func (imp *Importer) importLayer(ctx context.Context, dbRepo *models.Repository,
 	return nil
 }
 
-func (imp *Importer) importLayers(ctx context.Context, dbRepo *models.Repository, fsRepo distribution.Repository, dbManifest *models.Manifest, fsLayers []distribution.Descriptor) error {
+func (imp *Importer) importLayers(ctx context.Context, dbRepo *models.Repository, fsRepo distribution.Repository, fsLayers []distribution.Descriptor) ([]*models.Blob, error) {
 	total := len(fsLayers)
 	metrics.LayerCount(total)
+
+	var dbLayers []*models.Blob
 
 	for i, fsLayer := range fsLayers {
 		l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
@@ -195,21 +193,20 @@ func (imp *Importer) importLayers(ctx context.Context, dbRepo *models.Repository
 			}
 			if errors.Is(err, digest.ErrDigestInvalidFormat) {
 				l.WithError(err).Warn("broken layer link, skipping manifest import")
-				return errManifestSkip
+				return dbLayers, errManifestSkip
 			}
-			return fmt.Errorf("checking for access to blob with digest %s on repository %s: %w", fsLayer.Digest, fsRepo.Named().Name(), err)
+			return dbLayers, fmt.Errorf("checking for access to blob with digest %s on repository %s: %w", fsLayer.Digest, fsRepo.Named().Name(), err)
 		}
 
-		if err := imp.importLayer(ctx, dbRepo, dbManifest, &models.Blob{
-			MediaType: fsLayer.MediaType,
-			Digest:    fsLayer.Digest,
-			Size:      fsLayer.Size,
-		}); err != nil {
-			return err
+		layer := &models.Blob{MediaType: fsLayer.MediaType, Digest: fsLayer.Digest, Size: fsLayer.Size}
+
+		if err := imp.importLayer(ctx, dbRepo, layer); err != nil {
+			return dbLayers, err
 		}
+		dbLayers = append(dbLayers, layer)
 	}
 
-	return nil
+	return dbLayers, nil
 }
 
 func (imp *Importer) transferBlob(ctx context.Context, d digest.Digest, size int64, t metrics.BlobType) error {
@@ -284,6 +281,12 @@ func (imp *Importer) importManifestV2(ctx context.Context, fsRepo distribution.R
 		return nil, fmt.Errorf("associating configuration blob with repository: %w", err)
 	}
 
+	// Import manifest layers stored locally on the registry.
+	dbLayers, err := imp.importLayers(ctx, dbRepo, fsRepo, m.DistributableLayers())
+	if err != nil {
+		return nil, fmt.Errorf("importing layers: %w", err)
+	}
+
 	// find or create DB manifest
 	dbManifest, err := imp.findOrCreateDBManifest(ctx, dbRepo, &models.Manifest{
 		NamespaceID:   dbRepo.NamespaceID,
@@ -303,9 +306,11 @@ func (imp *Importer) importManifestV2(ctx context.Context, fsRepo distribution.R
 		return nil, err
 	}
 
-	// Import manifess stored locally on the registry.
-	if err := imp.importLayers(ctx, dbRepo, fsRepo, dbManifest, m.DistributableLayers()); err != nil {
-		return nil, fmt.Errorf("importing layers: %w", err)
+	// Link imported layers to the manifest.
+	for _, dbLayer := range dbLayers {
+		if err := imp.manifestStore.AssociateLayerBlob(ctx, dbManifest, dbLayer); err != nil {
+			return nil, fmt.Errorf("associating layer blob with manifest: %w", err)
+		}
 	}
 
 	return dbManifest, nil
