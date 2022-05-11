@@ -169,7 +169,8 @@ func TestNewApp(t *testing.T) {
 	// Mostly, with this test, given a sane configuration, we are simply
 	// ensuring that NewApp doesn't panic. We might want to tweak this
 	// behavior.
-	app := NewApp(ctx, config)
+	app, err := NewApp(ctx, config)
+	require.NoError(t, err)
 
 	server := httptest.NewServer(app)
 	defer server.Close()
@@ -295,7 +296,8 @@ func TestGitlabAPI_RepositoryImportAccessRecords(t *testing.T) {
 	ctx := context.Background()
 	config := testConfig()
 
-	app := NewApp(ctx, config)
+	app, err := NewApp(ctx, config)
+	require.NoError(t, err)
 
 	server := httptest.NewServer(app)
 	defer server.Close()
@@ -344,7 +346,8 @@ func TestGitlabAPI_GetRepositoryDetailsAccessRecords(t *testing.T) {
 	ctx := context.Background()
 	config := testConfig()
 
-	app := NewApp(ctx, config)
+	app, err := NewApp(ctx, config)
+	require.NoError(t, err)
 
 	server := httptest.NewServer(app)
 	defer server.Close()
@@ -378,7 +381,8 @@ func TestGitlabAPI_GetRepositoryDetails_SelfWithDescendantsAccessRecords(t *test
 	ctx := context.Background()
 	config := testConfig()
 
-	app := NewApp(ctx, config)
+	app, err := NewApp(ctx, config)
+	require.NoError(t, err)
 
 	server := httptest.NewServer(app)
 	defer server.Close()

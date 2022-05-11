@@ -11,6 +11,7 @@ import (
 	"github.com/docker/distribution/configuration"
 	"github.com/docker/distribution/context"
 	"github.com/docker/distribution/health"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFileHealthCheck(t *testing.T) {
@@ -41,7 +42,8 @@ func TestFileHealthCheck(t *testing.T) {
 
 	ctx := context.Background()
 
-	app := NewApp(ctx, config)
+	app, err := NewApp(ctx, config)
+	require.NoError(t, err)
 	healthRegistry := health.NewRegistry()
 	app.RegisterHealthChecks(healthRegistry)
 
@@ -105,7 +107,8 @@ func TestTCPHealthCheck(t *testing.T) {
 
 	ctx := context.Background()
 
-	app := NewApp(ctx, config)
+	app, err := NewApp(ctx, config)
+	require.NoError(t, err)
 	healthRegistry := health.NewRegistry()
 	app.RegisterHealthChecks(healthRegistry)
 
@@ -168,7 +171,8 @@ func TestHTTPHealthCheck(t *testing.T) {
 
 	ctx := context.Background()
 
-	app := NewApp(ctx, config)
+	app, err := NewApp(ctx, config)
+	require.NoError(t, err)
 	healthRegistry := health.NewRegistry()
 	app.RegisterHealthChecks(healthRegistry)
 

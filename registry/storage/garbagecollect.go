@@ -254,7 +254,7 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 						if mlcompat.ContainsBlobs(manifestList) {
 							tags, err := cachedTagStore.Lookup(ctx, distribution.Descriptor{Digest: manifestDigest})
 							if err != nil {
-								return fmt.Errorf("retrieving tags for digest %v: %w", dgst, err)
+								return fmt.Errorf("retrieving tags for digest %v: %w", manifestDigest, err)
 							}
 							log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
 								"mediatype":  manifestList.Versioned.MediaType,
