@@ -1019,7 +1019,7 @@ func (d *driver) TransferTo(ctx context.Context, destDriver storagedriver.Storag
 		return storagedriver.PartialTransferError{SourcePath: srcPath, DestinationPath: destPath, Cause: err}
 	}
 
-	if bytes.Compare(srcAttrs.MD5, destAttrs.MD5) != 0 {
+	if srcAttrs.CRC32C != destAttrs.CRC32C {
 		err = fmt.Errorf("src %q and dest %q checksums do not match after transfer", src.ObjectName(), dest.ObjectName())
 		return storagedriver.PartialTransferError{SourcePath: srcPath, DestinationPath: destPath, Cause: err}
 	}
