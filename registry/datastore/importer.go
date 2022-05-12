@@ -502,6 +502,8 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 	semaphore := make(chan struct{}, imp.tagConcurrency)
 	tagResChan := make(chan *tagLookupResponse)
 
+	l.WithFields(log.Fields{"total": total}).Info("importing tags")
+
 	// Start a goroutine to concurrently dispatch tag details lookup, up to the configured tag concurrency at once.
 	go func() {
 		var wg sync.WaitGroup
@@ -655,8 +657,11 @@ func (imp *Importer) preImportTaggedManifests(ctx context.Context, fsRepo distri
 
 	doneManifests := map[digest.Digest]struct{}{}
 
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": dbRepo.Path, "total": total})
+	l.Info("processing tags")
+
 	for i, fsTag := range fsTags {
-		l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": dbRepo.Path, "tag_name": fsTag, "count": i + 1, "total": total})
+		l := l.WithFields(log.Fields{"tag_name": fsTag, "count": i + 1})
 		l.Info("processing tag")
 
 		// read tag details from the filesystem
