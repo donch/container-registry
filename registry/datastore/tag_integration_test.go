@@ -239,7 +239,7 @@ func TestTagStore_Repository(t *testing.T) {
 	require.NoError(t, err)
 
 	// see testdata/fixtures/tags.sql
-	excepted := &models.Repository{
+	expected := &models.Repository{
 		NamespaceID:     1,
 		ID:              3,
 		Name:            "backend",
@@ -248,7 +248,7 @@ func TestTagStore_Repository(t *testing.T) {
 		MigrationStatus: migration.RepositoryStatusNative,
 		CreatedAt:       testutil.ParseTimestamp(t, "2020-03-02 17:42:12.566212", r.CreatedAt.Location()),
 	}
-	require.Equal(t, excepted, r)
+	require.Equal(t, expected, r)
 }
 
 func TestTagStore_Manifest(t *testing.T) {
@@ -265,7 +265,7 @@ func TestTagStore_Manifest(t *testing.T) {
 	require.NoError(t, err)
 
 	// see testdata/fixtures/tags.sql
-	excepted := &models.Manifest{
+	expected := &models.Manifest{
 		ID:            2,
 		NamespaceID:   1,
 		RepositoryID:  3,
@@ -281,7 +281,7 @@ func TestTagStore_Manifest(t *testing.T) {
 		},
 		CreatedAt: testutil.ParseTimestamp(t, "2020-03-02 17:50:26.461745", m.CreatedAt.Location()),
 	}
-	require.Equal(t, excepted, m)
+	require.Equal(t, expected, m)
 }
 
 func TestTagStore_CreateOrUpdate(t *testing.T) {

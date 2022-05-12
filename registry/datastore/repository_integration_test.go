@@ -41,7 +41,7 @@ func TestRepositoryStore_FindByID(t *testing.T) {
 	require.NoError(t, err)
 
 	// see testdata/fixtures/repositories.sql
-	excepted := &models.Repository{
+	expected := &models.Repository{
 		ID:              1,
 		NamespaceID:     1,
 		Name:            "gitlab-org",
@@ -49,7 +49,7 @@ func TestRepositoryStore_FindByID(t *testing.T) {
 		MigrationStatus: migration.RepositoryStatusNative,
 		CreatedAt:       testutil.ParseTimestamp(t, "2020-03-02 17:47:39.849864", r.CreatedAt.Location()),
 	}
-	require.Equal(t, excepted, r)
+	require.Equal(t, expected, r)
 }
 
 func TestRepositoryStore_FindByID_NotFound(t *testing.T) {
@@ -67,7 +67,7 @@ func TestRepositoryStore_FindByPath(t *testing.T) {
 	require.NoError(t, err)
 
 	// see testdata/fixtures/repositories.sql
-	excepted := &models.Repository{
+	expected := &models.Repository{
 		ID:              2,
 		NamespaceID:     1,
 		Name:            "gitlab-test",
@@ -76,7 +76,7 @@ func TestRepositoryStore_FindByPath(t *testing.T) {
 		MigrationStatus: migration.RepositoryStatusNative,
 		CreatedAt:       testutil.ParseTimestamp(t, "2020-03-02 17:47:40.866312", r.CreatedAt.Location()),
 	}
-	require.Equal(t, excepted, r)
+	require.Equal(t, expected, r)
 }
 
 func TestRepositoryStore_FindByPath_NotFound(t *testing.T) {

@@ -36,13 +36,13 @@ func TestBlobStore_FindByDigest(t *testing.T) {
 	require.NoError(t, err)
 
 	// see testdata/fixtures/blobs.sql
-	excepted := &models.Blob{
+	expected := &models.Blob{
 		MediaType: "application/vnd.docker.image.rootfs.diff.tar.gzip",
 		Digest:    "sha256:6b0937e234ce911b75630b744fb12836fe01bda5f7db203927edbb1390bc7e21",
 		Size:      108,
 		CreatedAt: testutil.ParseTimestamp(t, "2020-03-04 20:05:35.338639", b.CreatedAt.Location()),
 	}
-	require.Equal(t, excepted, b)
+	require.Equal(t, expected, b)
 }
 
 func TestBlobStore_FindByDigest_NotFound(t *testing.T) {
