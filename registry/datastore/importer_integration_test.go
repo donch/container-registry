@@ -771,3 +771,14 @@ func TestImporter_Import_CannotCommitAfterImportWasCanceled(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, migration.RepositoryStatusImportCanceled, gotStatus)
 }
+
+func TestImporter_PreImport_BuildkitIndexAsManifestList(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "buildkit-index-as-manifest-list")
+	err := imp.PreImport(suite.ctx, "buildx")
+	require.NoError(t, err)
+
+	// validate DB state
+	validateImport(t, suite.db)
+}
