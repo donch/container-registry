@@ -294,10 +294,20 @@ func (ih *importHandler) shouldImport(dbRepo *models.Repository) (bool, error) {
 			detail := v1.ErrorCodePreImportFailedErrorDetail(ih.Repository)
 			return false, v1.ErrorCodePreImportFailed.WithDetail(detail)
 
-		// Do not begin a final import for repository that was canceled during pre import.
-		case status == migration.RepositoryStatusPreImportCanceled && !ih.preImport:
-			detail := v1.ErrorCodePreImportCanceledErrorDetail(ih.Repository)
-			return false, v1.ErrorCodePreImportCanceled.WithDetail(detail)
+		case status == migration.RepositoryStatusPreImportCanceled:
+			// Wait at least OngoingImportCheckIntervalSeconds after a repository has been
+			// updated before allowing another import attempt after cancelation. This
+			// allows the checkOngoingImportStatus goroutine to cancel the import.
+			if dbRepo.UpdatedAt.Valid && time.Now().Before(dbRepo.UpdatedAt.Time.Add(OngoingImportCheckIntervalSeconds)) {
+				detail := v1.ErrorCodeImportRepositoryNotReadyDetail(ih.Repository)
+				return false, v1.ErrorCodeImportRepositoryNotReady.WithDetail(detail)
+			}
+
+			// Do not begin a final import for repository that was canceled during pre import.
+			if !ih.preImport {
+				detail := v1.ErrorCodePreImportCanceledErrorDetail(ih.Repository)
+				return false, v1.ErrorCodePreImportCanceled.WithDetail(detail)
+			}
 		}
 	}
 
