@@ -732,6 +732,45 @@ func TestImporter_PreImport_FailureDueToInvalidManifestListManifestReferencesDoe
 	validateImport(t, suite.db)
 }
 
+func TestImporter_PreImport_ErrorAfterImportWasCanceled(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	path := "f-dangling-manifests"
+	imp := newImporter(t, suite.db)
+
+	// do a pre import for path so that it exists in the DB
+	require.NoError(t, imp.PreImport(suite.ctx, path))
+
+	// Update the repository migration status to `import_canceled` so that
+	// we can cancel the import before committing the transaction
+	ctx, cancel := context.WithTimeout(suite.ctx, time.Second)
+	defer cancel()
+
+	res, err := suite.db.ExecContext(ctx,
+		`UPDATE repositories SET migration_status = $1 WHERE path = $2`,
+		migration.RepositoryStatusPreImportCanceled,
+		path,
+	)
+	require.NoError(t, err)
+
+	count, err := res.RowsAffected()
+	require.NoError(t, err)
+	require.EqualValues(t, 1, count)
+
+	// PreImport returns ErrPreImportCanceled and the final status should be migration.RepositoryStatusPreImportCanceled
+	err = imp.PreImport(suite.ctx, path)
+	require.EqualError(t, err, datastore.ErrPreImportCanceled.Error())
+
+	// assert that the migration status did not change after the import
+	var gotStatus migration.RepositoryStatus
+	err = suite.db.QueryRow(
+		`SELECT migration_status FROM repositories WHERE path = $1`,
+		path,
+	).Scan(&gotStatus)
+	require.NoError(t, err)
+	require.Equal(t, migration.RepositoryStatusPreImportCanceled, gotStatus)
+}
+
 func TestImporter_Import_CannotCommitAfterImportWasCanceled(t *testing.T) {
 	require.NoError(t, testutil.TruncateAllTables(suite.db))
 
@@ -757,10 +796,9 @@ func TestImporter_Import_CannotCommitAfterImportWasCanceled(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, 1, count)
 
-	// errImportCanceled does not return an error but the transaction is not committed
-	// so the final status should be migration.RepositoryStatusImportCanceled
-	err = imp.Import(suite.ctx, path)
-	require.NoError(t, err)
+	// Import returns ErrImportCanceled and the final status should be migration.RepositoryStatusImportCanceled
+	err = imp.PreImport(suite.ctx, path)
+	require.EqualError(t, err, datastore.ErrImportCanceled.Error())
 
 	// assert that the migration status did not change after the import
 	var gotStatus migration.RepositoryStatus

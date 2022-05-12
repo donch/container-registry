@@ -200,7 +200,7 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 	// passing it directly. This effectively strips the google CDN middleware
 	// (and all other middleware) from the migration driver since the CDN
 	// prevents blob transfer from starting.
-	// See: https://gitlab.com/gitlab-org/container-registry/-/issues/617a
+	// See: https://gitlab.com/gitlab-org/container-registry/-/issues/617
 	migrationDriver, err := migrationDriver(ih.App.Config)
 	if err != nil {
 		// try to update status from `(pre_)import_in_progress` to `(pre_)import_failed` before heading out
@@ -621,10 +621,13 @@ func (ih *importHandler) updateSuccessfulRepo(importCtx context.Context, dbRepo 
 // updateRepoWithError is called when a repository has failed to (pre)import. A possible failure is a
 // context.Deadline so we need to make sure that the repository is updated in the database correctly by using
 // a new context with its own timeout.
-// A context.Canceled importErr is not a reason to mark the repository migration status as failed, because this repository
-// was manually canceled by the DELETE endpoint, so this error should be skipped in this case.
 func (ih *importHandler) updateRepoWithError(importCtx context.Context, dbRepo *models.Repository, importErr error, multiErrs *multierror.Error) {
-	if importErr == nil || errors.Is(importErr, context.Canceled) {
+	if importErr == nil ||
+		// A context.Canceled or datastore.Err(Pre)ImportCanceled importErr is not a reason to mark the
+		// repository migration status as failed, because this repository was manually canceled by
+		// the DELETE endpoint, so this error should be skipped in these cases.
+		errors.Is(importErr, context.Canceled) ||
+		errors.Is(importErr, datastore.ErrPreImportCanceled) || errors.Is(importErr, datastore.ErrImportCanceled) {
 		return
 	}
 
