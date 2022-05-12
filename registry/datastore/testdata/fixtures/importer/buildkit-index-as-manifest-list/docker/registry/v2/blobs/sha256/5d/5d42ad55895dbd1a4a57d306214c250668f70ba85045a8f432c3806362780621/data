@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 2,
+  "mediaType": "application/vnd.oci.image.index.v1+json",
+  "manifests": [
+    {
+      "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+      "digest": "sha256:136482bf81d1fa351b424ebb8c7e34d15f2c5ed3fc0b66b544b8312bda3d52d9",
+      "size": 2427917,
+      "annotations": {
+        "buildkit/createdat": "2022-04-28T17:53:48.897920587Z",
+        "containerd.io/uncompressed": "sha256:3461705ddf3646694bec0ac1cc70d5d39631ca2f4317b451c01d0f0fd0580c90"
+      }
+    },
+    {
+      "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+      "digest": "sha256:5843afab387455b37944e709ee8c78d7520df80f8d01cf7f861aae63beeddb6b",
+      "size": 2811478,
+      "annotations": {
+        "buildkit/createdat": "2022-04-28T17:53:48.84390887Z",
+        "containerd.io/uncompressed": "sha256:72e830a4dff5f0d5225cdc0a320e85ab1ce06ea5673acfe8d83a7645cbd0e9cf"
+      }
+    },
+    {
+      "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+      "digest": "sha256:58ab47519297212468320b23b8100fc1b2b96e8d342040806ae509a778a0a07a",
+      "size": 2709626,
+      "annotations": {
+        "buildkit/createdat": "2022-04-28T17:53:48.867775326Z",
+        "containerd.io/uncompressed": "sha256:5e04d10b60a48b2fef3614c8b2bf64312b03380ac01bcec220e16885fe660be5"
+      }
+    },
+    {
+      "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+      "digest": "sha256:de9fe7acb0a85a294b6a68ee2954a454e460cefe0cfff0c7ff3f5e03e8f393b0",
+      "size": 109,
+      "annotations": {
+        "buildkit/createdat": "2022-04-28T17:53:49.577280196Z",
+        "containerd.io/uncompressed": "sha256:20ae8611e221ca5d386ee714b9037611a2cafa476ff1c872cda0530b21d3570a"
+      }
+    },
+    {
+      "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+      "digest": "sha256:de9fe7acb0a85a294b6a68ee2954a454e460cefe0cfff0c7ff3f5e03e8f393b0",
+      "size": 109,
+      "annotations": {
+        "buildkit/createdat": "2022-04-28T17:53:49.577280196Z",
+        "containerd.io/uncompressed": "sha256:20ae8611e221ca5d386ee714b9037611a2cafa476ff1c872cda0530b21d3570a"
+      }
+    },
+    {
+      "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+      "digest": "sha256:de9fe7acb0a85a294b6a68ee2954a454e460cefe0cfff0c7ff3f5e03e8f393b0",
+      "size": 109,
+      "annotations": {
+        "buildkit/createdat": "2022-04-28T17:53:49.577280196Z",
+        "containerd.io/uncompressed": "sha256:20ae8611e221ca5d386ee714b9037611a2cafa476ff1c872cda0530b21d3570a"
+      }
+    },
+    {
+      "mediaType": "application/vnd.buildkit.cacheconfig.v0",
+      "digest": "sha256:46a53c520fd7e870b5980de79d5d3b92d6501e4095b053ad59afde7b0a6bfc8a",
+      "size": 1654
+    }
+  ]
+}

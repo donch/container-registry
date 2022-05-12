@@ -10,6 +10,7 @@ import (
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/log"
 	"github.com/docker/distribution/manifest/manifestlist"
+	mlcompat "github.com/docker/distribution/manifest/manifestlist/compat"
 	"github.com/docker/distribution/manifest/schema1"
 	"github.com/docker/distribution/reference"
 	v2 "github.com/docker/distribution/registry/api/v2"
@@ -235,12 +236,7 @@ func (imp *Importer) transferBlob(ctx context.Context, d digest.Digest, size int
 	return nil
 }
 
-func (imp *Importer) importManifestV2(ctx context.Context, fsRepo distribution.Repository, dbRepo *models.Repository, m distribution.ManifestV2, dgst digest.Digest) (*models.Manifest, error) {
-	_, payload, err := m.Payload()
-	if err != nil {
-		return nil, fmt.Errorf("parsing manifest payload: %w", err)
-	}
-
+func (imp *Importer) importManifestV2(ctx context.Context, fsRepo distribution.Repository, dbRepo *models.Repository, m distribution.ManifestV2, dgst digest.Digest, payload []byte, nonConformant bool) (*models.Manifest, error) {
 	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": dbRepo.Path})
 
 	// get configuration blob payload
@@ -261,9 +257,10 @@ func (imp *Importer) importManifestV2(ctx context.Context, fsRepo distribution.R
 	}
 
 	l = l.WithFields(log.Fields{
-		"digest":     dbConfigBlob.Digest,
-		"media_type": dbConfigBlob.MediaType,
-		"size":       dbConfigBlob.Size,
+		"digest":         dbConfigBlob.Digest,
+		"media_type":     dbConfigBlob.MediaType,
+		"size":           dbConfigBlob.Size,
+		"non_conformant": nonConformant,
 	})
 	l.Info("importing configuration")
 	ctx = log.WithLogger(ctx, l)
@@ -296,6 +293,7 @@ func (imp *Importer) importManifestV2(ctx context.Context, fsRepo distribution.R
 		MediaType:     m.Version().MediaType,
 		Digest:        dgst,
 		Payload:       payload,
+		NonConformant: nonConformant,
 		Configuration: &models.Configuration{
 			MediaType: dbConfigBlob.MediaType,
 			Digest:    dbConfigBlob.Digest,
@@ -317,6 +315,27 @@ func (imp *Importer) importManifestV2(ctx context.Context, fsRepo distribution.R
 }
 
 func (imp *Importer) importManifestList(ctx context.Context, fsRepo distribution.Repository, dbRepo *models.Repository, ml *manifestlist.DeserializedManifestList, dgst digest.Digest) (*models.Manifest, error) {
+	if mlcompat.LikelyBuildxCache(ml) {
+		_, payload, err := ml.Payload()
+		if err != nil {
+			return nil, err
+		}
+
+		// convert to OCI manifest and process as if it was one
+		m, err := mlcompat.OCIManifestFromBuildkitIndex(ml)
+		if err != nil {
+			return nil, fmt.Errorf("converting buildkit index to manifest: %w", err)
+		}
+
+		// Note that `payload` is not the deserialized manifest list (`ml`) payload but rather the index payload, untouched.
+		manifestV2, err := imp.importManifestV2(ctx, fsRepo, dbRepo, m, dgst, payload, true)
+		if err != nil {
+			return nil, err
+		}
+
+		return manifestV2, nil
+	}
+
 	_, payload, err := ml.Payload()
 	if err != nil {
 		return nil, fmt.Errorf("parsing payload: %w", err)
@@ -385,7 +404,12 @@ func (imp *Importer) importManifest(ctx context.Context, fsRepo distribution.Rep
 	case *schema1.SignedManifest:
 		return nil, distribution.ErrSchemaV1Unsupported
 	case distribution.ManifestV2:
-		return imp.importManifestV2(ctx, fsRepo, dbRepo, fsManifest, dgst)
+		_, payload, err := m.Payload()
+		if err != nil {
+			return nil, fmt.Errorf("getting manifest payload: %w", err)
+		}
+
+		return imp.importManifestV2(ctx, fsRepo, dbRepo, fsManifest, dgst, payload, false)
 	default:
 		return nil, fmt.Errorf("unknown manifest class")
 	}
