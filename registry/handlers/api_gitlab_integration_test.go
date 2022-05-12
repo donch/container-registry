@@ -169,6 +169,7 @@ func TestGitlabAPI_RepositoryImport_Put(t *testing.T) {
 	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
 
 	preImportRepository(t, env, mockedImportNotifSrv, repoPath)
+
 	importURL := finalImportRepository(t, env, mockedImportNotifSrv, repoPath)
 
 	// Subsequent calls to the same repository should not start another import.
@@ -655,6 +656,7 @@ func TestGitlabAPI_RepositoryImport_Put_PreImportFailed(t *testing.T) {
 
 	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"final"}})
 	require.NoError(t, err)
+
 	// Subsequent import attempts fail.
 	req, err = http.NewRequest(http.MethodPut, importURL, nil)
 	require.NoError(t, err)
@@ -858,6 +860,68 @@ func TestGitlabAPI_RepositoryImport_Put_Import_PreImport_Retry(t *testing.T) {
 
 	// Get the import status
 	assertImportStatus(t, preImportURL, repoPath, migration.RepositoryStatusPreImportInProgress, string(migration.RepositoryStatusPreImportInProgress))
+}
+
+func TestGitlabAPI_RepositoryImport_Put_PreImportTooSoon(t *testing.T) {
+	rootDir := t.TempDir()
+	migrationDir := filepath.Join(rootDir, "/new")
+	repoPath := "old/repo"
+	tagName := "import-tag"
+
+	mockedImportNotifSrv := newMockImportNotification(t, repoPath)
+	env := newTestEnv(
+		t, withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+		// make the pre-import take a long time so we can cancel it
+		withMigrationTestSlowImport(waitForever),
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)),
+	)
+	t.Cleanup(env.Shutdown)
+
+	env.requireDB(t)
+
+	// Push up an image to the old side of the registry, so we can migrate it below.
+	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
+
+	// Begin a pre-import
+	repoRef, err := reference.WithName(repoPath)
+	require.NoError(t, err)
+
+	preImportURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"pre"}})
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPut, preImportURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Pre import should start
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	// DELETE the same URL
+	req, err = http.NewRequest(http.MethodDelete, preImportURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// DELETE pre import should be accepted
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	// Second pre import attempts should not be able to occur immediately.
+	req, err = http.NewRequest(http.MethodPut, preImportURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusTooManyRequests, resp.StatusCode)
+	checkBodyHasErrorCodes(t, "failed to begin (pre)import", resp, v1.ErrorCodeImportRepositoryNotReady)
 }
 
 func TestGitlabAPI_RepositoryImport_Migration_PreImportInProgress(t *testing.T) {

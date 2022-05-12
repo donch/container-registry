@@ -85,6 +85,19 @@ func ErrorCodeImportRateLimitedDetail(repo distribution.Repository) string {
 	return fmt.Sprintf("repository path %s", repo.Named().Name())
 }
 
+// ErrorCodeImportRepositoryNotReady is returned when a repository has recently
+// been updated and may not be in a consistent state yet.
+var ErrorCodeImportRepositoryNotReady = errcode.Register(errGroup, errcode.ErrorDescriptor{
+	Value:          "IMPORT_REPOSITORY_NOT_READY",
+	Message:        "failed to begin (pre)import",
+	Description:    "The repository has recently been updated and may not be in a consistent state, try again later.",
+	HTTPStatusCode: http.StatusTooManyRequests,
+})
+
+func ErrorCodeImportRepositoryNotReadyDetail(repo distribution.Repository) string {
+	return fmt.Sprintf("repository path %s", repo.Named().Name())
+}
+
 // ErrorCodePreImportRequired is returned when attempting to perform a final import for a repository that has not
 // been pre imported successfully yet.
 var ErrorCodePreImportRequired = errcode.Register(errGroup, errcode.ErrorDescriptor{
