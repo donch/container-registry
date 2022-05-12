@@ -1020,7 +1020,10 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 		ctx := app.context(w, r)
 
 		if err := app.authorized(w, r, ctx); err != nil {
-			dcontext.GetLogger(ctx).Warnf("error authorizing context: %v", err)
+			var authErr auth.Challenge
+			if !errors.As(err, &authErr) {
+				dcontext.GetLogger(ctx).WithError(err).Warn("error authorizing context")
+			}
 			return
 		}
 
@@ -1196,7 +1199,10 @@ func (app *App) dispatcherGitlab(dispatch dispatchFunc) http.Handler {
 		}
 
 		if err := app.authorized(w, r, ctx); err != nil {
-			dcontext.GetLogger(ctx).Warnf("error authorizing context: %v", err)
+			var authErr auth.Challenge
+			if !errors.As(err, &authErr) {
+				dcontext.GetLogger(ctx).WithError(err).Warn("error authorizing context")
+			}
 			return
 		}
 
