@@ -1,3 +1,17 @@
+## [3.41.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.41.0-gitlab...v3.41.1-gitlab) (2022-05-13)
+
+
+### Bug Fixes
+
+* avoid logging a misleading warning on 401 response ([a36fb76](https://gitlab.com/gitlab-org/container-registry/commit/a36fb76bfd7fa4d53cf1ee00fadba58e5ff87833))
+* **datastore:** attempt to import layers before importing manifests ([f95c638](https://gitlab.com/gitlab-org/container-registry/commit/f95c6385e55ca584eae5259961c63819608388fc))
+* **datastore:** do not attempt to import manifests with empty layer links ([a1bf813](https://gitlab.com/gitlab-org/container-registry/commit/a1bf8135021734bbc896361688268300020fa4fd))
+* **datastore:** prevent canceled (pre) imports being marked (pre_)import_complete ([a224f0b](https://gitlab.com/gitlab-org/container-registry/commit/a224f0b96f3aec8f36c790e3729388825b674b3e))
+* **distribution:** prevent nil cleanup errors in ErrBlobTransferFailed from causing panics ([25ebe91](https://gitlab.com/gitlab-org/container-registry/commit/25ebe91a5b522bfcdbc34f21daad91221b2430df))
+* **handlers:** allow enough time for imports to be canceled before additional pre import attempts ([0deddeb](https://gitlab.com/gitlab-org/container-registry/commit/0deddeb06b194771f8493afff95432126ef3e4bb))
+* **importer:** handle buildkit index as manifest ([774b9ef](https://gitlab.com/gitlab-org/container-registry/commit/774b9ef7cc033fdb593b980194b5c34c28e97640))
+* **storage/driver/gcs:** use CRC32C checksums to validate transferred blobs ([f566216](https://gitlab.com/gitlab-org/container-registry/commit/f56621621d6a0fe0a4f6cbedf96546c67c208850))
+
 # [3.41.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.40.0-gitlab...v3.41.0-gitlab) (2022-05-05)
 
 
