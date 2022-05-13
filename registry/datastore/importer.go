@@ -23,7 +23,8 @@ import (
 )
 
 var (
-	errImportCanceled       = errors.New("repository import has been canceled")
+	ErrImportCanceled       = errors.New("repository import has been canceled")
+	ErrPreImportCanceled    = errors.New("repository pre import has been canceled")
 	errNegativeTestingDelay = errors.New("negative testing delay")
 	errManifestSkip         = errors.New("the manifest is invalid and its (pre)import should be skipped")
 )
@@ -1017,9 +1018,9 @@ func (imp *Importer) Import(ctx context.Context, path string) error {
 
 	err = imp.checkStatusAndCommitTx(ctx, path, tx)
 	if err != nil {
-		if errors.Is(err, errImportCanceled) {
+		if errors.Is(err, ErrImportCanceled) {
 			l.Warn("import was canceled before committing transaction")
-			return nil
+			return err
 		}
 
 		l.WithError(err).Error("committing transaction for final import")
@@ -1029,21 +1030,32 @@ func (imp *Importer) Import(ctx context.Context, path string) error {
 }
 
 func (imp *Importer) checkStatusAndCommitTx(ctx context.Context, path string, tx Transactor) error {
+	if err := imp.checkStatus(ctx, path); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit repository transaction: %w", err)
+	}
+
+	return nil
+}
+
+func (imp *Importer) checkStatus(ctx context.Context, path string) error {
 	dbRepo, err := imp.repositoryStore.FindByPath(ctx, path)
 	if err != nil {
-		return fmt.Errorf("getting repository after final import completed: %w", err)
+		return fmt.Errorf("getting repository after import completed: %w", err)
 	}
 
 	if dbRepo == nil {
 		return v2.ErrorCodeNameUnknown
 	}
 
-	if dbRepo.MigrationStatus == migration.RepositoryStatusImportCanceled {
-		return errImportCanceled
-	}
-
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit repository transaction: %w", err)
+	switch dbRepo.MigrationStatus {
+	case migration.RepositoryStatusImportCanceled:
+		return ErrImportCanceled
+	case migration.RepositoryStatusPreImportCanceled:
+		return ErrPreImportCanceled
 	}
 
 	return nil
@@ -1135,6 +1147,13 @@ func (imp *Importer) PreImport(ctx context.Context, path string) error {
 			logCounters[t] = n
 		}
 		l = l.WithFields(logCounters)
+	}
+
+	if err := imp.checkStatus(ctx, path); err != nil {
+		if errors.Is(err, ErrPreImportCanceled) {
+			l.Warn("pre import was canceled before completion")
+		}
+		return err
 	}
 
 	t := time.Since(start).Seconds()
