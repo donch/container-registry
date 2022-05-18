@@ -173,7 +173,7 @@ func (v Vacuum) RemoveManifests(ctx context.Context, mm []ManifestDel) error {
 	log.WithFields(logrus.Fields{
 		"batch_count":    totalBatches,
 		"batch_max_size": maxBatchSize,
-	}).Info("deleting manifests in batches")
+	}).Info("deleting manifest metadata in batches")
 
 	batchNo := 0
 	for i := 0; i < totalToDelete; i += maxBatchSize {
@@ -191,7 +191,7 @@ func (v Vacuum) RemoveManifests(ctx context.Context, mm []ManifestDel) error {
 
 	log.WithFields(logrus.Fields{
 		"duration_s": time.Since(start).Seconds(),
-	}).Info("manifests deleted")
+	}).Info("manifest metadata deleted")
 
 	return nil
 }
