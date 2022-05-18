@@ -1,3 +1,15 @@
+# [3.42.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.41.1-gitlab...v3.42.0-gitlab) (2022-05-18)
+
+
+### Bug Fixes
+
+* restore manifest push (by tag) and tag delete webhook notifications ([e6a7984](https://gitlab.com/gitlab-org/container-registry/commit/e6a7984a6773fb138efe3a17d744c958249661ea))
+
+
+### Features
+
+* **storage:** improve clarity of offline garbage collection log output ([8b6129a](https://gitlab.com/gitlab-org/container-registry/commit/8b6129a3ca9fe81425a29540866ece795637ea05))
+
 ## [3.41.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.41.0-gitlab...v3.41.1-gitlab) (2022-05-13)
 
 
