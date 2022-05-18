@@ -229,7 +229,8 @@ func dbDeleteTag(ctx context.Context, db datastore.Handler, repoPath string, tag
 
 // DeleteTag deletes a tag for a specific image name.
 func (th *tagHandler) DeleteTag(w http.ResponseWriter, r *http.Request) {
-	log.GetLogger(log.WithContext(th)).Debug("DeleteTag")
+	l := log.GetLogger(log.WithContext(th))
+	l.Debug("DeleteTag")
 
 	if th.App.isCache {
 		th.Errors = append(th.Errors, errcode.ErrorCodeUnsupported)
@@ -248,6 +249,15 @@ func (th *tagHandler) DeleteTag(w http.ResponseWriter, r *http.Request) {
 		if err := dbDeleteTag(th.Context, th.db, th.Repository.Named().Name(), th.Tag); err != nil {
 			th.appendDeleteTagError(err)
 			return
+		}
+		// This is a partial temporary mitigation for https://gitlab.com/gitlab-org/container-registry/-/issues/682.
+		// It restores the tag delete notifications for repositories on the new code path. Restoring this particular
+		// event is a top priority as it is needed to trigger usage calculations on the Rails side. We will need to
+		// rework the notification mechanism as a whole and restore all event notifications later on.
+		if !th.writeFSMetadata {
+			if err := th.eventBridge.TagDeleted(th.Repository.Named(), th.Tag); err != nil {
+				l.WithError(err).Error("dispatching tag delete to listener")
+			}
 		}
 	}
 

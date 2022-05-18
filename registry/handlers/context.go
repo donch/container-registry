@@ -7,6 +7,7 @@ import (
 
 	"github.com/docker/distribution"
 	dcontext "github.com/docker/distribution/context"
+	"github.com/docker/distribution/notifications"
 	"github.com/docker/distribution/registry/api/errcode"
 	"github.com/docker/distribution/registry/api/urls"
 	"github.com/docker/distribution/registry/auth"
@@ -46,6 +47,10 @@ type Context struct {
 	// TODO(stevvooe): The goal is too completely factor this context and
 	// dispatching out of the web application. Ideally, we should lean on
 	// context.Context for injection of these resources.
+
+	// This is required as part of a partial/temporary mitigation for
+	// https://gitlab.com/gitlab-org/container-registry/-/issues/682.
+	eventBridge notifications.Listener
 }
 
 // Value overrides context.Context.Value to ensure that calls are routed to
