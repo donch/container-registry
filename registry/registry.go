@@ -26,6 +26,7 @@ import (
 	"github.com/spf13/cobra"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"gitlab.com/gitlab-org/labkit/errortracking"
+	"gitlab.com/gitlab-org/labkit/fips"
 	logkit "gitlab.com/gitlab-org/labkit/log"
 	"gitlab.com/gitlab-org/labkit/monitoring"
 	"golang.org/x/crypto/acme"
@@ -66,6 +67,9 @@ var ServeCmd = &cobra.Command{
 				log.WithError(err).Error("unable to start monitoring service")
 			}
 		}()
+
+		// if running in FIPS mode, this emits an info log message saying so
+		fips.Check()
 
 		if err = registry.ListenAndServe(); err != nil {
 			log.Fatalln(err)
