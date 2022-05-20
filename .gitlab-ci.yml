@@ -180,6 +180,12 @@ database:structure-sql:
   parallel:
     matrix:
       - GO_VERSION: [ "1.17" ]
+  variables:
+    GOTESTSUM_VERSION: v1.8.1
+    GO_TEST: 'go run gotest.tools/gotestsum@$GOTESTSUM_VERSION --junitfile junit.xml --format testname --'
+  artifacts:
+    reports:
+      junit: junit.xml
 
 coverage:
   extends: .go-version-matrix
@@ -195,7 +201,7 @@ coverage:
 
 middleware:storage-googlecdn:
   <<: *middleware-storage
-  script: go test -v -coverprofile=coverage.out -tags=include_gcs github.com/docker/distribution/registry/storage/driver/middleware/googlecdn
+  script: $GO_TEST -v -coverprofile=coverage.out -tags=include_gcs github.com/docker/distribution/registry/storage/driver/middleware/googlecdn
 
 .storage-driver-test: &storage-driver-test
   extends: .go-version-matrix
@@ -208,7 +214,7 @@ middleware:storage-googlecdn:
       variables:
         TEST_SHORT_FLAG: ""
     - when: always
-  script: go test -v -coverprofile=coverage.out $PACKAGE -args -check.v $TEST_SHORT_FLAG
+  script: $GO_TEST -v -coverprofile=coverage.out $PACKAGE -args -check.v $TEST_SHORT_FLAG
 
 filesystem:
   <<: *storage-driver-test
@@ -253,7 +259,7 @@ api:
   extends: .go-version-matrix
   stage: integration
   needs: []
-  script: go test -v -coverprofile=coverage.out -tags=integration github.com/docker/distribution/registry/handlers
+  script: $GO_TEST -v -coverprofile=coverage.out -tags=integration github.com/docker/distribution/registry/handlers
 
 .database: &database
   extends: .go-version-matrix
@@ -273,7 +279,7 @@ api:
   services:
     - name: postgres:12-alpine
       alias: "db"
-  script: go test -v -timeout=25m -coverprofile=coverage.out -tags=integration $PACKAGE
+  script: $GO_TEST -v -timeout=25m -coverprofile=coverage.out -tags=integration $PACKAGE
 
 database:migrations:
   <<: *database
@@ -303,7 +309,7 @@ database:api-fault-tolerance:
       alias: "db"
     - name: shopify/toxiproxy
       alias: "toxiproxy"
-  script: go test -v -coverprofile=coverage.out -tags=integration,toxiproxy $PACKAGE -run ^TestDBFaultTolerance
+  script: $GO_TEST -v -coverprofile=coverage.out -tags=integration,toxiproxy $PACKAGE -run ^TestDBFaultTolerance
 
 .cache:redis: &cache-redis
   extends: .go-version-matrix
@@ -314,7 +320,7 @@ database:api-fault-tolerance:
   services:
     - name: redis:alpine
       alias: "redis"
-  script: go test -v -coverprofile=coverage.out -tags=integration github.com/docker/distribution/registry/storage/cache/redis
+  script: $GO_TEST -v -coverprofile=coverage.out -tags=integration github.com/docker/distribution/registry/storage/cache/redis
 
 cache:redis:
   extends: .cache:redis
