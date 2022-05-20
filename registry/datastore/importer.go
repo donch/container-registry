@@ -479,6 +479,14 @@ func getFsManifest(ctx context.Context, manifestService distribution.ManifestSer
 			l.WithError(err).Warn("empty manifest payload, skipping")
 			return nil, errManifestSkip
 		}
+		if errors.As(err, &distribution.ErrManifestUnknownRevision{}) {
+			// This manifest does not have a corresponding revision on the filesystem (unexpected) and as such,
+			// attempting to pull if from the API (on the old code path) will return a not found error (even though the
+			// manifest does exist). We should preserve whatever is the behavior on the old code path, so pulling this
+			// manifest should also fail on the new code path. Therefore, just log and skip.
+			l.WithError(err).Warn("unknown manifest revision, skipping")
+			return nil, errManifestSkip
+		}
 		if errors.Is(err, distribution.ErrSchemaV1Unsupported) {
 			// v1 schema manifests are no longer supported (both writes and reads), so just log a warning and skip
 			l.WithError(err).Warn("unsupported v1 manifest, skipping")
