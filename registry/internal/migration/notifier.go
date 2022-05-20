@@ -96,10 +96,10 @@ func (n *Notifier) insertPathInEndpoint(path string) string {
 func (n *Notifier) Notify(ctx context.Context, notification *Notification) error {
 	l := log.GetLogger(log.WithContext(ctx)).
 		WithFields(log.Fields{
-			"name":   notification.Name,
-			"path":   notification.Path,
-			"status": notification.Status,
-			"detail": notification.Detail,
+			"name":             notification.Name,
+			"repository":       notification.Path,
+			"migration_status": notification.Status,
+			"migration_detail": notification.Detail,
 		})
 
 	l.Info("sending import notification")
