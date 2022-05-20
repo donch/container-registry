@@ -39,3 +39,6 @@ bin/*
 # Environment configuration files
 *.env
 .envrc
+
+# junit test report
+junit.xml
