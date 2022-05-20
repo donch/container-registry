@@ -260,15 +260,24 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 		}
 		report(true, err)
 
-		notifCtx, notifCtxCancel := context.WithTimeout(context.Background(), ih.Config.Migration.ImportNotification.Timeout)
+		notifCtx, notifCtxCancel := ih.newNotificationContext(l, correlationID)
 		defer notifCtxCancel()
 
-		// ensure correlation ID is forwarded to the notifier
-		notifCtx = correlation.ContextWithCorrelation(notifCtx, correlationID)
 		ih.sendImportNotification(notifCtx)
 	}()
 
 	w.WriteHeader(http.StatusAccepted)
+}
+
+func (ih *importHandler) newNotificationContext(l log.Logger, correlationID string) (context.Context, func()) {
+	notifCtx, notifCtxCancel := context.WithTimeout(context.Background(), ih.Config.Migration.ImportNotification.Timeout)
+
+	// ensure correlation ID is forwarded to the notifier
+	notifCtx = correlation.ContextWithCorrelation(notifCtx, correlationID)
+	// ensure the context has the logger and fields for the import notification
+	notifCtx = log.WithLogger(notifCtx, l)
+
+	return notifCtx, notifCtxCancel
 }
 
 func (ih *importHandler) shouldImport(dbRepo *models.Repository) (bool, error) {
