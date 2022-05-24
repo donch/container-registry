@@ -412,7 +412,7 @@ func (imp *Importer) importManifest(ctx context.Context, fsRepo distribution.Rep
 
 		return imp.importManifestV2(ctx, fsRepo, dbRepo, fsManifest, dgst, payload, false)
 	default:
-		return nil, fmt.Errorf("unknown manifest class")
+		return nil, fmt.Errorf("unknown manifest class digest=%s repository=%s", dgst, dbRepo.Path)
 	}
 }
 
