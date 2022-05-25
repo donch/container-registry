@@ -46,6 +46,7 @@ import (
 	"github.com/docker/distribution/version"
 	"github.com/hashicorp/go-multierror"
 	log "github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/labkit/fips"
 )
 
 const driverName = "s3aws"
@@ -503,6 +504,9 @@ func New(params *DriverParameters) (*Driver, error) {
 			},
 		})
 	}
+
+	// disable MD5 header when fips is enabled
+	awsConfig.WithS3DisableContentMD5Validation(fips.Enabled())
 
 	sess, err := session.NewSession(awsConfig)
 	if err != nil {
