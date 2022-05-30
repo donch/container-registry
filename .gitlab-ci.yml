@@ -261,6 +261,12 @@ api:
   needs: []
   script: $GO_TEST -v -coverprofile=coverage.out -tags=integration github.com/docker/distribution/registry/handlers
 
+api-conformance:
+  extends: .go-version-matrix
+  stage: integration
+  needs: []
+  script: $GO_TEST -v -coverprofile=coverage.out -tags=integration,api_conformance -run=TestAPIConformance github.com/docker/distribution/registry/handlers
+
 .database: &database
   extends: .go-version-matrix
   stage: integration
@@ -295,6 +301,12 @@ database:api:
   <<: *database
   before_script:
     - export PACKAGE=github.com/docker/distribution/registry/handlers
+
+database:api-conformance:
+  <<: *database
+  before_script:
+    - export PACKAGE=github.com/docker/distribution/registry/handlers
+  script: $GO_TEST -v -timeout=25m -tags=integration,api_conformance -run=TestAPIConformance $PACKAGE
 
 # Tests that simulate adverse network conditions/errors between the registry and its database.
 database:api-fault-tolerance:
