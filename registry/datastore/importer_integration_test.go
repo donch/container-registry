@@ -550,7 +550,7 @@ func TestImporter_PreImport_BadManifestListRef(t *testing.T) {
 
 	imp := newImporterWithRoot(t, suite.db, "bad-manifest-list-ref")
 	err := imp.PreImport(suite.ctx, "multi-arch")
-	require.EqualError(t, err, `pre importing tagged manifests: pre importing manifest: pre importing manifest list: retrieving referenced manifest "sha256:597bd5c319cc09d6bb295b4ef23cac50ec7c373fff5fe923cfd246ec09967b31" from filesystem: unknown manifest name=multi-arch revision=sha256:597bd5c319cc09d6bb295b4ef23cac50ec7c373fff5fe923cfd246ec09967b31`)
+	require.NoError(t, err)
 }
 
 func TestImporter_Import_BadManifestListRef(t *testing.T) {
@@ -558,7 +558,7 @@ func TestImporter_Import_BadManifestListRef(t *testing.T) {
 
 	imp := newImporterWithRoot(t, suite.db, "bad-manifest-list-ref")
 	err := imp.Import(suite.ctx, "multi-arch")
-	require.EqualError(t, err, `importing tags: importing manifest: retrieving referenced manifest "sha256:597bd5c319cc09d6bb295b4ef23cac50ec7c373fff5fe923cfd246ec09967b31" from filesystem: unknown manifest name=multi-arch revision=sha256:597bd5c319cc09d6bb295b4ef23cac50ec7c373fff5fe923cfd246ec09967b31`)
+	require.NoError(t, err)
 }
 
 func TestImporter_PreImport_UnknownLayerMediaType(t *testing.T) {
@@ -692,23 +692,6 @@ func TestImporter_PreImport_FailureDueToInvalidManifestReferencesDoesNotSucceedO
 
 	// retry, should fail with the exact same error
 	err = imp.PreImport(suite.ctx, "a-simple")
-	require.EqualError(t, err, expectedErr)
-
-	// validate DB state
-	validateImport(t, suite.db)
-}
-
-func TestImporter_PreImport_FailureDueToInvalidManifestListReferencesDoesNotSucceedOnRetry(t *testing.T) {
-	require.NoError(t, testutil.TruncateAllTables(suite.db))
-
-	// first pre-import attempt, should fail
-	imp := newImporterWithRoot(t, suite.db, "bad-manifest-list-ref")
-	err := imp.PreImport(suite.ctx, "multi-arch")
-	expectedErr := `pre importing tagged manifests: pre importing manifest: pre importing manifest list: retrieving referenced manifest "sha256:597bd5c319cc09d6bb295b4ef23cac50ec7c373fff5fe923cfd246ec09967b31" from filesystem: unknown manifest name=multi-arch revision=sha256:597bd5c319cc09d6bb295b4ef23cac50ec7c373fff5fe923cfd246ec09967b31`
-	require.EqualError(t, err, expectedErr)
-
-	// retry, should fail with the exact same error
-	err = imp.PreImport(suite.ctx, "multi-arch")
 	require.EqualError(t, err, expectedErr)
 
 	// validate DB state

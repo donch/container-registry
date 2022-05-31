@@ -391,8 +391,14 @@ func (imp *Importer) importManifestList(ctx context.Context, fsRepo distribution
 			"count":      i + 1,
 			"total":      total,
 		})
-		fsManifest, err := manifestService.Get(ctx, m.Digest)
+		fsManifest, err := getFsManifest(ctx, manifestService, m.Digest, l)
 		if err != nil {
+			if errors.Is(err, errManifestSkip) {
+				// Skipping the import of this broken referenced manifest will lead to a partially broken list. We could
+				// skip the import of the referencing list as well, but it's already broken on the old registry
+				// (filesystem metadata) so it's preferable to keep the pull behavior consistent across old and new.
+				continue
+			}
 			return nil, fmt.Errorf("retrieving referenced manifest %q from filesystem: %w", m.Digest, err)
 		}
 
