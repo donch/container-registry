@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -216,9 +217,25 @@ func (imp *Importer) transferBlob(ctx context.Context, d digest.Digest, size int
 		return nil
 	}
 
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
+		"digest":    d,
+		"blob_type": t.String(),
+	})
+
 	start := time.Now()
 	var noop bool
 	if err := imp.blobTransferService.Transfer(ctx, d); err != nil {
+		if errors.Is(err, context.DeadlineExceeded) || os.IsTimeout(err) {
+			l.WithError(err).Warn("blob transfer failed due to timeout, retrying once")
+			// use a new context with an extended deadline just for this retry
+			ctx2, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			if err := imp.blobTransferService.Transfer(ctx2, d); err != nil {
+				if !errors.Is(err, distribution.ErrBlobExists) {
+					return fmt.Errorf("retrying transferring blob with digest %s: %w", d, err)
+				}
+			}
+		}
 		if !errors.Is(err, distribution.ErrBlobExists) {
 			return fmt.Errorf("transferring blob with digest %s: %w", d, err)
 		}
@@ -227,11 +244,9 @@ func (imp *Importer) transferBlob(ctx context.Context, d digest.Digest, size int
 
 	duration := time.Since(start).Seconds()
 	metrics.BlobTransfer(duration, float64(size), t)
-	log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
+	l.WithFields(log.Fields{
 		"noop":       noop,
-		"digest":     d,
 		"duration_s": duration,
-		"blob_type":  t.String(),
 	}).Info("blob transfer complete")
 
 	return nil
