@@ -1,3 +1,19 @@
+# [3.44.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.43.0-gitlab...v3.44.0-gitlab) (2022-05-31)
+
+
+### Bug Fixes
+
+* **datastore:** include digest and repository in unknown manifest class import error ([22ea61a](https://gitlab.com/gitlab-org/container-registry/commit/22ea61a6e39b88c410b6bda87a91af035dfa1f4f))
+
+
+### Features
+
+* add support for additional cosign media types ([dcd3e13](https://gitlab.com/gitlab-org/container-registry/commit/dcd3e135764a46c7e4a099b589f21516c4751ce3))
+* add support for additional helm media type ([7b64fc7](https://gitlab.com/gitlab-org/container-registry/commit/7b64fc7b3f43168f0006bde3af356b34ad9370f0))
+* add support for layer encryption media types ([079adfb](https://gitlab.com/gitlab-org/container-registry/commit/079adfb438be0382fffa3db8a840a45ed674566c))
+* disable S3 MD5 header in FIPS mode ([42a82ab](https://gitlab.com/gitlab-org/container-registry/commit/42a82aba22f3e3479a24e083182b1b5f3be1c672))
+* retry failed blob transfers due to timeouts once during imports ([da4a785](https://gitlab.com/gitlab-org/container-registry/commit/da4a78562a15f37b8a332a190120a1dd7821ca16))
+
 # [3.43.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.42.0-gitlab...v3.43.0-gitlab) (2022-05-20)
 
 
