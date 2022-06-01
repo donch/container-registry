@@ -246,6 +246,22 @@ func TestImporter_ImportAll_DanglingManifests_StopsOnMissingConfigBlob(t *testin
 	validateImport(t, suite.db)
 }
 
+func TestImporter_PreImport_UnlinkedConfigBlob_SkipManifest(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "unlinked-config")
+	require.NoError(t, imp.PreImport(suite.ctx, "c-unlinked-config-blob"))
+	validateImport(t, suite.db)
+}
+
+func TestImporter_Import_UnlinkedConfigBlob_SkipManifest(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "unlinked-config")
+	require.NoError(t, imp.Import(suite.ctx, "c-unlinked-config-blob"))
+	validateImport(t, suite.db)
+}
+
 func TestImporter_ImportAll_DanglingBlobs_StopsOnError(t *testing.T) {
 	require.NoError(t, testutil.TruncateAllTables(suite.db))
 
