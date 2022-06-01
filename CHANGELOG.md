@@ -1,3 +1,17 @@
+# [3.45.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.44.0-gitlab...v3.45.0-gitlab) (2022-06-01)
+
+
+### Bug Fixes
+
+* correctly handle embedded blob transfer errors ([1ec37dd](https://gitlab.com/gitlab-org/container-registry/commit/1ec37dd9c1e80e187a407c9c3287f0c4df87e079))
+* skip import of broken/invalid manifest list/index references ([248904f](https://gitlab.com/gitlab-org/container-registry/commit/248904f8542b1dff59ec7a34ee0897b07c470b23))
+* skip import of manifests with unlinked config blobs ([f65a3e6](https://gitlab.com/gitlab-org/container-registry/commit/f65a3e631b8597b598fe56e45495ebcc15ace887))
+
+
+### Features
+
+* add support for additional miscellaneous media types ([b315ac8](https://gitlab.com/gitlab-org/container-registry/commit/b315ac882777321a75a1801425f650ef27384607))
+
 # [3.44.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.43.0-gitlab...v3.44.0-gitlab) (2022-05-31)
 
 
