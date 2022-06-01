@@ -70,6 +70,10 @@ func (err ErrBlobTransferFailed) Error() string {
 	return fmt.Sprintf("failed to transfer blob digest=%q cleanup=%t cleanupError=%v: %v", err.Digest, err.Cleanup, err.CleanupErr, err.Reason)
 }
 
+func (err ErrBlobTransferFailed) Unwrap() error {
+	return err.Reason
+}
+
 // Descriptor describes targeted content. Used in conjunction with a blob
 // store, a descriptor can be used to fetch, store and target any kind of
 // blob. The struct also describes the wire protocol format. Fields should

@@ -168,7 +168,7 @@ func (err PathNotFoundError) Error() string {
 	return fmt.Sprintf("%s: Path not found: %s", err.DriverName, err.Path)
 }
 
-// TooManyRequestsError is returned when the user has sent too 
+// TooManyRequestsError is returned when the user has sent too
 // many requests in a given amount of time.
 type TooManyRequestsError struct {
 	Cause error
@@ -225,4 +225,8 @@ type PartialTransferError struct {
 
 func (err PartialTransferError) Error() string {
 	return fmt.Sprintf("partial transfer from %s to %s: %s", err.SourcePath, err.DestinationPath, err.Cause)
+}
+
+func (err PartialTransferError) Unwrap() error {
+	return err.Cause
 }

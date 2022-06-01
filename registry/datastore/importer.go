@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
+	"net"
 	"sync"
 	"time"
 
@@ -225,7 +225,9 @@ func (imp *Importer) transferBlob(ctx context.Context, d digest.Digest, size int
 	start := time.Now()
 	var noop bool
 	if err := imp.blobTransferService.Transfer(ctx, d); err != nil {
-		if errors.Is(err, context.DeadlineExceeded) || os.IsTimeout(err) {
+		var netError net.Error
+		ok := errors.As(err, &netError)
+		if errors.Is(err, context.DeadlineExceeded) || (ok && netError.Timeout()) {
 			l.WithError(err).Warn("blob transfer failed due to timeout, retrying once")
 			// use a new context with an extended deadline just for this retry
 			ctx2, cancel := context.WithTimeout(context.Background(), 2*time.Second)
