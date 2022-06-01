@@ -265,6 +265,18 @@ func (imp *Importer) importManifestV2(ctx context.Context, fsRepo distribution.R
 			l.WithError(err).Warn("broken configuration layer link, skipping")
 			return nil, errManifestSkip
 		}
+		if errors.Is(err, distribution.ErrBlobUnknown) {
+			// This error might happen if the config blob is not present on common, so
+      			// this might shadow that as a simple "config unlinked" problem. However,
+      			// we haven't seen such an error before, and even if we do, we can't bring
+      			// such a blob back to life. So we simply skip here regardless.
+			l.WithError(err).Warn("configuration blob not linked, skipping")
+			return nil, errManifestSkip
+		}
+		if errors.Is(err, digest.ErrDigestInvalidFormat) {
+			l.WithError(err).Warn("broken config link, skipping")
+			return nil, errManifestSkip
+		}
 		return nil, fmt.Errorf("obtaining configuration payload: %w", err)
 	}
 
