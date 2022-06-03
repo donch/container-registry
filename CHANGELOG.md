@@ -1,3 +1,18 @@
+# [3.46.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.45.0-gitlab...v3.46.0-gitlab) (2022-06-03)
+
+
+### Bug Fixes
+
+* allow buildkit indexes without layers ([6d2c356](https://gitlab.com/gitlab-org/container-registry/commit/6d2c356d1ccb7d9dbba7bb570f697a4f53364785))
+* do not track skipped manifests during pre-imports ([dfde6ff](https://gitlab.com/gitlab-org/container-registry/commit/dfde6ffedb71d77656b2cc7f5dfd677944506f10))
+
+
+### Features
+
+* add support for additional gardener media types ([7626dd7](https://gitlab.com/gitlab-org/container-registry/commit/7626dd763aec7e638ef3bde221479be4c462b726))
+* add support for additional misc media types ([13c34ce](https://gitlab.com/gitlab-org/container-registry/commit/13c34ce942d62a2c9727bfa57c67835a6942f3fc))
+* add support for additional misc media types ([1ea61f6](https://gitlab.com/gitlab-org/container-registry/commit/1ea61f6e4b2449c2ab06ed01864309344f678078))
+
 # [3.45.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.44.0-gitlab...v3.45.0-gitlab) (2022-06-01)
 
 
