@@ -819,3 +819,14 @@ func TestImporter_PreImport_BuildkitIndexAsManifestList(t *testing.T) {
 	// validate DB state
 	validateImport(t, suite.db)
 }
+
+func TestImporter_PreImport_BuildkitIndexAsManifestListWithoutLayers(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "buildkit-index-as-manifest-list-without-layers")
+	err := imp.PreImport(suite.ctx, "buildx")
+	require.NoError(t, err)
+
+	// validate DB state
+	validateImport(t, suite.db)
+}

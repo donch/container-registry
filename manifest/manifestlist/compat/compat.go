@@ -79,6 +79,7 @@ func ContainsBlobs(ml *manifestlist.DeserializedManifestList) bool {
 }
 
 // OCIManifestFromBuildkitIndex transforms a Buildkit cache index into an OCI manifest for compatibility purposes.
+// Some cache indexes do not contain layers in them, see https://gitlab.com/gitlab-org/container-registry/-/issues/695.
 func OCIManifestFromBuildkitIndex(ml *manifestlist.DeserializedManifestList) (*ocischema.DeserializedManifest, error) {
 	refs := References(ml)
 	if len(refs.Manifests) > 0 {
@@ -99,9 +100,6 @@ func OCIManifestFromBuildkitIndex(ml *manifestlist.DeserializedManifestList) (*o
 	// make sure they were found
 	if cfg == nil {
 		return nil, errors.New("buildkit index has no config reference")
-	}
-	if len(layers) == 0 {
-		return nil, errors.New("buildkit index has no layer references")
 	}
 
 	m, err := ocischema.FromStruct(ocischema.Manifest{
