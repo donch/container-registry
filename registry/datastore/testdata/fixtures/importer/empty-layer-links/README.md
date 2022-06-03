@@ -11,6 +11,10 @@ This fixure was created by uploading three schema 2 images and truncating the
 layer link files for a single filesystem layer of the second image, and the
 manifest configuration blob of the third image.
 
+Additionally, we've created two tags for each of the manifests to ensure that
+processing a previously skipped manifest (when finding the 2nd tag for each)
+does not fail.
+
 ```
 truncate -s0 broken-layer-links/_layers/sha256/c3cce1b00b48329400b61ad073da43e8f838d8fcd134b86ac05c7b7a0452992c/link
 truncate -s0 broken-layer-links/_layers/sha256/4d59f0a788804aa0f2d4fee2469704767a455e72f0bb9ee9fcc72407692812e7/link
