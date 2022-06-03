@@ -267,9 +267,9 @@ func (imp *Importer) importManifestV2(ctx context.Context, fsRepo distribution.R
 		}
 		if errors.Is(err, distribution.ErrBlobUnknown) {
 			// This error might happen if the config blob is not present on common, so
-      			// this might shadow that as a simple "config unlinked" problem. However,
-      			// we haven't seen such an error before, and even if we do, we can't bring
-      			// such a blob back to life. So we simply skip here regardless.
+			// this might shadow that as a simple "config unlinked" problem. However,
+			// we haven't seen such an error before, and even if we do, we can't bring
+			// such a blob back to life. So we simply skip here regardless.
 			l.WithError(err).Warn("configuration blob not linked, skipping")
 			return nil, errManifestSkip
 		}
@@ -799,13 +799,12 @@ func (imp *Importer) preImportManifest(ctx context.Context, fsRepo distribution.
 		if _, err := imp.importManifest(ctx, fsRepo, dbRepo, fsManifest, dgst); err != nil {
 			if errors.Is(err, distribution.ErrSchemaV1Unsupported) {
 				l.WithError(err).Warn("skipping v1 manifest import")
-				return nil
+				return errManifestSkip
 			}
 			if errors.Is(err, errManifestSkip) {
 				l.WithError(err).Warn("skipping manifest import")
-				return nil
 			}
-			return fmt.Errorf("pre importing manifest: %w", err)
+			return err
 		}
 	}
 
