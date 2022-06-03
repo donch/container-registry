@@ -397,7 +397,11 @@ func TestOCIManifestFromBuildkitIndex(t *testing.T) {
 					},
 				},
 			},
-			wantErr: true,
+			wantManifest: &ocischema.Manifest{
+				Versioned: ocischema.SchemaVersion,
+				Config:    cfg,
+			},
+			wantErr: false,
 		},
 	}
 
