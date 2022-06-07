@@ -344,7 +344,7 @@ func (imp *Importer) importManifestV2(ctx context.Context, fsRepo distribution.R
 	return dbManifest, nil
 }
 
-func (imp *Importer) importManifestList(ctx context.Context, fsRepo distribution.Repository, dbRepo *models.Repository, ml *manifestlist.DeserializedManifestList, dgst digest.Digest) (*models.Manifest, error) {
+func (imp *Importer) importManifestList(ctx context.Context, fsRepo distribution.Repository, dbRepo *models.Repository, ml *manifestlist.DeserializedManifestList, dgst digest.Digest, nonConformant bool) (*models.Manifest, error) {
 	if mlcompat.LikelyBuildxCache(ml) {
 		_, payload, err := ml.Payload()
 		if err != nil {
@@ -386,6 +386,7 @@ func (imp *Importer) importManifestList(ctx context.Context, fsRepo distribution
 		MediaType:     mediaType,
 		Digest:        dgst,
 		Payload:       payload,
+		NonConformant: nonConformant,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("creating manifest list in database: %w", err)
@@ -436,6 +437,11 @@ func (imp *Importer) importManifestList(ctx context.Context, fsRepo distribution
 }
 
 func (imp *Importer) importManifest(ctx context.Context, fsRepo distribution.Repository, dbRepo *models.Repository, m distribution.Manifest, dgst digest.Digest) (*models.Manifest, error) {
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
+		"repository": dbRepo.Path,
+		"digest":     dgst,
+	})
+
 	switch fsManifest := m.(type) {
 	case *schema1.SignedManifest:
 		return nil, distribution.ErrSchemaV1Unsupported
@@ -446,6 +452,23 @@ func (imp *Importer) importManifest(ctx context.Context, fsRepo distribution.Rep
 		}
 
 		return imp.importManifestV2(ctx, fsRepo, dbRepo, fsManifest, dgst, payload, false)
+	case *manifestlist.DeserializedManifestList:
+		// We don't officially support nested manifests lists, but we're adding this as a temporary measure to unblock
+		// the migration. See https://gitlab.com/gitlab-org/container-registry/-/issues/700.
+		l.Warn("nested manifest list found")
+		dbManifest, err := imp.importManifestList(ctx, fsRepo, dbRepo, fsManifest, dgst, true)
+		if err != nil {
+			return nil, fmt.Errorf("pre importing nested manifest list: %w", err)
+		}
+		if err := imp.tagStore.CreateOrUpdate(ctx, &models.Tag{
+			NamespaceID:  dbRepo.NamespaceID,
+			RepositoryID: dbRepo.ID,
+			ManifestID:   dbManifest.ID,
+			Name:         dgst.Encoded(),
+		}); err != nil {
+			return nil, fmt.Errorf("creating tag for nested manifest list: %w", err)
+		}
+		return dbManifest, nil
 	default:
 		return nil, fmt.Errorf("unknown manifest class digest=%s repository=%s", dgst, dbRepo.Path)
 	}
@@ -484,7 +507,7 @@ func (imp *Importer) importManifests(ctx context.Context, fsRepo distribution.Re
 		switch fsManifest := m.(type) {
 		case *manifestlist.DeserializedManifestList:
 			l.Info("importing manifest list")
-			_, err = imp.importManifestList(ctx, fsRepo, dbRepo, fsManifest, dgst)
+			_, err = imp.importManifestList(ctx, fsRepo, dbRepo, fsManifest, dgst, false)
 		default:
 			l.Info("importing manifest")
 			_, err = imp.importManifest(ctx, fsRepo, dbRepo, fsManifest, dgst)
@@ -649,7 +672,7 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 			switch fsManifest := m.(type) {
 			case *manifestlist.DeserializedManifestList:
 				l.Info("importing manifest list")
-				dbManifest, err = imp.importManifestList(ctx, fsRepo, dbRepo, fsManifest, desc.Digest)
+				dbManifest, err = imp.importManifestList(ctx, fsRepo, dbRepo, fsManifest, desc.Digest, false)
 			default:
 				l.Info("importing manifest")
 				dbManifest, err = imp.importManifest(ctx, fsRepo, dbRepo, fsManifest, desc.Digest)
@@ -791,7 +814,7 @@ func (imp *Importer) preImportManifest(ctx context.Context, fsRepo distribution.
 	switch fsManifest := m.(type) {
 	case *manifestlist.DeserializedManifestList:
 		l.Info("pre-importing manifest list")
-		if _, err := imp.importManifestList(ctx, fsRepo, dbRepo, fsManifest, dgst); err != nil {
+		if _, err := imp.importManifestList(ctx, fsRepo, dbRepo, fsManifest, dgst, false); err != nil {
 			return fmt.Errorf("pre importing manifest list: %w", err)
 		}
 	default:
