@@ -1,3 +1,15 @@
+# [3.47.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.46.0-gitlab...v3.47.0-gitlab) (2022-06-07)
+
+
+### Bug Fixes
+
+* temporarily gracefully handle nested lists during imports ([204012c](https://gitlab.com/gitlab-org/container-registry/commit/204012c545c99ad338a66210d8a326c01237d6d8))
+
+
+### Features
+
+* add support for acme rocket media type ([5a85856](https://gitlab.com/gitlab-org/container-registry/commit/5a85856233e501de3a658c39715bf5a424fa7fa2))
+
 # [3.46.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.45.0-gitlab...v3.46.0-gitlab) (2022-06-03)
 
 
