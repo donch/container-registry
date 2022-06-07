@@ -1,0 +1,14 @@
+{
+	"schemaVersion": 2,
+	"manifests": [
+	   {
+		  "mediaType": "application/vnd.docker.distribution.manifest.list.v2+json",
+		  "digest": "sha256:7b914abeaf58abb61d478ec74e8ddc0d32a0e4bfe61358620f76528f26f85e03",
+		  "size": 433,
+		  "annotations": {
+			"foo": "bar"
+		  }
+	
+	   }
+	]
+ }
