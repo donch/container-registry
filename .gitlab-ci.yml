@@ -351,5 +351,5 @@ cache:redis-sentinel:
   services:
     - name: redis:alpine
       alias: "redis"
-    - name: bitnami/redis-sentinel
+    - name: bitnami/redis-sentinel:6.2.7
       alias: "redis-sentinel"
