@@ -8,10 +8,12 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"net"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
+	"syscall"
 	"testing"
 	"time"
 
@@ -854,6 +856,50 @@ func TestImporter_Import_NestedManifestList(t *testing.T) {
 
 	imp := newImporterWithRoot(t, suite.db, "nested-manifest-list")
 	err := imp.PreImport(suite.ctx, "nested-manifest-list")
+	require.NoError(t, err)
+
+	validateImport(t, suite.db)
+}
+
+type mockBlobTransfer struct {
+	count      int
+	maxRetries int
+	err        error
+}
+
+func (mbts *mockBlobTransfer) Transfer(ctx context.Context, dgst digest.Digest) error {
+	mbts.count++
+	if mbts.count > mbts.maxRetries {
+		return nil
+	}
+
+	return mbts.err
+}
+
+func TestImporter_PreImport_Retry_Fails(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+	mbts := &mockBlobTransfer{
+		// using a high number will ensure we always return an error before the pre import timeout
+		maxRetries: 100,
+		err:        &net.OpError{Err: &os.SyscallError{Err: syscall.ECONNRESET}},
+	}
+
+	imp := newImporter(t, suite.db, datastore.WithBlobTransferService(mbts), datastore.WithPreImportRetryTimeout(200*time.Millisecond))
+	err := imp.PreImport(suite.ctx, "f-dangling-manifests")
+	require.EqualError(t, err, "pre importing tagged manifests: pre importing manifest: retrying pre import manifest sha256:efdb07f074a5cfb25547c0cf1ddac509a10ec9eb15e565584988c913ccaa344a: transferring blob with digest sha256:bda9e8f07268fe2c2e97833c721102739f7d6ff9401b7f03aaec176e772bbd8b: : : connection reset by peer")
+}
+
+func TestImporter_PreImport_Retry_Succeeds(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	mbts := &mockBlobTransfer{
+		// Call to Transfer will succeed on second try
+		maxRetries: 1,
+		err:        &net.OpError{Err: &os.SyscallError{Err: syscall.ECONNRESET}},
+	}
+
+	imp := newImporter(t, suite.db, datastore.WithBlobTransferService(mbts), datastore.WithPreImportRetryTimeout(500*time.Millisecond))
+	err := imp.PreImport(suite.ctx, "f-dangling-manifests")
 	require.NoError(t, err)
 
 	validateImport(t, suite.db)

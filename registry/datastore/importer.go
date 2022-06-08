@@ -5,9 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
+	"os"
 	"sync"
+	"syscall"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/log"
 	"github.com/docker/distribution/manifest/manifestlist"
@@ -19,8 +23,10 @@ import (
 	"github.com/docker/distribution/registry/internal/migration"
 	"github.com/docker/distribution/registry/internal/migration/metrics"
 	"github.com/docker/distribution/registry/storage/driver"
+	"github.com/jackc/pgconn"
 	"github.com/opencontainers/go-digest"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
+	"google.golang.org/api/googleapi"
 )
 
 var (
@@ -48,6 +54,7 @@ type Importer struct {
 	tagConcurrency          int
 	rowCount                bool
 	testingDelay            time.Duration
+	preImportRetryTimeout   time.Duration
 }
 
 // ImporterOption provides functional options for the Importer.
@@ -107,12 +114,22 @@ func WithTestSlowImport(d time.Duration) ImporterOption {
 	}
 }
 
+// WithPreImportRetryTimeout configures the Importer with a retry timeout for certain operations
+// due to network connection errors or DB timeouts. See shouldRetryManifestPreImport for more details.
+func WithPreImportRetryTimeout(d time.Duration) ImporterOption {
+	return func(imp *Importer) {
+		imp.preImportRetryTimeout = d
+	}
+}
+
 // NewImporter creates a new Importer.
 func NewImporter(db *DB, registry distribution.Namespace, opts ...ImporterOption) *Importer {
 	imp := &Importer{
 		registry:       registry,
 		db:             db,
 		tagConcurrency: 1,
+		// default manifest pre import retry timeout
+		preImportRetryTimeout: time.Minute,
 	}
 
 	for _, o := range opts {
@@ -225,19 +242,6 @@ func (imp *Importer) transferBlob(ctx context.Context, d digest.Digest, size int
 	start := time.Now()
 	var noop bool
 	if err := imp.blobTransferService.Transfer(ctx, d); err != nil {
-		var netError net.Error
-		ok := errors.As(err, &netError)
-		if errors.Is(err, context.DeadlineExceeded) || (ok && netError.Timeout()) {
-			l.WithError(err).Warn("blob transfer failed due to timeout, retrying once")
-			// use a new context with an extended deadline just for this retry
-			ctx2, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			defer cancel()
-			if err := imp.blobTransferService.Transfer(ctx2, d); err != nil {
-				if !errors.Is(err, distribution.ErrBlobExists) {
-					return fmt.Errorf("retrying transferring blob with digest %s: %w", d, err)
-				}
-			}
-		}
 		if !errors.Is(err, distribution.ErrBlobExists) {
 			return fmt.Errorf("transferring blob with digest %s: %w", d, err)
 		}
@@ -820,18 +824,82 @@ func (imp *Importer) preImportManifest(ctx context.Context, fsRepo distribution.
 	default:
 		l.Info("pre-importing manifest")
 		if _, err := imp.importManifest(ctx, fsRepo, dbRepo, fsManifest, dgst); err != nil {
-			if errors.Is(err, distribution.ErrSchemaV1Unsupported) {
+			switch {
+			case errors.Is(err, distribution.ErrSchemaV1Unsupported):
 				l.WithError(err).Warn("skipping v1 manifest import")
 				return errManifestSkip
-			}
-			if errors.Is(err, errManifestSkip) {
+			case errors.Is(err, errManifestSkip):
 				l.WithError(err).Warn("skipping manifest import")
+				return err
+			default:
+				if shouldRetryManifestPreImport(err) {
+					return imp.retryImportManifestWithBackoff(l, fsRepo, fsManifest, dbRepo, dgst)
+				}
 			}
+
 			return err
 		}
 	}
 
 	return nil
+}
+
+func (imp *Importer) retryImportManifestWithBackoff(l log.Logger, fsRepo distribution.Repository, fsManifest distribution.Manifest, dbRepo *models.Repository, dgst digest.Digest) error {
+	backOff := backoff.NewExponentialBackOff()
+	backOff.InitialInterval = 100 * time.Millisecond
+	backOff.MaxElapsedTime = imp.preImportRetryTimeout
+
+	operation := func() error {
+		// use a new context with an extended deadline just for this retry
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		if _, retryErr := imp.importManifest(ctx, fsRepo, dbRepo, fsManifest, dgst); retryErr != nil {
+			err := fmt.Errorf("retrying pre import manifest %s: %w", dgst, retryErr)
+			l.WithError(err).Warn("pre import retry failed")
+			return err
+		}
+
+		return nil
+	}
+
+	return backoff.Retry(operation, backOff)
+}
+
+// shouldRetryManifestPreImport checks the returned error from importManifest and decides
+// whether the manifest pre import should be retried based on the types of errors.
+func shouldRetryManifestPreImport(err error) bool {
+	// check for generic network timeouts
+	var netError net.Error
+	if errors.As(err, &netError) && netError.Timeout() {
+		return true
+	}
+
+	// check for connection reset errors
+	var netOpError *net.OpError
+	if errors.As(err, &netOpError) {
+		var syscallErr *os.SyscallError
+		if errors.As(err, &syscallErr) && syscallErr.Err == syscall.ECONNRESET {
+			return true
+		}
+	}
+
+	// check DB connection errors and see if it's safe to retry
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgconn.SafeToRetry(pgErr) {
+		return true
+	}
+
+	// special condition for GCS 503 responses used for gitlab.com, we should find a
+	// generic way to expose this error for all drivers https://gitlab.com/gitlab-org/container-registry/-/issues/707
+	var gcsErr *googleapi.Error
+	if errors.As(err, &gcsErr) {
+		if gcsErr.Code == http.StatusServiceUnavailable {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (imp *Importer) countRows(ctx context.Context) (map[string]int, error) {
