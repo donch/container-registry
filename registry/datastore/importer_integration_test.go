@@ -841,26 +841,6 @@ func TestImporter_PreImport_DoesNotFailWhenProcessingPreviouslySkippedManifest(t
 	require.NoError(t, err)
 }
 
-func TestImporter_PreImport_NestedManifestList(t *testing.T) {
-	require.NoError(t, testutil.TruncateAllTables(suite.db))
-
-	imp := newImporterWithRoot(t, suite.db, "nested-manifest-list")
-	err := imp.PreImport(suite.ctx, "nested-manifest-list")
-	require.NoError(t, err)
-
-	validateImport(t, suite.db)
-}
-
-func TestImporter_Import_NestedManifestList(t *testing.T) {
-	require.NoError(t, testutil.TruncateAllTables(suite.db))
-
-	imp := newImporterWithRoot(t, suite.db, "nested-manifest-list")
-	err := imp.PreImport(suite.ctx, "nested-manifest-list")
-	require.NoError(t, err)
-
-	validateImport(t, suite.db)
-}
-
 type mockBlobTransfer struct {
 	count      int
 	maxRetries int
