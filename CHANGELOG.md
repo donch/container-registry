@@ -1,3 +1,15 @@
+# [3.48.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.47.0-gitlab...v3.48.0-gitlab) (2022-06-10)
+
+
+### Features
+
+* retry pre import manifests due to transient errors ([b4ef1ff](https://gitlab.com/gitlab-org/container-registry/commit/b4ef1ff321709c60e58f55dad9546aa8b03e61df))
+
+
+### Reverts
+
+* temporarily gracefully handle nested lists during imports ([cbdaf09](https://gitlab.com/gitlab-org/container-registry/commit/cbdaf09a8b7ffe763ed468f2ac6ed65b02f0d2a0))
+
 # [3.47.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.46.0-gitlab...v3.47.0-gitlab) (2022-06-07)
 
 
