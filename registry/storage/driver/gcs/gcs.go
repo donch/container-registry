@@ -334,13 +334,13 @@ func (d *driver) PutContent(ctx context.Context, path string, contents []byte) e
 func (d *driver) Reader(ctx context.Context, path string, offset int64) (io.ReadCloser, error) {
 	res, err := getObject(d.client, d.bucket, d.pathToKey(path), offset)
 	if err != nil {
-		if res != nil {
-			defer res.Body.Close()
-			if res.StatusCode == http.StatusNotFound {
+		var gcsErr *googleapi.Error
+		if errors.As(err, &gcsErr) {
+			if gcsErr.Code == http.StatusNotFound {
 				return nil, storagedriver.PathNotFoundError{Path: path}
 			}
 
-			if res.StatusCode == http.StatusRequestedRangeNotSatisfiable {
+			if gcsErr.Code == http.StatusRequestedRangeNotSatisfiable {
 				obj, err := storageStatObject(ctx, d.storageClient, d.bucket, d.pathToKey(path))
 				if err != nil {
 					return nil, err
@@ -384,7 +384,11 @@ func getObject(client *http.Client, bucket string, name string, offset int64) (*
 	if err != nil {
 		return nil, err
 	}
-	return res, googleapi.CheckMediaResponse(res)
+	if err := googleapi.CheckMediaResponse(res); err != nil {
+		res.Body.Close()
+		return nil, err
+	}
+	return res, nil
 }
 
 // Writer returns a FileWriter which will store the content written to it
@@ -599,9 +603,6 @@ func (w *writer) Size() int64 {
 func (w *writer) init(path string) error {
 	res, err := getObject(w.client, w.bucket, w.name, 0)
 	if err != nil {
-		if res != nil {
-			res.Body.Close()
-		}
 		return err
 	}
 	defer res.Body.Close()
