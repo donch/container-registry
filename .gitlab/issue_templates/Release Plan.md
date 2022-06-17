@@ -8,24 +8,24 @@ Example:
 Release Version v2.7.7-gitlab
 -->
 
-## Issues
+## What's New in this Version
 <!--
-Please create an unordered list with the issues that this release should include.
+* Copy the changelog description from https://gitlab.com/gitlab-org/container-registry/-/blob/master/CHANGELOG.md that corresponds to this release, adjusting the headers to `###` for the version diff and `####` for the change categories.
 
 Example:
 
-* https://gitlab.com/gitlab-org/gitlab/issues/12345
-* https://gitlab.com/gitlab-org/container-registry/issues/12345
--->
+### [3.43.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.42.0-gitlab...v3.43.0-gitlab) (2022-05-20)
 
-## Merge Requests
-<!--
-(Optional) Please create an unordered list with the merge requests that this release should include.
 
-Example:
+#### Bug Fixes
 
-* https://gitlab.com/gitlab-org/gitlab/merge_requests/12345
-* https://gitlab.com/gitlab-org/container-registry/merge_requests/12345
+* gracefully handle missing manifest revisions during imports ([bc7c43f](https://gitlab.com/gitlab-org/container-registry/commit/bc7c43f30d8aba8f2edf2ca741b366614d9234c3))
+
+
+#### Features
+
+* add ability to check/log whether FIPS crypto has been enabled ([1ac2454](https://gitlab.com/gitlab-org/container-registry/commit/1ac2454ac9dc7eeca5d9b555e0f1e6830fa66439))
+* add support for additional gardener media types ([10153f8](https://gitlab.com/gitlab-org/container-registry/commit/10153f8df9a147806084aaff0f95a9d9536bbbe5))
 -->
 
 ## Tasks
