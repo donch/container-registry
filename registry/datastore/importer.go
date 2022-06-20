@@ -825,8 +825,13 @@ func (imp *Importer) retryImportManifestWithBackoff(l log.Logger, fsRepo distrib
 	backOff := backoff.NewExponentialBackOff()
 	backOff.InitialInterval = 100 * time.Millisecond
 	backOff.MaxElapsedTime = imp.preImportRetryTimeout
+	count := 0
 
 	operation := func() error {
+		count++
+		l = l.WithFields(log.Fields{"retry_count": count})
+		l.Info("retrying pre import manifest")
+
 		// use a new context with an extended deadline just for this retry
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
