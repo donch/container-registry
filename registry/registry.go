@@ -236,6 +236,8 @@ func (registry *Registry) ListenAndServe() error {
 		})
 		log.Info("attempting to stop server gracefully...")
 
+		registry.app.CancelAllImportsAndWait()
+
 		// shutdown the server with a grace period of configured timeout
 		if registry.config.HTTP.DrainTimeout != 0 {
 			log.Info("draining http connections")

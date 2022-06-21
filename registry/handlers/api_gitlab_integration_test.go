@@ -520,6 +520,180 @@ func TestGitlabAPI_RepositoryImport_PreImportInProgress(t *testing.T) {
 	require.Equal(t, expectedStatus, s)
 }
 
+func TestGitlabAPI_RepositoryImport_PreImportShutdown(t *testing.T) {
+	rootDir := t.TempDir()
+	migrationDir := filepath.Join(rootDir, "/new")
+
+	repoPath := "old/repo"
+	tagName := "import-tag"
+
+	mockedImportNotifSrv := newMockImportNotification(t, repoPath)
+
+	env := newTestEnv(
+		t, withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+		// Simulate a long running import and prevent context from being canceled.
+		withMigrationTestSlowImport(waitForever),
+		withMigrationPreImportTimeout(time.Second*20),
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)),
+	)
+
+	t.Cleanup(env.Shutdown)
+
+	env.requireDB(t)
+
+	// Push up a image to the old side of the registry, so we can migrate it below.
+	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
+
+	// Start repository pre import.
+	repoRef, err := reference.WithName(repoPath)
+	require.NoError(t, err)
+
+	importURL, err := env.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"pre"}})
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPut, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Pre import should start without error.
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	// Pause to ensure the import goroutine has a chance to start, or we won't
+	// have any ongoing imports queued up to cancel and the test will flake.
+	time.Sleep(time.Millisecond * 200)
+
+	// We need to cancel the imports in a second goroutine to avoid blocking
+	// the notification server from getting the import notification.
+	done := make(chan bool)
+	go func() {
+		env.app.CancelAllImportsAndWait()
+		done <- true
+	}()
+
+	mockedImportNotifSrv.waitForImportNotification(
+		t,
+		repoPath,
+		string(migration.RepositoryStatusPreImportCanceled),
+		"forced cancelation",
+		3*time.Second,
+	)
+
+	require.Eventually(t, func() bool { return <-done }, time.Second*2, time.Millisecond*500)
+
+	// Get the import status
+	assertImportStatus(t, importURL, repoPath, migration.RepositoryStatusPreImportCanceled, "forced cancelation")
+}
+
+func TestGitlabAPI_RepositoryImport_ImportShutdown(t *testing.T) {
+	rootDir := t.TempDir()
+	migrationDir := filepath.Join(rootDir, "/new")
+
+	repoPath := "old/repo"
+	tagName := "import-tag"
+
+	mockedImportNotifSrv := newMockImportNotification(t, repoPath)
+	env := newTestEnv(t,
+		withFSDriver(rootDir),
+		withMigrationEnabled, withMigrationRootDirectory(migrationDir),
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)),
+	)
+	t.Cleanup(env.Shutdown)
+	env.requireDB(t)
+
+	// Push up a image to the old side of the registry, so we can migrate it below.
+	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName), writeToFilesystemOnly)
+
+	preImportRepository(t, env, mockedImportNotifSrv, repoPath)
+
+	env2 := newTestEnv(
+		t, withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+		// Simulate a long running import and prevent context from being canceled.
+		withMigrationTestSlowImport(waitForever),
+		withMigrationImportTimeout(time.Second*20),
+		withImportNotification(mockImportNotificationServer(t, mockedImportNotifSrv)),
+	)
+	env.app.Config.Migration.ImportNotification.Timeout = 20 * time.Second
+
+	t.Cleanup(env.Shutdown)
+
+	// Start repository import.
+	repoRef, err := reference.WithName(repoPath)
+	require.NoError(t, err)
+
+	importURL, err := env2.builder.BuildGitlabV1RepositoryImportURL(repoRef, url.Values{"import_type": []string{"final"}})
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPut, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Import should start without error.
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	// Pause to ensure the import goroutine has a chance to start, or we won't
+	// have any ongoing imports queued up to cancel and the test will flake.
+	time.Sleep(time.Millisecond * 200)
+
+	// We need to cancel the imports in a second goroutine to avoid blocking
+	// the notification server from getting the import notification.
+	done := make(chan bool)
+	go func() {
+		env2.app.CancelAllImportsAndWait()
+		done <- true
+	}()
+
+	mockedImportNotifSrv.waitForImportNotification(
+		t,
+		repoPath,
+		string(migration.RepositoryStatusImportCanceled),
+		"forced cancelation",
+		3*time.Second,
+	)
+
+	require.Eventually(t, func() bool { return <-done }, time.Second*2, time.Millisecond*500)
+
+	// Get the import status
+	assertImportStatus(t, importURL, repoPath, migration.RepositoryStatusImportCanceled, "forced cancelation")
+}
+
+func TestGitlabAPI_RepositoryImport_NoImportShutdown(t *testing.T) {
+	rootDir := t.TempDir()
+	migrationDir := filepath.Join(rootDir, "/new")
+
+	// Ensure a registry instance not running any imports is able to shutdown
+	// gracefully as normal.
+	env := newTestEnv(
+		t, withFSDriver(rootDir),
+		withMigrationEnabled,
+		withMigrationRootDirectory(migrationDir),
+	)
+
+	// Set check invernal to the usual default as the check interval is used as
+	// a timeout for canceling ongoing imports
+	originalInterval := handlers.OngoingImportCheckIntervalSeconds
+	handlers.OngoingImportCheckIntervalSeconds = time.Second * 5
+	t.Cleanup(func() {
+		handlers.OngoingImportCheckIntervalSeconds = originalInterval
+		env.Shutdown()
+	})
+
+	env.requireDB(t)
+
+	start := time.Now()
+	require.NotPanics(t, env.app.CancelAllImportsAndWait)
+	require.WithinDuration(t, time.Now(), start, time.Second*1)
+}
+
 func TestGitlabAPI_RepositoryImport_ImportInProgress(t *testing.T) {
 	rootDir := t.TempDir()
 	migrationDir := filepath.Join(rootDir, "/new")
