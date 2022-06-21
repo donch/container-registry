@@ -1,3 +1,17 @@
+# [3.49.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.48.0-gitlab...v3.49.0-gitlab) (2022-06-21)
+
+
+### Bug Fixes
+
+* **storage/driver/gcs:** getObject: do not return non-empty responses along with errors ([e1b3b47](https://gitlab.com/gitlab-org/container-registry/commit/e1b3b47b38aa9583571221e5f47a3584523ecf77))
+
+
+### Features
+
+* add support for ansible collection media type ([4bf5eeb](https://gitlab.com/gitlab-org/container-registry/commit/4bf5eeb97fc45fc58dd331c8bc4df89dc72ec648))
+* add support for helm chart meta media type ([93fa792](https://gitlab.com/gitlab-org/container-registry/commit/93fa79213c6025112c4b0f7e9dbd950141cdddd3))
+* **handlers:** attempt to cancel ongoing imports during graceful shutdown ([a18ef92](https://gitlab.com/gitlab-org/container-registry/commit/a18ef924d5531bf4015ae633261b54398c959405))
+
 # [3.48.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.47.0-gitlab...v3.48.0-gitlab) (2022-06-10)
 
 
