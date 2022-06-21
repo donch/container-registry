@@ -253,6 +253,41 @@ func (ih *importHandler) StartRepositoryImport(w http.ResponseWriter, r *http.Re
 
 		go ih.checkOngoingImportStatus(importCtx, done, importCtxCancel)
 
+		// Make a best effort attempt to stop ongoing imports during graceful shutdowns.
+		if err := ih.App.ongoingImports.add(correlationID, &repositoryImport{
+			path: dbRepo.Path,
+			cancelFn: func() {
+				dbRepo, err := ih.FindByPath(importCtx, dbRepo.Path)
+				if err != nil {
+					l.WithError(err).Error("stopping ongoing import for shutdown: error finding repository")
+					return
+				}
+
+				if dbRepo == nil {
+					l.WithError(err).Error("stopping ongoing import for shutdown: repository not found in database")
+					return
+				}
+
+				if cancelable := cancelableStatuses[dbRepo.MigrationStatus]; !cancelable {
+					l.WithFields(log.Fields{"migration_status": dbRepo.MigrationStatus}).Warn("repository not in cancelable state")
+					return
+				}
+
+				forceDelete := true
+				if err := ih.cancelImport(importCtx, dbRepo, forceDelete); err != nil {
+					l.WithError(err).Error("stopping ongoing import for shutdown: canceling import")
+					return
+				}
+			},
+		}); err != nil {
+			// Don't stop the import due to this error, this instance will likely not
+			// get shutdown during import and if it does, rails will be able to pick
+			// it back up, it will only take a bit longer than if we could cancel it.
+			l.WithError(err).WithFields(log.Fields{"repository": dbRepo.Path}).Error("registering repository import failed")
+			errortracking.Capture(err, errortracking.WithContext(importCtx), errortracking.WithRequest(r))
+		}
+		defer ih.App.ongoingImports.remove(correlationID)
+
 		err = ih.runImport(importCtx, importer, dbRepo)
 		if err != nil {
 			l.WithError(err).WithFields(log.Fields{"repository": dbRepo.Path}).Error("repository import failed")
@@ -538,7 +573,7 @@ func (ih *importHandler) CancelRepositoryImport(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	if err := ih.cancelImport(dbRepo, forceDelete); err != nil {
+	if err := ih.cancelImport(ih.Context, dbRepo, forceDelete); err != nil {
 		ih.Errors = append(ih.Errors, errcode.FromUnknownError(err))
 		return
 	}
@@ -546,7 +581,7 @@ func (ih *importHandler) CancelRepositoryImport(w http.ResponseWriter, r *http.R
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (ih *importHandler) cancelImport(dbRepo *models.Repository, forced bool) error {
+func (ih *importHandler) cancelImport(ctx context.Context, dbRepo *models.Repository, forced bool) error {
 	toStatus := migration.RepositoryStatusImportCanceled
 	detail := "final import canceled"
 	if dbRepo.MigrationStatus == migration.RepositoryStatusPreImportInProgress ||
@@ -562,7 +597,7 @@ func (ih *importHandler) cancelImport(dbRepo *models.Repository, forced bool) er
 	dbRepo.MigrationStatus = toStatus
 	dbRepo.MigrationError = sql.NullString{String: detail, Valid: true}
 
-	if err := ih.Update(ih, dbRepo); err != nil {
+	if err := ih.Update(ctx, dbRepo); err != nil {
 		return fmt.Errorf("updating migration status trying to cancel import: %w", err)
 	}
 
@@ -613,6 +648,11 @@ func (ih *importHandler) checkOngoingImportStatus(importCtx context.Context, don
 
 // updateSuccessfulRepo is called after a successful (pre)import
 func (ih *importHandler) updateSuccessfulRepo(importCtx context.Context, dbRepo *models.Repository, multiErrs *multierror.Error) {
+	// Make sure the context hasn't been canceled to avoid logging a misleading error.
+	if errors.Is(importCtx.Err(), context.Canceled) {
+		return
+	}
+
 	if err := ih.Update(importCtx, dbRepo); err != nil {
 		errStr := "updating migration status after successful final import"
 		if ih.preImport {

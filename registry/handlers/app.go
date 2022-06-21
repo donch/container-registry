@@ -15,6 +15,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/benbjohnson/clock"
@@ -85,6 +86,7 @@ type App struct {
 	migrationDriver    storagedriver.StorageDriver // migrationDriver is the secondary storage driver for migration
 	importNotifier     *migration.Notifier         // importNotifier used to send notifications when an import or pre-import is done
 	importSemaphore    chan struct{}               //importSemaphore is used to limit the maximum number of concurrent imports
+	ongoingImports     *ongoingImports             // ongoingImports is used to keep track of in progress imports for graceful shutdowns
 
 	repoRemover      distribution.RepositoryRemover // repoRemover provides ability to delete repos
 	accessController auth.AccessController          // main access controller for application
@@ -167,6 +169,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) (*App, err
 		}
 		app.migrationDriver = md
 		app.importSemaphore = make(chan struct{}, config.Migration.MaxConcurrentImports)
+		app.ongoingImports = newOngoingImports()
 
 		if config.Migration.ImportNotification.Enabled {
 			notifier, err := migration.NewNotifier(
@@ -1721,4 +1724,91 @@ func repositoryFromContextWithRegistry(ctx *Context, w http.ResponseWriter, regi
 	}
 
 	return repository, nil
+}
+
+type ongoingImports struct {
+	sync.Mutex
+	imports map[string]*repositoryImport
+	done    chan bool
+	wg      sync.WaitGroup
+}
+
+func newOngoingImports() *ongoingImports {
+	return &ongoingImports{sync.Mutex{}, make(map[string]*repositoryImport), make(chan bool), sync.WaitGroup{}}
+}
+
+func (i *ongoingImports) add(id string, repo *repositoryImport) error {
+	i.Lock()
+	defer i.Unlock()
+
+	if _, ok := i.imports[id]; ok {
+		return fmt.Errorf("duplicate import %s", id)
+	}
+
+	i.imports[id] = repo
+	i.wg.Add(1)
+	return nil
+}
+
+func (i *ongoingImports) remove(id string) {
+	i.Lock()
+	defer i.Unlock()
+
+	if _, ok := i.imports[id]; !ok {
+		dlog.GetLogger().Warn("removing import %s: not found", id)
+		return
+	}
+
+	i.wg.Done()
+	delete(i.imports, id)
+}
+
+func (i *ongoingImports) cancelAllAndWait() {
+	if len(i.imports) == 0 {
+		return
+	}
+
+	i.Lock()
+
+	l := dlog.GetLogger().WithFields(dlog.Fields{"ongoing_imports": len(i.imports)})
+	l.Info("cancelling ongoing imports")
+
+	for id, repo := range i.imports {
+		l.WithFields(dlog.Fields{"import_correlation_ID": id, "repository_path": repo.path}).Info("canceling import")
+		repo.cancelFn()
+	}
+
+	i.Unlock()
+
+	go func() {
+		i.wg.Wait()
+		i.done <- true
+	}()
+
+	// If this function is called, the instance is in danger of being killed if
+	// we take too long to shut down so also use a timeout instead of only
+	// relying on the waitgroup.
+	timeout := time.Second * 10
+
+	select {
+	case <-i.done:
+		l.Info("finished canceling in progress imports")
+	case <-time.After(timeout):
+		l.WithFields(dlog.Fields{"timeout_s": timeout}).Warn("timeout canceling in progress imports")
+	}
+}
+
+type repositoryImport struct {
+	path     string
+	cancelFn func()
+}
+
+// CancelAllImportsAndWait sets a canceled status for all running repository
+// imports to allow for graceful shutdowns.
+func (app *App) CancelAllImportsAndWait() {
+	if app.ongoingImports == nil {
+		return
+	}
+
+	app.ongoingImports.cancelAllAndWait()
 }
