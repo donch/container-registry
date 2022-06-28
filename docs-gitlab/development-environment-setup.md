@@ -188,10 +188,10 @@ To work with an insecure local registry (HTTP for push and pull):
 1. Update the Colima docker daemon configuration file with any insecure local registries you are using. The file is located in `~/.colima/docker/daemon.json`:
 
    ```json
-  {
+   {
      "experimental":true,
      "insecure-registries":[ "172.16.123.1:5000" ]
-  }
+   }
    ```
 
    If you previously used Docker Desktop, you can copy your old configuration file to the new location:
