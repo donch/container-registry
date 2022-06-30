@@ -100,6 +100,18 @@ type Tag struct {
 // Tags is a slice of Tag pointers.
 type Tags []*Tag
 
+// TagDetail is a virtual entity with no parallel on the database schema. This provides a set of attributes obtained
+// by merging a Tag entity with the corresponding Manifest entity and the GET /gitlab/v1/<name>/tags/list API endpoint
+// is its primary use case.
+type TagDetail struct {
+	Name      string
+	Digest    digest.Digest
+	MediaType string
+	Size      int64
+	CreatedAt time.Time
+	UpdatedAt sql.NullTime
+}
+
 type Blob struct {
 	MediaType string
 	Digest    digest.Digest

@@ -42,6 +42,7 @@ type RepositoryReader interface {
 	ExistsBlob(ctx context.Context, r *models.Repository, d digest.Digest) (bool, error)
 	Size(ctx context.Context, r *models.Repository) (int64, error)
 	SizeWithDescendants(ctx context.Context, r *models.Repository) (int64, error)
+	TagsDetailPaginated(ctx context.Context, r *models.Repository, limit int, lastName string) ([]*models.TagDetail, error)
 }
 
 // RepositoryWriter is the interface that defines write operations for a repository store.
@@ -544,6 +545,66 @@ func (s *repositoryStore) TagsPaginated(ctx context.Context, r *models.Repositor
 	}
 
 	return scanFullTags(rows)
+}
+
+func scanFullTagsDetail(rows *sql.Rows) ([]*models.TagDetail, error) {
+	tt := make([]*models.TagDetail, 0)
+	defer rows.Close()
+
+	for rows.Next() {
+		var dgst Digest
+		t := new(models.TagDetail)
+		if err := rows.Scan(&t.Name, &dgst, &t.MediaType, &t.Size, &t.CreatedAt, &t.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scanning tag details: %w", err)
+		}
+
+		d, err := dgst.Parse()
+		if err != nil {
+			return nil, err
+		}
+		t.Digest = d
+		tt = append(tt, t)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("scanning tag details: %w", err)
+	}
+
+	return tt, nil
+}
+
+// TagsDetailPaginated finds up to limit tags of a given repository with name lexicographically after lastName. This is
+// used exclusively for the GET /gitlab/v1/<name>/tags/list API, where pagination is done with a marker (lastName).
+// Even if there is no tag with a name of lastName, the returned tags will always be those with a path lexicographically
+// after lastName. Finally, tags are lexicographically sorted.
+func (s *repositoryStore) TagsDetailPaginated(ctx context.Context, r *models.Repository, limit int, lastName string) ([]*models.TagDetail, error) {
+	defer metrics.InstrumentQuery("repository_tags_detail_paginated")()
+	q := `SELECT
+			t.name,
+			encode(m.digest, 'hex') AS digest,
+			mt.media_type,
+			m.total_size,
+			t.created_at,
+			t.updated_at
+		FROM
+			tags AS t
+			JOIN manifests AS m ON m.top_level_namespace_id = t.top_level_namespace_id
+				AND m.repository_id = t.repository_id
+				AND m.id = t.manifest_id
+			JOIN media_types AS mt ON mt.id = m.media_type_id
+		WHERE
+			t.top_level_namespace_id = $1
+			AND t.repository_id = $2
+			AND t.name > $3
+		ORDER BY
+			t.name
+		LIMIT $4`
+
+	rows, err := s.db.QueryContext(ctx, q, r.NamespaceID, r.ID, lastName, limit)
+	if err != nil {
+		return nil, fmt.Errorf("finding tags detail with pagination: %w", err)
+	}
+
+	return scanFullTagsDetail(rows)
 }
 
 // TagsCountAfterName counts all tags of a given repository with name lexicographically after lastName. This is used

@@ -2111,3 +2111,150 @@ func TestRepositoryStore_CreateOrFindByPath_SoftDeleted(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, migration.RepositoryStatusPreImportInProgress, r.MigrationStatus)
 }
+
+func TestRepositoryStore_TagsDetailPaginated(t *testing.T) {
+	reloadTagFixtures(t)
+
+	// see testdata/fixtures/tags.sql (sorted):
+	// 1.0.0
+	// rc2
+	// stable-91ac07a9
+	// stable-9ede8db0
+	r := &models.Repository{NamespaceID: 1, ID: 4}
+
+	tt := []struct {
+		name         string
+		limit        int
+		lastName     string
+		expectedTags []*models.TagDetail
+	}{
+		{
+			name:     "no limit and no last name",
+			limit:    100, // there are only 4 tags in the DB for repository 4, so this is equivalent to no limit
+			lastName: "",  // this is the equivalent to no last name, as all tag names are non-empty
+			expectedTags: []*models.TagDetail{
+				{
+					Name:      "1.0.0",
+					Digest:    digest.Digest("sha256:bca3c0bf2ca0cde987ad9cab2dac986047a0ccff282f1b23df282ef05e3a10a6"),
+					MediaType: "application/vnd.docker.distribution.manifest.v2+json",
+					Size:      489234,
+				},
+				{
+					Name:      "rc2",
+					Digest:    digest.Digest("sha256:45e85a20d32f249c323ed4085026b6b0ee264788276aa7c06cf4b5da1669067a"),
+					MediaType: "application/vnd.docker.distribution.manifest.list.v2+json",
+					Size:      0,
+				},
+				{
+					Name:      "stable-91ac07a9",
+					Digest:    digest.Digest("sha256:ea1650093606d9e76dfc78b986d57daea6108af2d5a9114a98d7198548bfdfc7"),
+					MediaType: "application/vnd.docker.distribution.manifest.v1+json",
+					Size:      23847,
+				},
+				{
+					Name:      "stable-9ede8db0",
+					Digest:    digest.Digest("sha256:bca3c0bf2ca0cde987ad9cab2dac986047a0ccff282f1b23df282ef05e3a10a6"),
+					MediaType: "application/vnd.docker.distribution.manifest.v2+json",
+					Size:      489234,
+				},
+			},
+		},
+		{
+			name:     "1st part",
+			limit:    2,
+			lastName: "",
+			expectedTags: []*models.TagDetail{
+				{
+					Name:      "1.0.0",
+					Digest:    digest.Digest("sha256:bca3c0bf2ca0cde987ad9cab2dac986047a0ccff282f1b23df282ef05e3a10a6"),
+					MediaType: "application/vnd.docker.distribution.manifest.v2+json",
+					Size:      489234,
+				},
+				{
+					Name:      "rc2",
+					Digest:    digest.Digest("sha256:45e85a20d32f249c323ed4085026b6b0ee264788276aa7c06cf4b5da1669067a"),
+					MediaType: "application/vnd.docker.distribution.manifest.list.v2+json",
+					Size:      0,
+				},
+			},
+		},
+		{
+			name:     "nth part",
+			limit:    1,
+			lastName: "rc2",
+			expectedTags: []*models.TagDetail{
+				{
+					Name:      "stable-91ac07a9",
+					Digest:    digest.Digest("sha256:ea1650093606d9e76dfc78b986d57daea6108af2d5a9114a98d7198548bfdfc7"),
+					MediaType: "application/vnd.docker.distribution.manifest.v1+json",
+					Size:      23847,
+				},
+			},
+		},
+		{
+			name:     "last part",
+			limit:    100,
+			lastName: "stable-91ac07a9",
+			expectedTags: []*models.TagDetail{
+				{
+					Name:      "stable-9ede8db0",
+					Digest:    digest.Digest("sha256:bca3c0bf2ca0cde987ad9cab2dac986047a0ccff282f1b23df282ef05e3a10a6"),
+					MediaType: "application/vnd.docker.distribution.manifest.v2+json",
+					Size:      489234,
+				},
+			},
+		},
+		{
+			name:     "non existent last name",
+			limit:    100,
+			lastName: "does-not-exist",
+			expectedTags: []*models.TagDetail{
+				{
+					Name:      "rc2",
+					Digest:    digest.Digest("sha256:45e85a20d32f249c323ed4085026b6b0ee264788276aa7c06cf4b5da1669067a"),
+					MediaType: "application/vnd.docker.distribution.manifest.list.v2+json",
+					Size:      0,
+				},
+				{
+					Name:      "stable-91ac07a9",
+					Digest:    digest.Digest("sha256:ea1650093606d9e76dfc78b986d57daea6108af2d5a9114a98d7198548bfdfc7"),
+					MediaType: "application/vnd.docker.distribution.manifest.v1+json",
+					Size:      23847,
+				},
+				{
+					Name:      "stable-9ede8db0",
+					Digest:    digest.Digest("sha256:bca3c0bf2ca0cde987ad9cab2dac986047a0ccff282f1b23df282ef05e3a10a6"),
+					MediaType: "application/vnd.docker.distribution.manifest.v2+json",
+					Size:      489234,
+				},
+			},
+		},
+	}
+
+	s := datastore.NewRepositoryStore(suite.db)
+
+	for _, test := range tt {
+		t.Run(test.name, func(t *testing.T) {
+			rr, err := s.TagsDetailPaginated(suite.ctx, r, test.limit, test.lastName)
+			// reset created_at and updated_at attributes for reproducible comparisons
+			for _, r := range rr {
+				r.CreatedAt = time.Time{}
+				r.UpdatedAt = sql.NullTime{}
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, test.expectedTags, rr)
+		})
+	}
+}
+
+func TestRepositoryStore_TagsDetailPaginated_None(t *testing.T) {
+	reloadTagFixtures(t)
+
+	r := &models.Repository{NamespaceID: 1, ID: 1}
+
+	s := datastore.NewRepositoryStore(suite.db)
+	tt, err := s.TagsDetailPaginated(suite.ctx, r, 100, "")
+	require.NoError(t, err)
+	require.Empty(t, tt)
+}
