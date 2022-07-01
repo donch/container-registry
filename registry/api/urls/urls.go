@@ -242,6 +242,18 @@ func (ub *Builder) BuildGitlabV1RepositoryURL(name reference.Named, values ...ur
 	return appendValuesURL(u, values...).String(), nil
 }
 
+// BuildGitlabV1RepositoryTagsURL constructs a URL for the Gitlab v1 API repository tags route by name.
+func (ub *Builder) BuildGitlabV1RepositoryTagsURL(name reference.Named, values ...url.Values) (string, error) {
+	route := ub.cloneGitLabRoute(v1.RepositoryTags)
+
+	u, err := route.URL("name", name.Name())
+	if err != nil {
+		return "", err
+	}
+
+	return appendValuesURL(u, values...).String(), nil
+}
+
 // BuildGitlabV1RepositoryImportURL constructs a URL for the Gitlab v1 API
 // repository import route by name.
 func (ub *Builder) BuildGitlabV1RepositoryImportURL(name reference.Named, values ...url.Values) (string, error) {
