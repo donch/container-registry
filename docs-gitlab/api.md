@@ -135,16 +135,42 @@ GET /gitlab/v1/repositories/<path>/tags/list/
 | Attribute | Type   | Required | Default | Description                                                                                                                                                                                                                                         |
 |-----------|--------|----------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `path`    | String | Yes      |         | The full path of the target repository. Equivalent to the `name` parameter in the `/v2/` API, described in the [OCI Distribution Spec](https://github.com/opencontainers/distribution-spec/blob/main/spec.md). The same pattern validation applies. |
+| `last`    | String | No       |         | Query parameter used as marker for pagination. Set this to the tag name lexicographically after which (exclusive) you want the requested page to start. The value of this query parameter must be a valid tag name. More precisely, it must respect the `[a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}` pattern as defined in the OCI Distribution spec [here](https://github.com/opencontainers/distribution-spec/blob/main/spec.md#pulling-manifests). Otherwise, an `INVALID_QUERY_PARAMETER_VALUE` error is returned. |
+| `n`       | String | No       | 100     | Query parameter used as limit for pagination. Defaults to 100. Must be a positive integer between `1` and `1000` (inclusive). If the value is not a valid integer, the `INVALID_QUERY_PARAMETER_TYPE` error is returned. If the value is a valid integer but is out of the rage then an `INVALID_QUERY_PARAMETER_VALUE` error is returned. |
 
 #### Pagination
 
-The response is paginated and limited to 100 entries by default. Pagination works in the same way as in the `/v2/<name>/tags/list` tag
-listing endpoint. Please see the corresponding documentation [here](../docs/spec/api.md#pagination-1) for more details.
+The response is marker-based paginated, using marker (`last`) and limit (`n`) query parameters to paginate through tags.
+The default page size is 100, and it can be optionally increased to a maximum of 1000.
+
+In case more tags exist beyond those included in each response, the response `Link` header will contain the URL for the
+next page, encoded as specified in [RFC5988](https://tools.ietf.org/html/rfc5988). If the header is not present, the
+client can assume that all tags have been retrieved already.
+
+As an example, consider a repository named `app` with four tags: `a`, `b`, `c` and `d`. To start retrieving the details
+of these tags with a page size of `2`, the `n` query parameter should be set to `2`:
+
+```text
+?n=2
+```
+
+As result, the response will include the details of tags `a` and `b`, as they are lexicographically the first and second
+tag in the repository. The `Link` header would then be filled and point to the second page:
+
+```http
+200 OK
+Content-Type: application/json
+Link: <https://registry.gitlab.com/gitlab/v1/repositories/app/tags/list/?n=2&last=b>; rel="next"
+```
+
+Note that `last` is set to `b`, as that was the last tag included in the first page. Invoking this URL will therefore
+give us the second page with tags `c` and `d`. As there are no additional tags to receive, the response will not include
+a `Link` header this time.
 
 #### Example
 
 ```shell
-curl --header "Authorization: Bearer <token>" "https://registry.gitlab.com/gitlab/v1/repositories/gitlab-org/build/cng/gitlab-container-registry/tags/list/?n=20"
+curl --header "Authorization: Bearer <token>" "https://registry.gitlab.com/gitlab/v1/repositories/gitlab-org/build/cng/gitlab-container-registry/tags/list/?n=20&last=0.0.1"
 ```
 
 ### Response
@@ -473,8 +499,13 @@ error codes described in the
 `NAME_UNKNOWN` | `repository name not known to registry` | This is returned if the name used during an operation is unknown to the registry.
 `UNAUTHORIZED` | `authentication required` | The access controller was unable to authenticate the client. Often this will be accompanied by a Www-Authenticate HTTP response header indicating how to authenticate.
 `INVALID_QUERY_PARAMETER_VALUE` | `the value of a query parameter is invalid` | The value of a request query parameter is invalid. The error detail identifies the concerning parameter and the list of possible values.
+`INVALID_QUERY_PARAMETER_TYPE` | `the value of a query parameter is of an invalid type` | The value of a request query parameter is of an invalid type. The error detail identifies the concerning parameter and the list of possible types.
 
 ## Changes
+
+### 2022-06-29
+
+- Add new error code used when query parameter values have the wrong data type.
 
 ### 2022-06-07
 

@@ -3,6 +3,8 @@ package v1
 import (
 	"fmt"
 	"net/http"
+	"reflect"
+	"regexp"
 	"strings"
 
 	"github.com/docker/distribution"
@@ -21,6 +23,30 @@ var ErrorCodeInvalidQueryParamValue = errcode.Register(errGroup, errcode.ErrorDe
 
 func InvalidQueryParamValueErrorDetail(key string, validValues []string) string {
 	return fmt.Sprintf("the '%s' query parameter must be set to one of: %s", key, strings.Join(validValues, ", "))
+}
+
+func InvalidQueryParamValueRangeErrorDetail(key string, min, max int) string {
+	return fmt.Sprintf("the '%s' query parameter value must be between %d and %d", key, min, max)
+}
+
+func InvalidQueryParamValuePatternErrorDetail(key string, pattern *regexp.Regexp) string {
+	return fmt.Sprintf("the '%s' query parameter value must match the pattern '%s'", key, pattern)
+}
+
+// ErrorCodeInvalidQueryParamType is returned when the value of a query parameter is of an invalid type.
+var ErrorCodeInvalidQueryParamType = errcode.Register(errGroup, errcode.ErrorDescriptor{
+	Value:          "INVALID_QUERY_PARAMETER_TYPE",
+	Message:        "invalid query parameter value type",
+	Description:    "The value of a request query parameter is of an invalid type",
+	HTTPStatusCode: http.StatusBadRequest,
+})
+
+func InvalidQueryParamTypeErrorDetail(key string, validTypes []reflect.Kind) string {
+	strTypes := make([]string, 0, len(validTypes))
+	for _, t := range validTypes {
+		strTypes = append(strTypes, t.String())
+	}
+	return fmt.Sprintf("the '%s' query parameter value type must be one of: %s", key, strings.Join(strTypes, ", "))
 }
 
 // ErrorCodePreImportInProgress is returned when a repository is already pre importing.

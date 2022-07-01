@@ -3,10 +3,14 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"reflect"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/docker/distribution/log"
+	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/api/errcode"
 	v1 "github.com/docker/distribution/registry/api/gitlab/v1"
 	v2 "github.com/docker/distribution/registry/api/v2"
@@ -41,12 +45,22 @@ const (
 	sizeQueryParamKey                      = "size"
 	sizeQueryParamSelfValue                = "self"
 	sizeQueryParamSelfWithDescendantsValue = "self_with_descendants"
+	nQueryParamKey                         = "n"
+	nQueryParamValueMin                    = 1
+	nQueryParamValueMax                    = 1000
+	lastQueryParamKey                      = "last"
 )
 
-var sizeQueryParamValidValues = []string{
-	sizeQueryParamSelfValue,
-	sizeQueryParamSelfWithDescendantsValue,
-}
+var (
+	nQueryParamValidTypes = []reflect.Kind{reflect.Int}
+
+	sizeQueryParamValidValues = []string{
+		sizeQueryParamSelfValue,
+		sizeQueryParamSelfWithDescendantsValue,
+	}
+
+	lastQueryParamPattern = reference.TagRegexp
+)
 
 func isQueryParamValueValid(value string, validValues []string) bool {
 	for _, v := range validValues {
@@ -55,6 +69,19 @@ func isQueryParamValueValid(value string, validValues []string) bool {
 		}
 	}
 	return false
+}
+
+func isQueryParamTypeInt(value string) (int, bool) {
+	i, err := strconv.Atoi(value)
+	return i, err == nil
+}
+
+func isQueryParamIntValueInBetween(value, min, max int) bool {
+	return value >= min && value <= max
+}
+
+func queryParamValueMatchesPattern(value string, pattern *regexp.Regexp) bool {
+	return pattern.MatchString(value)
 }
 
 func sizeQueryParamValue(r *http.Request) string {
@@ -145,6 +172,125 @@ func (h *repositoryHandler) GetRepository(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "application/json")
 	enc := json.NewEncoder(w)
 
+	if err := enc.Encode(resp); err != nil {
+		h.Errors = append(h.Errors, errcode.FromUnknownError(err))
+		return
+	}
+}
+
+type repositoryTagsHandler struct {
+	*Context
+}
+
+func repositoryTagsDispatcher(ctx *Context, _ *http.Request) http.Handler {
+	repositoryTagsHandler := &repositoryTagsHandler{
+		Context: ctx,
+	}
+
+	return handlers.MethodHandler{
+		http.MethodGet: http.HandlerFunc(repositoryTagsHandler.GetTags),
+	}
+}
+
+// RepositoryTagResponse is the API counterpart for models.TagDetail. This allows us to abstract the datastore-specific
+// implementation details (such as sql.NullTime) without having to implement custom JSON serializers (and having to use
+// our own implementations) for these types. This is therefore a precise representation of the API response structure.
+type RepositoryTagResponse struct {
+	Name      string `json:"name"`
+	Digest    string `json:"digest"`
+	MediaType string `json:"media_type"`
+	Size      int64  `json:"size_bytes"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at,omitempty"`
+}
+
+// GetTags retrieves a list of tag details for a given repository. This includes support for marker-based pagination
+// using limit (`n`) and last (`last`) query parameters, as in the Docker/OCI Distribution tags list API. `n` is capped
+// to 100 entries by default.
+func (h *repositoryTagsHandler) GetTags(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+
+	maxEntries := maximumReturnedEntries
+	if q.Has(nQueryParamKey) {
+		val, valid := isQueryParamTypeInt(q.Get(nQueryParamKey))
+		if !valid {
+			detail := v1.InvalidQueryParamTypeErrorDetail(nQueryParamKey, nQueryParamValidTypes)
+			h.Errors = append(h.Errors, v1.ErrorCodeInvalidQueryParamType.WithDetail(detail))
+			return
+		}
+		if !isQueryParamIntValueInBetween(val, nQueryParamValueMin, nQueryParamValueMax) {
+			detail := v1.InvalidQueryParamValueRangeErrorDetail(nQueryParamKey, nQueryParamValueMin, nQueryParamValueMax)
+			h.Errors = append(h.Errors, v1.ErrorCodeInvalidQueryParamValue.WithDetail(detail))
+			return
+		}
+		maxEntries = val
+	}
+
+	// `lastEntry` must conform to the tag name regexp
+	var lastEntry string
+	if q.Has(lastQueryParamKey) {
+		lastEntry = q.Get(lastQueryParamKey)
+		if !queryParamValueMatchesPattern(lastEntry, lastQueryParamPattern) {
+			detail := v1.InvalidQueryParamValuePatternErrorDetail(lastQueryParamKey, lastQueryParamPattern)
+			h.Errors = append(h.Errors, v1.ErrorCodeInvalidQueryParamValue.WithDetail(detail))
+			return
+		}
+	}
+
+	path := h.Repository.Named().Name()
+	rStore := datastore.NewRepositoryStore(h.db)
+	repo, err := rStore.FindByPath(h.Context, path)
+	if err != nil {
+		h.Errors = append(h.Errors, errcode.FromUnknownError(err))
+		return
+	}
+	if repo == nil {
+		h.Errors = append(h.Errors, v2.ErrorCodeNameUnknown.WithDetail(map[string]string{"name": path}))
+		return
+	}
+
+	tagsList, err := rStore.TagsDetailPaginated(h.Context, repo, maxEntries, lastEntry)
+	if err != nil {
+		h.Errors = append(h.Errors, errcode.FromUnknownError(err))
+		return
+	}
+
+	// Add a link header if there are more entries to retrieve
+	if len(tagsList) > 0 {
+		n, err := rStore.TagsCountAfterName(h.Context, repo, tagsList[len(tagsList)-1].Name)
+		if err != nil {
+			h.Errors = append(h.Errors, errcode.FromUnknownError(err))
+			return
+		}
+		if n > 0 {
+			lastEntry = tagsList[len(tagsList)-1].Name
+			urlStr, err := createLinkEntry(r.URL.String(), maxEntries, lastEntry)
+			if err != nil {
+				h.Errors = append(h.Errors, errcode.FromUnknownError(err))
+				return
+			}
+			w.Header().Set("Link", urlStr)
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	resp := make([]RepositoryTagResponse, 0, len(tagsList))
+	for _, t := range tagsList {
+		d := RepositoryTagResponse{
+			Name:      t.Name,
+			Digest:    t.Digest.String(),
+			MediaType: t.MediaType,
+			Size:      t.Size,
+			CreatedAt: timeToString(t.CreatedAt),
+		}
+		if t.UpdatedAt.Valid {
+			d.UpdatedAt = timeToString(t.UpdatedAt.Time)
+		}
+		resp = append(resp, d)
+	}
+
+	enc := json.NewEncoder(w)
 	if err := enc.Encode(resp); err != nil {
 		h.Errors = append(h.Errors, errcode.FromUnknownError(err))
 		return

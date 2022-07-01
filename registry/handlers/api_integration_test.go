@@ -3636,8 +3636,12 @@ func createRepository(t *testing.T, env *testEnv, repoPath string, tag string) d
 	return digest.FromBytes(payload)
 }
 
-func createRepositoryWithMultipleIdenticalTags(t *testing.T, env *testEnv, repoPath string, tags []string) {
+func createRepositoryWithMultipleIdenticalTags(t *testing.T, env *testEnv, repoPath string, tags []string) (digest.Digest, string, int64) {
 	deserializedManifest := seedRandomSchema2Manifest(t, env, repoPath)
+
+	_, payload, err := deserializedManifest.Payload()
+	require.NoError(t, err)
+	dgst := digest.FromBytes(payload)
 
 	// upload a manifest per tag
 	for _, tag := range tags {
@@ -3649,13 +3653,10 @@ func createRepositoryWithMultipleIdenticalTags(t *testing.T, env *testEnv, repoP
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 		require.Equal(t, "nosniff", resp.Header.Get("X-Content-Type-Options"))
 		require.Equal(t, manifestDigestURL, resp.Header.Get("Location"))
-
-		_, payload, err := deserializedManifest.Payload()
-		require.NoError(t, err)
-		dgst := digest.FromBytes(payload)
-
 		require.Equal(t, dgst.String(), resp.Header.Get("Docker-Content-Digest"))
 	}
+
+	return dgst, schema2.MediaTypeManifest, deserializedManifest.TotalSize()
 }
 
 // Test mutation operations on a registry configured as a cache.  Ensure that they return

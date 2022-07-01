@@ -38,6 +38,12 @@ var (
 		Path: Base.Path + "import/{name:" + reference.NameRegexp.String() + "}/",
 		ID:   Base.Path + "import/{name}",
 	}
+	// RepositoryTags is the API route for the repository tags list endpoint.
+	RepositoryTags = Route{
+		Name: "repository-tags",
+		Path: Base.Path + "repositories/{name:" + reference.NameRegexp.String() + "}/tags/list/",
+		ID:   Base.Path + "repositories/{name}/tags/list",
+	}
 )
 
 // RouteRegex provides a regexp which can be used to determine if a string
@@ -51,6 +57,7 @@ func Router() *mux.Router {
 
 	router.Path(Base.Path).Name(Base.Name)
 	router.Path(RepositoryImport.Path).Name(RepositoryImport.Name)
+	router.Path(RepositoryTags.Path).Name(RepositoryTags.Name)
 	router.Path(Repositories.Path).Name(Repositories.Name)
 
 	return router

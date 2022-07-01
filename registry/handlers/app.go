@@ -144,6 +144,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) (*App, err
 		return http.HandlerFunc(gitlabAPIBase)
 	})
 	app.registerGitlab(v1.RepositoryImport, importDispatcher)
+	app.registerGitlab(v1.RepositoryTags, repositoryTagsDispatcher)
 	app.registerGitlab(v1.Repositories, repositoryDispatcher)
 
 	storageParams := config.Storage.Parameters()
