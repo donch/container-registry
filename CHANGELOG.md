@@ -1,3 +1,10 @@
+# [3.50.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.49.0-gitlab...v3.50.0-gitlab) (2022-07-04)
+
+
+### Features
+
+* **api/gitlab/v1:** add new tag details list endpoint ([5a16e33](https://gitlab.com/gitlab-org/container-registry/commit/5a16e33f298b234966bf425120a6163232c763de))
+
 # [3.49.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.48.0-gitlab...v3.49.0-gitlab) (2022-06-21)
 
 
