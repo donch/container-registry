@@ -915,9 +915,6 @@ func dbPutManifestSchema2(imh *manifestHandler, manifest *schema2.DeserializedMa
 	return dbPutManifestV2(imh, manifest, payload, false)
 }
 
-// safety limit to decide when to retrieve and cache configuration payloads on database based on their size in bytes
-const dbConfigSizeLimit = 256000 // 256KB
-
 func dbPutManifestV2(imh *manifestHandler, mfst distribution.ManifestV2, payload []byte, nonConformant bool) error {
 	repoPath := imh.Repository.Named().Name()
 
@@ -950,7 +947,7 @@ func dbPutManifestV2(imh *manifestHandler, mfst distribution.ManifestV2, payload
 		}
 
 		// skip retrieval and caching of config payload if its size is over the limit
-		if dbCfgBlob.Size <= dbConfigSizeLimit {
+		if dbCfgBlob.Size <= datastore.ConfigSizeLimit {
 			// Since filesystem writes may be optional, We cannot be sure that the
 			// repository scoped filesystem blob service will have a link to the
 			// configuration blob; however, since we check for repository scoped access
