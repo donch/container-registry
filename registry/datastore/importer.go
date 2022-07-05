@@ -261,29 +261,6 @@ func (imp *Importer) transferBlob(ctx context.Context, d digest.Digest, size int
 func (imp *Importer) importManifestV2(ctx context.Context, fsRepo distribution.Repository, dbRepo *models.Repository, m distribution.ManifestV2, dgst digest.Digest, payload []byte, nonConformant bool) (*models.Manifest, error) {
 	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": dbRepo.Path})
 
-	// get configuration blob payload
-	blobStore := fsRepo.Blobs(ctx)
-	configPayload, err := blobStore.Get(ctx, m.Config().Digest)
-	if err != nil {
-		if errors.Is(err, digest.ErrDigestInvalidFormat) {
-			l.WithError(err).Warn("broken configuration layer link, skipping")
-			return nil, errManifestSkip
-		}
-		if errors.Is(err, distribution.ErrBlobUnknown) {
-			// This error might happen if the config blob is not present on common, so
-			// this might shadow that as a simple "config unlinked" problem. However,
-			// we haven't seen such an error before, and even if we do, we can't bring
-			// such a blob back to life. So we simply skip here regardless.
-			l.WithError(err).Warn("configuration blob not linked, skipping")
-			return nil, errManifestSkip
-		}
-		if errors.Is(err, digest.ErrDigestInvalidFormat) {
-			l.WithError(err).Warn("broken config link, skipping")
-			return nil, errManifestSkip
-		}
-		return nil, fmt.Errorf("obtaining configuration payload: %w", err)
-	}
-
 	dbConfigBlob := &models.Blob{
 		MediaType: m.Config().MediaType,
 		Digest:    m.Config().Digest,
@@ -299,11 +276,16 @@ func (imp *Importer) importManifestV2(ctx context.Context, fsRepo distribution.R
 	l.Info("importing configuration")
 	ctx = log.WithLogger(ctx, l)
 
-	if err = imp.blobStore.CreateOrFind(ctx, dbConfigBlob); err != nil {
+	configPayload, err := getConfigPayload(ctx, m.Config(), fsRepo)
+	if err != nil {
 		return nil, err
 	}
 
-	if err = imp.transferBlob(ctx, m.Config().Digest, m.Config().Size, metrics.BlobTypeConfig); err != nil {
+	if err := imp.blobStore.CreateOrFind(ctx, dbConfigBlob); err != nil {
+		return nil, err
+	}
+
+	if err := imp.transferBlob(ctx, m.Config().Digest, m.Config().Size, metrics.BlobTypeConfig); err != nil {
 		return nil, err
 	}
 
@@ -346,6 +328,41 @@ func (imp *Importer) importManifestV2(ctx context.Context, fsRepo distribution.R
 	}
 
 	return dbManifest, nil
+}
+
+// getConfigPayload will read the configuration payload from fsRepo only if the manifest configuration size is
+// smaller than ConfigSizeLimit
+func getConfigPayload(ctx context.Context, m distribution.Descriptor, fsRepo distribution.Repository) ([]byte, error) {
+	if m.Size > ConfigSizeLimit {
+		return nil, nil
+	}
+
+	l := log.GetLogger(log.WithContext(ctx))
+
+	// get configuration blob payload
+	blobStore := fsRepo.Blobs(ctx)
+	configPayload, err := blobStore.Get(ctx, m.Digest)
+	if err != nil {
+		if errors.Is(err, digest.ErrDigestInvalidFormat) {
+			l.WithError(err).Warn("broken configuration layer link, skipping")
+			return nil, errManifestSkip
+		}
+		if errors.Is(err, distribution.ErrBlobUnknown) {
+			// This error might happen if the config blob is not present on common, so
+			// this might shadow that as a simple "config unlinked" problem. However,
+			// we haven't seen such an error before, and even if we do, we can't bring
+			// such a blob back to life. So we simply skip here regardless.
+			l.WithError(err).Warn("configuration blob not linked, skipping")
+			return nil, errManifestSkip
+		}
+		if errors.Is(err, digest.ErrDigestInvalidFormat) {
+			l.WithError(err).Warn("broken config link, skipping")
+			return nil, errManifestSkip
+		}
+		return nil, fmt.Errorf("obtaining configuration payload: %w", err)
+	}
+
+	return configPayload, nil
 }
 
 func (imp *Importer) importManifestList(ctx context.Context, fsRepo distribution.Repository, dbRepo *models.Repository, ml *manifestlist.DeserializedManifestList, dgst digest.Digest) (*models.Manifest, error) {
