@@ -7,8 +7,10 @@ import (
 	"testing"
 
 	"github.com/docker/distribution/context"
+	"github.com/docker/distribution/registry/storage/driver/filesystem"
 	"github.com/docker/distribution/registry/storage/driver/inmemory"
 	"github.com/opencontainers/go-digest"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSimpleRead(t *testing.T) {
@@ -50,7 +52,15 @@ func TestSimpleRead(t *testing.T) {
 }
 
 func TestFileReaderSeek(t *testing.T) {
-	driver := inmemory.New()
+	// With Go 1.18, the inmemory driver fails due to issues with changes to the
+	// implementation of io.SectionReader:
+	// https://github.com/golang/go/commit/12e8ffc18e84a76f8e01457852c456a3b28ec55a#diff-b8f7b0d27cd167384fb8c925c93ab5340faa29a00ac39746e2d5b527476e81c7R503
+	// While switching to another driver implementation is not ideal, inmemory
+	// driver should only be used for tests, and the only issue caused by this
+	// change the core library is this test failing.
+	driver, err := filesystem.FromParameters(map[string]interface{}{"rootdirectory": t.TempDir()})
+	require.NoError(t, err)
+
 	pattern := "01234567890ab" // prime length block
 	repititions := 1024
 	path := "/patterned"
