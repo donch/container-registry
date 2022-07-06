@@ -1,3 +1,10 @@
+# [3.51.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.50.0-gitlab...v3.51.0-gitlab) (2022-07-06)
+
+
+### Features
+
+* **importer:** skip reading manifest config if it exceeds limit ([323ca81](https://gitlab.com/gitlab-org/container-registry/commit/323ca815b8d9d9e94d9e2943855bc68ef48fb0b6))
+
 # [3.50.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.49.0-gitlab...v3.50.0-gitlab) (2022-07-04)
 
 
