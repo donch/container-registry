@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go/storage v1.18.0
 	github.com/Azure/azure-sdk-for-go v58.0.0+incompatible
 	github.com/Shopify/toxiproxy v2.1.4+incompatible
-	github.com/aws/aws-sdk-go v1.40.7
+	github.com/aws/aws-sdk-go v1.44.49
 	github.com/benbjohnson/clock v1.1.0
 	github.com/cenkalti/backoff/v4 v4.1.1
 	github.com/denverdino/aliyungo v0.0.0-20210518071019-eb3bbb144d8a
@@ -89,7 +89,7 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	go.opencensus.io v0.23.0 // indirect
-	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2 // indirect
+	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd // indirect
 	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
