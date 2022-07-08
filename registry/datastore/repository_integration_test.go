@@ -37,7 +37,7 @@ func TestRepositoryStore_FindByID(t *testing.T) {
 	reloadRepositoryFixtures(t)
 
 	s := datastore.NewRepositoryStore(suite.db)
-	r, err := s.FindByID(suite.ctx, 1)
+	r, err := s.FindByPath(suite.ctx, "gitlab-org")
 	require.NoError(t, err)
 
 	// see testdata/fixtures/repositories.sql
@@ -54,7 +54,7 @@ func TestRepositoryStore_FindByID(t *testing.T) {
 
 func TestRepositoryStore_FindByID_NotFound(t *testing.T) {
 	s := datastore.NewRepositoryStore(suite.db)
-	r, err := s.FindByID(suite.ctx, 0)
+	r, err := s.FindByPath(suite.ctx, "a/b/c")
 	require.Nil(t, r)
 	require.NoError(t, err)
 }
@@ -1246,7 +1246,7 @@ func TestRepositoryStore_Blobs(t *testing.T) {
 	reloadBlobFixtures(t)
 
 	s := datastore.NewRepositoryStore(suite.db)
-	r, err := s.FindByID(suite.ctx, 3)
+	r, err := s.FindByPath(suite.ctx, "gitlab-org/gitlab-test/backend")
 	require.NoError(t, err)
 	require.NotNil(t, r)
 
@@ -1283,7 +1283,7 @@ func TestRepositoryStore_BlobsNone(t *testing.T) {
 	reloadBlobFixtures(t)
 
 	s := datastore.NewRepositoryStore(suite.db)
-	r, err := s.FindByID(suite.ctx, 1)
+	r, err := s.FindByPath(suite.ctx, "gitlab-org")
 	require.NoError(t, err)
 	require.NotNil(t, r)
 
@@ -1297,7 +1297,7 @@ func TestRepositoryStore_FindBlobByDigest(t *testing.T) {
 	reloadBlobFixtures(t)
 
 	s := datastore.NewRepositoryStore(suite.db)
-	r, err := s.FindByID(suite.ctx, 3)
+	r, err := s.FindByPath(suite.ctx, "gitlab-org/gitlab-test/backend")
 	require.NoError(t, err)
 	require.NotNil(t, r)
 
@@ -1320,7 +1320,7 @@ func TestRepositoryStore_FindBlobByDigest_NotFound(t *testing.T) {
 	reloadBlobFixtures(t)
 
 	s := datastore.NewRepositoryStore(suite.db)
-	r, err := s.FindByID(suite.ctx, 1)
+	r, err := s.FindByPath(suite.ctx, "gitlab-org")
 	require.NoError(t, err)
 	require.NotNil(t, r)
 
@@ -1334,7 +1334,7 @@ func TestRepositoryStore_ExistsBlobByDigest(t *testing.T) {
 	reloadBlobFixtures(t)
 
 	s := datastore.NewRepositoryStore(suite.db)
-	r, err := s.FindByID(suite.ctx, 3)
+	r, err := s.FindByPath(suite.ctx, "gitlab-org/gitlab-test/backend")
 	require.NoError(t, err)
 	require.NotNil(t, r)
 
@@ -1348,7 +1348,7 @@ func TestRepositoryStore_ExistsBlobByDigest_NotFound(t *testing.T) {
 	reloadBlobFixtures(t)
 
 	s := datastore.NewRepositoryStore(suite.db)
-	r, err := s.FindByID(suite.ctx, 1)
+	r, err := s.FindByPath(suite.ctx, "gitlab-org")
 	require.NoError(t, err)
 	require.NotNil(t, r)
 
@@ -1771,7 +1771,7 @@ func TestRepositoryStore_Update(t *testing.T) {
 	err := s.Update(suite.ctx, update)
 	require.NoError(t, err)
 
-	r, err := s.FindByID(suite.ctx, update.ID)
+	r, err := s.FindByPath(suite.ctx, "bar")
 	require.NoError(t, err)
 
 	update.CreatedAt = r.CreatedAt
@@ -1982,44 +1982,6 @@ func TestRepositoryStore_DeleteManifest_NotFoundDoesNotFail(t *testing.T) {
 	found, err := s.DeleteManifest(suite.ctx, r, d)
 	require.NoError(t, err)
 	require.False(t, found)
-}
-
-func TestRepositoryStore_Delete(t *testing.T) {
-	reloadRepositoryFixtures(t)
-
-	s := datastore.NewRepositoryStore(suite.db)
-	err := s.Delete(suite.ctx, 4)
-	require.NoError(t, err)
-
-	r, err := s.FindByID(suite.ctx, 4)
-	require.Nil(t, r)
-}
-
-func TestRepositoryStore_Delete_NotFound(t *testing.T) {
-	s := datastore.NewRepositoryStore(suite.db)
-	err := s.Delete(suite.ctx, 100)
-	require.EqualError(t, err, "repository not found")
-}
-
-func TestRepositoryStore_Delete_SingleRepositoryCache(t *testing.T) {
-	reloadRepositoryFixtures(t)
-
-	c := datastore.NewSingleRepositoryCache()
-	s := datastore.NewRepositoryStore(suite.db, datastore.WithRepositoryCache(c))
-
-	// Delete with nil cache value works as expected.
-	err := s.Delete(suite.ctx, 4)
-	require.NoError(t, err)
-
-	// Load a repo into the cache.
-	r, err := s.FindByPath(suite.ctx, "gitlab-org/gitlab-test/backend")
-	require.NoError(t, err)
-	require.Equal(t, r, c.Get("gitlab-org/gitlab-test/backend"))
-
-	// Delete clears the cache.
-	err = s.Delete(suite.ctx, r.ID)
-	require.NoError(t, err)
-	require.Nil(t, c.Get("gitlab-org/gitlab-test/backend"))
 }
 
 func softDeleteRepository(ctx context.Context, db *datastore.DB, r *models.Repository) error {
