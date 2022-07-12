@@ -22,7 +22,6 @@ import (
 type RepositoryReader interface {
 	FindAll(ctx context.Context) (models.Repositories, error)
 	FindAllPaginated(ctx context.Context, limit int, lastPath string) (models.Repositories, error)
-	FindByID(ctx context.Context, id int64) (*models.Repository, error)
 	FindByPath(ctx context.Context, path string) (*models.Repository, error)
 	FindDescendantsOf(ctx context.Context, id int64) (models.Repositories, error)
 	FindAncestorsOf(ctx context.Context, id int64) (models.Repositories, error)
@@ -57,7 +56,6 @@ type RepositoryWriter interface {
 	UnlinkBlob(ctx context.Context, r *models.Repository, d digest.Digest) (bool, error)
 	DeleteTagByName(ctx context.Context, r *models.Repository, name string) (bool, error)
 	DeleteManifest(ctx context.Context, r *models.Repository, d digest.Digest) (bool, error)
-	Delete(ctx context.Context, id int64) error
 }
 
 type repositoryOption func(*models.Repository)
@@ -166,16 +164,14 @@ func (rbs *RepositoryBlobService) Stat(ctx context.Context, dgst digest.Digest) 
 type RepositoryCache interface {
 	Get(path string) *models.Repository
 	Set(*models.Repository)
-	Clear(id int64)
 }
 
 // noOpRepositoryCache satisfies the RepositoryCache, but does not cache anything.
 // Useful as a default and for testing.
 type noOpRepositoryCache struct{}
 
-func (n *noOpRepositoryCache) Get(path string) *models.Repository { return nil }
-func (n *noOpRepositoryCache) Set(_ *models.Repository)           {}
-func (n *noOpRepositoryCache) Clear(id int64)                     {}
+func (n *noOpRepositoryCache) Get(string) *models.Repository { return nil }
+func (n *noOpRepositoryCache) Set(*models.Repository)        {}
 
 // singleRepositoryCache caches a single repository. This implementation is not
 // thread-safe.
@@ -199,14 +195,6 @@ func (c *singleRepositoryCache) Set(r *models.Repository) {
 	if r != nil {
 		c.r = r
 	}
-}
-
-func (c *singleRepositoryCache) Clear(id int64) {
-	if c.r == nil || c.r.ID != id {
-		return
-	}
-
-	c.r = nil
 }
 
 func scanFullRepository(row *sql.Row) (*models.Repository, error) {
@@ -238,35 +226,6 @@ func scanFullRepositories(rows *sql.Rows) (models.Repositories, error) {
 	}
 
 	return rr, nil
-}
-
-// FindByID finds a repository by ID.
-func (s *repositoryStore) FindByID(ctx context.Context, id int64) (*models.Repository, error) {
-	defer metrics.InstrumentQuery("repository_find_by_id")()
-	q := `SELECT
-			id,
-			top_level_namespace_id,
-			name,
-			path,
-			parent_id,
-			migration_status,
-			migration_error,
-			created_at,
-			updated_at
-		FROM
-			repositories
-		WHERE
-			id = $1`
-	row := s.db.QueryRowContext(ctx, q, id)
-
-	r, err := scanFullRepository(row)
-	if err != nil {
-		return r, err
-	}
-
-	s.cache.Set(r)
-
-	return r, nil
 }
 
 // FindByPath finds a repository by path.
@@ -1348,27 +1307,4 @@ func (s *repositoryStore) DeleteManifest(ctx context.Context, r *models.Reposito
 	}
 
 	return count == 1, nil
-}
-
-// Delete deletes a repository.
-func (s *repositoryStore) Delete(ctx context.Context, id int64) error {
-	s.cache.Clear(id)
-
-	defer metrics.InstrumentQuery("repository_delete")()
-	q := "DELETE FROM repositories WHERE id = $1"
-
-	res, err := s.db.ExecContext(ctx, q, id)
-	if err != nil {
-		return fmt.Errorf("deleting repository: %w", err)
-	}
-
-	n, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("deleting repository: %w", err)
-	}
-	if n == 0 {
-		return fmt.Errorf("repository not found")
-	}
-
-	return nil
 }
