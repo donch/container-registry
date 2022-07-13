@@ -197,12 +197,19 @@ coverage:
 
 .middleware:storage: &middleware-storage
   extends: .go-version-matrix
-  stage: test
+  stage: integration
   needs: []
 
 middleware:storage-googlecdn:
   <<: *middleware-storage
-  script: $GO_TEST -v -coverprofile=coverage.out -tags=include_gcs github.com/docker/distribution/registry/storage/driver/middleware/googlecdn
+  variables: 
+    REGISTRY_STORAGE_GCS_BUCKET: $CDN_GCS_BUCKET
+    REGISTRY_MIDDLEWARE_STORAGE_GOOGLECDN_BASEURL: $CDN_BASEURL
+    REGISTRY_MIDDLEWARE_STORAGE_GOOGLECDN_KEYNAME: $CDN_KEYNAME
+  script:
+    - export GOOGLE_APPLICATION_CREDENTIALS="$CDN_CREDENTIALS"
+    - export REGISTRY_MIDDLEWARE_STORAGE_GOOGLECDN_PRIVATEKEY="$CDN_PRIVATEKEY"
+    - $GO_TEST -v -coverprofile=coverage.out -tags=include_gcs,integration github.com/docker/distribution/registry/storage/driver/middleware/googlecdn
 
 .storage-driver-test: &storage-driver-test
   extends: .go-version-matrix
