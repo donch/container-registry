@@ -1357,7 +1357,8 @@ func dbDeleteManifest(ctx context.Context, db datastore.Handler, cache datastore
 
 // DeleteManifest removes the manifest with the given digest from the registry.
 func (imh *manifestHandler) DeleteManifest(w http.ResponseWriter, r *http.Request) {
-	log.GetLogger(log.WithContext(imh)).Debug("DeleteImageManifest")
+	l := log.GetLogger(log.WithContext(imh))
+	l.Debug("DeleteImageManifest")
 
 	if imh.writeFSMetadata {
 		manifests, err := imh.Repository.Manifests(imh)
@@ -1400,6 +1401,17 @@ func (imh *manifestHandler) DeleteManifest(w http.ResponseWriter, r *http.Reques
 		if err := dbDeleteManifest(imh.Context, imh.db, imh.repoCache, imh.Repository.Named().String(), imh.Digest); err != nil {
 			imh.appendManifestDeleteError(err)
 			return
+		}
+
+		// This is a temporary mitigation for https://gitlab.com/gitlab-org/container-registry/-/issues/726. It restores
+		// the manifest delete notifications for repositories on the new code path. Restoring this particular event is a
+		// top priority as it is needed to trigger usage calculations on the Rails side. We will need to rework the
+		// centralized notification mechanism as a whole and restore all event notifications later on as part of
+		// https://gitlab.com/gitlab-org/container-registry/-/issues/691.
+		if !imh.writeFSMetadata {
+			if err := imh.eventBridge.ManifestDeleted(imh.Repository.Named(), imh.Digest); err != nil {
+				l.WithError(err).Error("dispatching tag delete to listener")
+			}
 		}
 	}
 
