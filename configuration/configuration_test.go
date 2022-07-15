@@ -1805,3 +1805,206 @@ validation:
 
 	testParameter(t, yml, "REGISTRY_VALIDATION_MANIFESTS_PAYLOADSIZELIMIT", tt, validator)
 }
+
+func TestParseRedisCache_Enabled(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+redis:
+  cache:
+    enabled: %s
+`
+	tt := boolParameterTests(false)
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, strconv.FormatBool(got.Redis.Cache.Enabled))
+	}
+
+	testParameter(t, yml, "REGISTRY_REDIS_CACHE_ENABLED", tt, validator)
+}
+
+func TestParseRedisCache_TLS_Enabled(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+redis:
+  cache:
+    enabled: true
+    tls:
+      enabled: %s
+`
+	tt := boolParameterTests(false)
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, strconv.FormatBool(got.Redis.Cache.TLS.Enabled))
+	}
+
+	testParameter(t, yml, "REGISTRY_REDIS_CACHE_TLS_ENABLED", tt, validator)
+}
+
+func TestParseRedisCache_TLS_Insecure(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+redis:
+  cache:
+    enabled: true
+    tls:
+      insecure: %s
+`
+	tt := boolParameterTests(false)
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, strconv.FormatBool(got.Redis.Cache.TLS.Insecure))
+	}
+
+	testParameter(t, yml, "REGISTRY_REDIS_CACHE_TLS_INSECURE", tt, validator)
+}
+
+func TestParseRedisCache_Addr(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+redis:
+  cache:
+    enabled: true
+    addr: %s
+`
+	tt := []parameterTest{
+		{
+			name:  "single",
+			value: "0.0.0.0:6379",
+			want:  "0.0.0.0:6379",
+		},
+		{
+			name:  "multiple",
+			value: "0.0.0.0:16379,0.0.0.0:26379",
+			want:  "0.0.0.0:16379,0.0.0.0:26379",
+		},
+		{
+			name: "default",
+			want: "",
+		},
+	}
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, got.Redis.Cache.Addr)
+	}
+
+	testParameter(t, yml, "REGISTRY_REDIS_CACHE_ADDR", tt, validator)
+}
+
+func TestParseRedisCache_MainName(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+redis:
+  cache:
+    enabled: true
+    mainname: %s
+`
+	tt := []parameterTest{
+		{
+			name:  "sample",
+			value: "myredismainserver",
+			want:  "myredismainserver",
+		},
+		{
+			name: "default",
+			want: "",
+		},
+	}
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, got.Redis.Cache.MainName)
+	}
+
+	testParameter(t, yml, "REGISTRY_REDIS_CACHE_MAINNAME", tt, validator)
+}
+
+func TestParseRedisCache_Pool_MaxOpen(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+redis:
+  cache:
+    enabled: true
+    pool:
+      size: %s
+`
+	tt := []parameterTest{
+		{
+			name:  "sample",
+			value: "10",
+			want:  10,
+		},
+		{
+			name: "empty",
+			want: 0,
+		},
+	}
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, got.Redis.Cache.Pool.Size)
+	}
+
+	testParameter(t, yml, "REGISTRY_REDIS_CACHE_POOL_SIZE", tt, validator)
+}
+
+func TestParseRedisCache_Pool_MaxLifeTime(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+redis:
+  cache:
+    enabled: true
+    pool:
+      maxlifetime: %s
+`
+	tt := []parameterTest{
+		{
+			name:  "sample",
+			value: "1h",
+			want:  1 * time.Hour,
+		},
+		{
+			name: "empty",
+			want: time.Duration(0),
+		},
+	}
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, got.Redis.Cache.Pool.MaxLifetime)
+	}
+
+	testParameter(t, yml, "REGISTRY_REDIS_CACHE_POOL_MAXLIFETIME", tt, validator)
+}
+
+func TestParseRedisCache_Pool_IdleTimeout(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+redis:
+  cache:
+    enabled: true
+    pool:
+      idletimeout: %s
+`
+	tt := []parameterTest{
+		{
+			name:  "sample",
+			value: "300s",
+			want:  300 * time.Second,
+		},
+		{
+			name: "empty",
+			want: time.Duration(0),
+		},
+	}
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, got.Redis.Cache.Pool.IdleTimeout)
+	}
+
+	testParameter(t, yml, "REGISTRY_REDIS_CACHE_POOL_IDLETIMEOUT", tt, validator)
+}
