@@ -1,3 +1,10 @@
+## [3.51.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.51.0-gitlab...v3.51.1-gitlab) (2022-07-15)
+
+
+### Bug Fixes
+
+* restore manifest delete webhook notifications on the new code path ([7012484](https://gitlab.com/gitlab-org/container-registry/commit/70124848a8b87f26783e806acb1f6030aa9b82fb))
+
 # [3.51.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.50.0-gitlab...v3.51.0-gitlab) (2022-07-06)
 
 
