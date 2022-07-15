@@ -179,44 +179,9 @@ type Configuration struct {
 	// registry events are dispatched.
 	Notifications Notifications `yaml:"notifications,omitempty"`
 
-	// Redis configures the redis pool available to the registry webapp.
-	Redis struct {
-		// Addr specifies the redis instance available to the application. For Sentinel it should be a list of
-		// addresses separated by commas.
-		Addr string `yaml:"addr,omitempty"`
-
-		// MainName specifies the main server name. Only for Sentinel connections.
-		MainName string `yaml:"mainname,omitempty"`
-
-		// Password string to use when making a connection.
-		Password string `yaml:"password,omitempty"`
-
-		// DB specifies the database to connect to on the redis instance.
-		DB int `yaml:"db,omitempty"`
-
-		DialTimeout  time.Duration `yaml:"dialtimeout,omitempty"`  // timeout for connect
-		ReadTimeout  time.Duration `yaml:"readtimeout,omitempty"`  // timeout for reads of data
-		WriteTimeout time.Duration `yaml:"writetimeout,omitempty"` // timeout for writes of data
-
-		// TLS specifies settings for TLS connections.
-		TLS struct {
-			// Enabled enables TLS when connecting to the server.
-			Enabled bool `yaml:"enabled,omitempty"`
-			// Insecure disables server name verification when connecting over TLS.
-			Insecure bool `yaml:"insecure,omitempty"`
-		} `yaml:"tls,omitempty"`
-
-		// Pool configures the behavior of the redis connection pool.
-		Pool struct {
-			// Size is the maximum number of socket connections. Default is 10 connections.
-			Size int `yaml:"size,omitempty"`
-			// MaxLifetime is the connection age at which client retires a connection. Default is to not close aged
-			// connections.
-			MaxLifetime time.Duration `yaml:"maxlifetime,omitempty"`
-			// IdleTimeout sets the amount time to wait before closing inactive connections.
-			IdleTimeout time.Duration `yaml:"idletimeout,omitempty"`
-		} `yaml:"pool,omitempty"`
-	} `yaml:"redis,omitempty"`
+	// Redis configures the redis instance(s) available to the application. Separate Redis instances for different
+	// persistence classes (e.g. caching) can be used.
+	Redis Redis `yaml:"redis,omitempty"`
 
 	Health Health `yaml:"health,omitempty"`
 
@@ -261,6 +226,76 @@ type Configuration struct {
 	} `yaml:"policy,omitempty"`
 
 	GC GC `yaml:"gc,omitempty"`
+}
+
+// RedisTLS specifies settings for Redis TLS connections.
+type RedisTLS struct {
+	// Enabled enables TLS when connecting to the server.
+	Enabled bool `yaml:"enabled,omitempty"`
+	// Insecure disables server name verification when connecting over TLS.
+	Insecure bool `yaml:"insecure,omitempty"`
+}
+
+// RedisPool configures the behavior of the redis connection pool.
+type RedisPool struct {
+	// Size is the maximum number of socket connections. Default is 10 connections.
+	Size int `yaml:"size,omitempty"`
+	// MaxLifetime is the connection age at which client retires a connection. Default is to not close aged
+	// connections.
+	MaxLifetime time.Duration `yaml:"maxlifetime,omitempty"`
+	// IdleTimeout sets the amount time to wait before closing inactive connections.
+	IdleTimeout time.Duration `yaml:"idletimeout,omitempty"`
+}
+
+// RedisCache specifies custom settings for a Redis instance to be used for caching features.
+type RedisCache struct {
+	// Enabled is a simple toggle for the Redis cache. Defaults to false.
+	Enabled bool `yaml:"enabled,omitempty"`
+	// Addr specifies the redis instance available to the application. For Sentinel, it should be a list of
+	// addresses separated by commas.
+	Addr string `yaml:"addr,omitempty"`
+	// MainName specifies the main server name. Only for Sentinel connections.
+	MainName string `yaml:"mainname,omitempty"`
+	// Password string to use when making a connection.
+	Password string `yaml:"password,omitempty"`
+	// DB specifies the database to connect to on the redis instance.
+	DB int `yaml:"db,omitempty"`
+	// DialTimeout is the timeout for establishing connections.
+	DialTimeout time.Duration `yaml:"dialtimeout,omitempty"`
+	// ReadTimeout is the timeout for reading data.
+	ReadTimeout time.Duration `yaml:"readtimeout,omitempty"`
+	// WriteTimeout is the timeout for writing data.
+	WriteTimeout time.Duration `yaml:"writetimeout,omitempty"`
+	// TLS specifies settings for TLS connections.
+	TLS RedisTLS `yaml:"tls,omitempty"`
+	// Pool configures the behavior of the redis connection pool.
+	Pool RedisPool `yaml:"pool,omitempty"`
+}
+
+// Redis configures the redis instance(s) available to the application. Separate Redis instances for different
+// persistence classes (e.g. caching) can be used.
+type Redis struct {
+	// Addr specifies the redis instance available to the application. For Sentinel it should be a list of
+	// addresses separated by commas.
+	Addr string `yaml:"addr,omitempty"`
+	// MainName specifies the main server name. Only for Sentinel connections.
+	MainName string `yaml:"mainname,omitempty"`
+	// Password string to use when making a connection.
+	Password string `yaml:"password,omitempty"`
+	// DB specifies the database to connect to on the redis instance.
+	DB int `yaml:"db,omitempty"`
+	// DialTimeout is the timeout for establishing connections.
+	DialTimeout time.Duration `yaml:"dialtimeout,omitempty"`
+	// ReadTimeout is the timeout for reading data.
+	ReadTimeout time.Duration `yaml:"readtimeout,omitempty"`
+	// WriteTimeout is the timeout for writing data.
+	WriteTimeout time.Duration `yaml:"writetimeout,omitempty"`
+	// TLS specifies settings for TLS connections.
+	TLS RedisTLS `yaml:"tls,omitempty"`
+	// Pool configures the behavior of the redis connection pool.
+	Pool RedisPool `yaml:"pool,omitempty"`
+	// Cache specifies custom settings for a Redis instance to be used for caching features.
+	Cache RedisCache `yaml:"cache,omitempty"`
 }
 
 // GC configures online Garbage Collection.
