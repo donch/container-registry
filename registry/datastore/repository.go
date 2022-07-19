@@ -9,10 +9,13 @@ import (
 	"strings"
 
 	"github.com/docker/distribution"
+	"github.com/docker/distribution/log"
 	"github.com/docker/distribution/registry/datastore/metrics"
 	"github.com/docker/distribution/registry/datastore/models"
 	"github.com/docker/distribution/registry/internal/migration"
 
+	gocache "github.com/eko/gocache/v2/cache"
+	"github.com/eko/gocache/v2/marshaler"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
 	"github.com/opencontainers/go-digest"
@@ -162,28 +165,30 @@ func (rbs *RepositoryBlobService) Stat(ctx context.Context, dgst digest.Digest) 
 
 // RepositoryCache is a cache for *models.Repository objects.
 type RepositoryCache interface {
-	Get(path string) *models.Repository
-	Set(*models.Repository)
+	Get(ctx context.Context, path string) *models.Repository
+	Set(ctx context.Context, repo *models.Repository)
 }
 
 // noOpRepositoryCache satisfies the RepositoryCache, but does not cache anything.
 // Useful as a default and for testing.
 type noOpRepositoryCache struct{}
 
-func (n *noOpRepositoryCache) Get(string) *models.Repository { return nil }
-func (n *noOpRepositoryCache) Set(*models.Repository)        {}
+func (n *noOpRepositoryCache) Get(context.Context, string) *models.Repository { return nil }
+func (n *noOpRepositoryCache) Set(context.Context, *models.Repository)        {}
 
-// singleRepositoryCache caches a single repository. This implementation is not
-// thread-safe.
+// singleRepositoryCache caches a single repository in-memory. This implementation is not thread-safe. Deprecated in
+// favor of centralRepositoryCache.
 type singleRepositoryCache struct {
 	r *models.Repository
 }
 
+// NewSingleRepositoryCache creates a new local in-memory cache for a single repository object. This implementation is
+// not thread-safe. Deprecated in favor of NewCentralRepositoryCache.
 func NewSingleRepositoryCache() *singleRepositoryCache {
 	return &singleRepositoryCache{}
 }
 
-func (c *singleRepositoryCache) Get(path string) *models.Repository {
+func (c *singleRepositoryCache) Get(_ context.Context, path string) *models.Repository {
 	if c.r == nil || c.r.Path != path {
 		return nil
 	}
@@ -191,9 +196,57 @@ func (c *singleRepositoryCache) Get(path string) *models.Repository {
 	return c.r
 }
 
-func (c *singleRepositoryCache) Set(r *models.Repository) {
+func (c *singleRepositoryCache) Set(_ context.Context, r *models.Repository) {
 	if r != nil {
 		c.r = r
+	}
+}
+
+// centralRepositoryCache is the interface for the centralized repository object cache backed by Redis.
+type centralRepositoryCache struct {
+	cache *marshaler.Marshaler
+}
+
+// NewCentralRepositoryCache creates an interface for the centralized repository object cache backed by Redis.
+func NewCentralRepositoryCache(cache *gocache.Cache) *centralRepositoryCache {
+	return &centralRepositoryCache{marshaler.New(cache)}
+}
+
+// key generates a valid Redis key string for a given repository object. We use the path as unique identifier for
+// repository objects as that's what we have during lookups. All keys are prefixed with "registry:" to provide isolation
+// in case the Redis server is shared with other applications. Additionally, in order to guarantee optimal compatibility
+// with Redis Cluster, we ensure these keys are CROSSSLOT compatible. See
+// https://docs.gitlab.com/ee/development/redis.html#multi-key-commands and
+// https://redis.io/docs/reference/cluster-spec/#hash-tags for more details. For these reasons, keys follow the
+// "registry:{<type>:<ID>}" format in general. For this particular case we use "registry:{repository:<path>}".
+func (c *centralRepositoryCache) key(path string) string {
+	return fmt.Sprintf("registry:{repository:%s}", path)
+}
+
+// Get implements RepositoryCache.
+func (c *centralRepositoryCache) Get(ctx context.Context, path string) *models.Repository {
+	tmp, err := c.cache.Get(ctx, c.key(path), new(models.Repository))
+	if err != nil || tmp == nil {
+		log.GetLogger(log.WithContext(ctx)).WithError(err).Warn("failed to read repository from cache")
+		return nil
+	}
+
+	repo, ok := tmp.(*models.Repository)
+	if !ok {
+		log.GetLogger(log.WithContext(ctx)).Warn("failed to unmarshal repository from cache")
+		return nil
+	}
+
+	return repo
+}
+
+// Set implements RepositoryCache.
+func (c *centralRepositoryCache) Set(ctx context.Context, r *models.Repository) {
+	if r == nil {
+		return
+	}
+	if err := c.cache.Set(ctx, c.key(r.Path), r, nil); err != nil {
+		log.GetLogger(log.WithContext(ctx)).WithError(err).Warn("failed to write repository to cache")
 	}
 }
 
@@ -230,7 +283,7 @@ func scanFullRepositories(rows *sql.Rows) (models.Repositories, error) {
 
 // FindByPath finds a repository by path.
 func (s *repositoryStore) FindByPath(ctx context.Context, path string) (*models.Repository, error) {
-	if cached := s.cache.Get(path); cached != nil {
+	if cached := s.cache.Get(ctx, path); cached != nil {
 		return cached, nil
 	}
 
@@ -258,7 +311,7 @@ func (s *repositoryStore) FindByPath(ctx context.Context, path string) (*models.
 		return r, err
 	}
 
-	s.cache.Set(r)
+	s.cache.Set(ctx, r)
 
 	return r, nil
 }
@@ -837,7 +890,7 @@ func (s *repositoryStore) Create(ctx context.Context, r *models.Repository) erro
 		return fmt.Errorf("creating repository: %w", err)
 	}
 
-	s.cache.Set(r)
+	s.cache.Set(ctx, r)
 
 	return nil
 }
@@ -1051,7 +1104,7 @@ func (s *repositoryStore) SizeWithDescendants(ctx context.Context, r *models.Rep
 // on write operations between the corresponding read (FindByPath) and write (Create) operations. Separate Find* and
 // Create method calls should be preferred to this when race conditions are not a concern.
 func (s *repositoryStore) CreateOrFind(ctx context.Context, r *models.Repository) error {
-	if cached := s.cache.Get(r.Path); cached != nil {
+	if cached := s.cache.Get(ctx, r.Path); cached != nil {
 		*r = *cached
 		return nil
 	}
@@ -1107,7 +1160,7 @@ func (s *repositoryStore) CreateOrFind(ctx context.Context, r *models.Repository
 			return err
 		}
 		*r = *tmp
-		s.cache.Set(r)
+		s.cache.Set(ctx, r)
 	}
 
 	return nil
@@ -1125,7 +1178,7 @@ func repositoryName(path string) string {
 
 // CreateByPath creates the repository for a given path. An error is returned if the repository already exists.
 func (s *repositoryStore) CreateByPath(ctx context.Context, path string, opts ...repositoryOption) (*models.Repository, error) {
-	if cached := s.cache.Get(path); cached != nil {
+	if cached := s.cache.Get(ctx, path); cached != nil {
 		return cached, nil
 	}
 
@@ -1146,7 +1199,7 @@ func (s *repositoryStore) CreateByPath(ctx context.Context, path string, opts ..
 		return nil, err
 	}
 
-	s.cache.Set(r)
+	s.cache.Set(ctx, r)
 
 	return r, nil
 }
@@ -1154,7 +1207,7 @@ func (s *repositoryStore) CreateByPath(ctx context.Context, path string, opts ..
 // CreateOrFindByPath is the fully idempotent version of CreateByPath, where no error is returned if the repository
 // already exists.
 func (s *repositoryStore) CreateOrFindByPath(ctx context.Context, path string, opts ...repositoryOption) (*models.Repository, error) {
-	if cached := s.cache.Get(path); cached != nil {
+	if cached := s.cache.Get(ctx, path); cached != nil {
 		return cached, nil
 	}
 
@@ -1175,7 +1228,7 @@ func (s *repositoryStore) CreateOrFindByPath(ctx context.Context, path string, o
 		return nil, err
 	}
 
-	s.cache.Set(r)
+	s.cache.Set(ctx, r)
 
 	return r, nil
 }
@@ -1201,7 +1254,7 @@ func (s *repositoryStore) Update(ctx context.Context, r *models.Repository) erro
 		return fmt.Errorf("updating repository: %w", err)
 	}
 
-	s.cache.Set(r)
+	s.cache.Set(ctx, r)
 
 	return nil
 }

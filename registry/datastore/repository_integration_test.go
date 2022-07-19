@@ -17,6 +17,7 @@ import (
 	"github.com/docker/distribution/registry/datastore/models"
 	"github.com/docker/distribution/registry/datastore/testutil"
 	"github.com/docker/distribution/registry/internal/migration"
+	itestutil "github.com/docker/distribution/registry/internal/testutil"
 	"github.com/opencontainers/go-digest"
 	"github.com/stretchr/testify/require"
 )
@@ -99,7 +100,8 @@ func TestRepositoryStore_FindByPath_SingleRepositoryCache(t *testing.T) {
 	path := "a-test-group/foo"
 	c := datastore.NewSingleRepositoryCache()
 
-	require.Nil(t, c.Get(path))
+	ctx := context.Background()
+	require.Nil(t, c.Get(ctx, path))
 
 	s := datastore.NewRepositoryStore(suite.db, datastore.WithRepositoryCache(c))
 	r, err := s.FindByPath(suite.ctx, path)
@@ -116,8 +118,33 @@ func TestRepositoryStore_FindByPath_SingleRepositoryCache(t *testing.T) {
 		CreatedAt:       testutil.ParseTimestamp(t, "2020-06-08 16:01:39.476421", r.CreatedAt.Location()),
 	}
 
-	require.NotEqual(t, expected, c.Get("fake/path"))
-	require.Equal(t, expected, c.Get(path))
+	require.NotEqual(t, expected, c.Get(ctx, "fake/path"))
+	require.Equal(t, expected, c.Get(ctx, path))
+}
+
+func TestRepositoryStore_FindByPath_WithCentralRepositoryCache(t *testing.T) {
+	reloadRepositoryFixtures(t)
+
+	path := "a-test-group/foo"
+
+	// first grab sample repository without a cache to capture expected Repository object
+	s := datastore.NewRepositoryStore(suite.db)
+	expected, err := s.FindByPath(suite.ctx, path)
+	require.NoError(t, err)
+	require.NotNil(t, expected)
+
+	// repeat with cache
+	cache := datastore.NewCentralRepositoryCache(itestutil.RedisCache(t, 0))
+
+	ctx := context.Background()
+	require.Nil(t, cache.Get(ctx, path))
+
+	s = datastore.NewRepositoryStore(suite.db, datastore.WithRepositoryCache(cache))
+	got, err := s.FindByPath(suite.ctx, path)
+	require.NoError(t, err)
+	require.Equal(t, expected, got)
+
+	require.Equal(t, expected, cache.Get(ctx, path))
 }
 
 func TestRepositoryStore_FindAll(t *testing.T) {
@@ -1715,14 +1742,15 @@ func TestRepositoryStore_CreateOrFindByPath_SingleRepositoryCache(t *testing.T) 
 	// Create a new repository, filling the cache.
 	r1, err := s.CreateOrFindByPath(suite.ctx, "pineapple/banana")
 	require.NoError(t, err)
-	require.Equal(t, r1, c.Get(r1.Path))
+	ctx := context.Background()
+	require.Equal(t, r1, c.Get(ctx, r1.Path))
 
 	// Create another new repository, replacing the old cache value.
 	r2, err := s.CreateOrFindByPath(suite.ctx, "kiwi/mango")
 	require.NoError(t, err)
-	require.NotEqual(t, r1, c.Get(r1.Path))
-	require.NotEqual(t, r2, c.Get(r1.Path))
-	require.Equal(t, r2, c.Get(r2.Path))
+	require.NotEqual(t, r1, c.Get(ctx, r1.Path))
+	require.NotEqual(t, r2, c.Get(ctx, r1.Path))
+	require.Equal(t, r2, c.Get(ctx, r2.Path))
 }
 
 func TestRepositoryStore_CreateOrFind(t *testing.T) {
