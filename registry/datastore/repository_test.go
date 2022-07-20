@@ -31,7 +31,7 @@ func TestCentralRepositoryCache(t *testing.T) {
 	cache := datastore.NewCentralRepositoryCache(redisCache)
 	ctx := context.Background()
 
-	key := "registry:{repository:gitlab-org/gitlab}"
+	key := "registry:db:{repository:gitlab-org:6fc8277be731c24196adfdfbbf4fab5a760941f1808efc8e2f37d1fae8b44ac3}"
 	redisMock.ExpectGet(key).RedisNil()
 	r := cache.Get(ctx, repo.Path)
 	require.Nil(t, r)

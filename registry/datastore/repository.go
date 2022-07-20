@@ -212,28 +212,33 @@ func NewCentralRepositoryCache(cache *gocache.Cache) *centralRepositoryCache {
 	return &centralRepositoryCache{marshaler.New(cache)}
 }
 
-// key generates a valid Redis key string for a given repository object. We use the path as unique identifier for
-// repository objects as that's what we have during lookups. All keys are prefixed with "registry:" to provide isolation
-// in case the Redis server is shared with other applications. Additionally, in order to guarantee optimal compatibility
-// with Redis Cluster, we ensure these keys are CROSSSLOT compatible. See
-// https://docs.gitlab.com/ee/development/redis.html#multi-key-commands and
-// https://redis.io/docs/reference/cluster-spec/#hash-tags for more details. For these reasons, keys follow the
-// "registry:{<type>:<ID>}" format in general. For this particular case we use "registry:{repository:<path>}".
+// key generates a valid Redis key string for a given repository object. The used key format is described in
+// https://gitlab.com/gitlab-org/container-registry/-/blob/master/docs-gitlab/redis-dev-guidelines.md#key-format.
 func (c *centralRepositoryCache) key(path string) string {
-	return fmt.Sprintf("registry:{repository:%s}", path)
+	nsPrefix := strings.Split(path, "/")[0]
+	hex := digest.FromString(path).Hex()
+	return fmt.Sprintf("registry:db:{repository:%s:%s}", nsPrefix, hex)
 }
 
 // Get implements RepositoryCache.
 func (c *centralRepositoryCache) Get(ctx context.Context, path string) *models.Repository {
+	l := log.GetLogger(log.WithContext(ctx))
 	tmp, err := c.cache.Get(ctx, c.key(path), new(models.Repository))
 	if err != nil || tmp == nil {
-		log.GetLogger(log.WithContext(ctx)).WithError(err).Warn("failed to read repository from cache")
+		l.WithError(err).Warn("failed to read repository from cache")
 		return nil
 	}
 
 	repo, ok := tmp.(*models.Repository)
 	if !ok {
-		log.GetLogger(log.WithContext(ctx)).Warn("failed to unmarshal repository from cache")
+		l.Warn("failed to unmarshal repository from cache")
+		return nil
+	}
+
+	// Double check that the obtained and decoded repository object has the same path that we're looking for. This
+	// prevents leaking data from other repositories in case of a path hash collision.
+	if repo.Path != path {
+		l.WithFields(log.Fields{"path": path, "cached_path": repo.Path}).Warn("path hash collision detected when getting repository from cache")
 		return nil
 	}
 
