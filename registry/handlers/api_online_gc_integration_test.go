@@ -1,5 +1,4 @@
-//go:build integration
-// +build integration
+//go:build integration && online_gc_test
 
 package handlers_test
 

@@ -1,5 +1,4 @@
-//go:build integration && api_conformance
-// +build integration,api_conformance
+//go:build integration && api_conformance_test
 
 package handlers_test
 

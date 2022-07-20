@@ -267,13 +267,25 @@ api:
   extends: .go-version-matrix
   stage: integration
   needs: []
-  script: $GO_TEST -v -coverprofile=coverage.out -tags=integration github.com/docker/distribution/registry/handlers
+  variables:
+    TAGS: 'integration,handlers_test'
+  script: $GO_TEST -v -coverprofile=coverage.out -tags=$TAGS github.com/docker/distribution/registry/handlers
 
-api-conformance:
+api:conformance:
   extends: .go-version-matrix
   stage: integration
   needs: []
-  script: $GO_TEST -v -coverprofile=coverage.out -tags=integration,api_conformance -run=TestAPIConformance github.com/docker/distribution/registry/handlers
+  variables:
+    TAGS: 'integration,api_conformance_test'
+  script: $GO_TEST -v -coverprofile=coverage.out -tags=$TAGS github.com/docker/distribution/registry/handlers
+
+api:online-gc:
+  extends: .go-version-matrix
+  stage: integration
+  needs: []
+  variables:
+    TAGS: 'integration,online_gc_test'
+  script: $GO_TEST -v -coverprofile=coverage.out -tags=$TAGS github.com/docker/distribution/registry/handlers
 
 .database: &database
   extends: .go-version-matrix
@@ -293,7 +305,7 @@ api-conformance:
   services:
     - name: postgres:12-alpine
       alias: "db"
-  script: $GO_TEST -v -timeout=25m -coverprofile=coverage.out -tags=integration $PACKAGE
+  script: $GO_TEST -v -timeout=25m -coverprofile=coverage.out -tags=$TAGS $PACKAGE
 
 database:migrations:
   <<: *database
@@ -312,9 +324,18 @@ database:api:
 
 database:api-conformance:
   <<: *database
-  before_script:
-    - export PACKAGE=github.com/docker/distribution/registry/handlers
-  script: $GO_TEST -v -timeout=25m -tags=integration,api_conformance -run=TestAPIConformance $PACKAGE
+  variables:
+    PACKAGE: 'github.com/docker/distribution/registry/handlers'
+    TAGS: 'integration,api_conformance_test'
+  script: $GO_TEST -v -timeout=25m -tags=$TAGS $PACKAGE
+
+database:api-gitlab:
+  <<: *database
+  variables:
+    PACKAGE: 'github.com/docker/distribution/registry/handlers'
+    TAGS: 'integration,api_gitlab_test'
+
+  script: $GO_TEST -v -timeout=25m -tags=$TAGS $PACKAGE
 
 # Tests that simulate adverse network conditions/errors between the registry and its database.
 database:api-fault-tolerance:

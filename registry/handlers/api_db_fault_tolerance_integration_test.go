@@ -1,5 +1,4 @@
-// +build integration
-// +build toxiproxy
+//go:build integration && toxiproxy
 
 package handlers_test
 

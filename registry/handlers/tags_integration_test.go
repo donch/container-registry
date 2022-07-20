@@ -1,4 +1,4 @@
-// +build integration
+//go:build integration && handlers_test
 
 package handlers
 
