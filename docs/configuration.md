@@ -297,6 +297,22 @@ redis:
     size: 10
     maxlifetime: 1h
     idletimeout: 300s
+  cache:
+    enabled: true
+    addr: localhost:16379,localhost:26379
+    mainName: mainserver
+    password: asecret
+    db: 0
+    dialtimeout: 10ms
+    readtimeout: 10ms
+    writetimeout: 10ms
+    tls:
+      enabled: true
+      insecure: true
+    pool:
+      size: 10
+      maxlifetime: 1h
+      idletimeout: 300s
 health:
   storagedriver:
     enabled: true
@@ -1134,7 +1150,7 @@ The `events` structure configures the information provided in event notification
 
 ## `redis`
 
-```none
+```yaml
 redis:
   addr: localhost:16379,localhost:26379
   mainName: mainserver
@@ -1150,17 +1166,31 @@ redis:
     size: 10
     maxlifetime: 1h
     idletimeout: 300s
+  cache:
+    enabled: true
+    addr: localhost:16380,localhost:26381
+    mainName: mainserver
+    password: asecret
+    db: 0
+    dialtimeout: 10ms
+    readtimeout: 10ms
+    writetimeout: 10ms
+    tls:
+      enabled: true
+      insecure: true
+    pool:
+      size: 10
+      maxlifetime: 1h
+      idletimeout: 300s
 ```
 
-Declare parameters for constructing the `redis` connections. Single instances
-and Redis Sentinel are supported. Registry instances may use the Redis instance
-for several applications. Currently, it caches information about immutable
-blobs. Most of the `redis` options control how the registry connects to the
-`redis` instance. You can control the pool's behavior with the [pool](#pool)
-subsection.
+Declare parameters for constructing the `redis` connections. Single instances and Redis Sentinel are supported.
 
-You should configure Redis with the **allkeys-lru** eviction policy, because the
-registry does not set an expiration value on keys.
+For backward compatibility reasons, registry instances use this Redis connection exclusively to cache information about
+immutable blobs when `storage.cache.blobdescriptor` is set to `redis`. When using this feature, you should configure
+Redis with the `allkeys-lru` eviction policy, because the registry does not set an expiration value on keys.
+
+For other caching purposes/features, please see the new dedicated `redis.cache` subsection.
 
 | Parameter      | Required | Description                                                                                                           |
 |----------------|----------|-----------------------------------------------------------------------------------------------------------------------|
@@ -1174,7 +1204,7 @@ registry does not set an expiration value on keys.
 
 ### `tls`
 
-```none
+```yaml
 tls:
   enabled: true
   insecure: true
@@ -1189,7 +1219,7 @@ Use these settings to configure TLS connections.
 
 ### `pool`
 
-```none
+```yaml
 pool:
   size: 10
   maxlifetime: 1h
@@ -1203,6 +1233,51 @@ Use these settings to configure the behavior of the Redis connection pool.
 | `size` | no       | The maximum number of socket connections. Default is 10 connections. |
 | `maxlifetime`| no      | The connection age at which client retires a connection. Default is to not close aged connections. |
 | `idletimeout`| no    | How long to wait before closing inactive connections. |
+
+### `cache`
+
+```yaml
+redis:
+  cache:
+    enabled: true
+    addr: localhost:16379,localhost:26379
+    mainName: mainserver
+    password: asecret
+    db: 0
+    dialtimeout: 10ms
+    readtimeout: 10ms
+    writetimeout: 10ms
+    tls:
+      enabled: true
+      insecure: true
+    pool:
+      size: 10
+      maxlifetime: 1h
+      idletimeout: 300s
+```
+
+The cache subsection allows configuring a Redis connection specifically for caching purposes. Single instances and
+Sentinel are supported.
+
+The intent is to allow using separate instances for different purposes, achieving isolation and improved performance and
+availability. In case this is not a concern, it is also possible to use the same settings as those on the
+top-level [`redis`](#redis) section (if any) that are exclusively used for caching blob descriptors (if enabled).
+
+Currently, the functionality dependent on this subsection is caching repository objects from the metadata database.
+Other use cases are expected to follow and will be documented here.
+
+The registry is currently applying a non-configurable TTL of 6 hours to all cached keys. We intend to fine-tune this
+value and make it configurable once the feature is considered stable.
+
+Please read the corresponding development documentation [here](../docs-gitlab/redis-dev-guidelines.md) for more details about caching in Redis, such as key and value formats.
+
+All the Redis connection parameters in the parent section are also available here. The only addition is a new
+`enabled` parameter to toggle the caching functionality without having to comment or remove the whole subsection. Please
+refer to the documentation for the remaining connection parameters [`here`](#redis).
+
+| Parameter | Required | Description                                                                   |
+|-----------|----------|-------------------------------------------------------------------------------|
+| `enabled` | no       | If the Redis caching functionality is enabled (boolean). Defaults to `false`. |
 
 ## `health`
 
