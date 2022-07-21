@@ -302,6 +302,7 @@ api:online-gc:
     REGISTRY_DATABASE_PASSWORD: "secret"
     REGISTRY_DATABASE_DBNAME: "registry_test"
     REGISTRY_DATABASE_SSLMODE: "disable"
+    TAGS: 'integration'
   services:
     - name: postgres:12-alpine
       alias: "db"
@@ -321,20 +322,20 @@ database:api:
   <<: *database
   before_script:
     - export PACKAGE=github.com/docker/distribution/registry/handlers
-
+    - export TAGS=integration,handlers_test
+    
 database:api-conformance:
   <<: *database
-  variables:
-    PACKAGE: 'github.com/docker/distribution/registry/handlers'
-    TAGS: 'integration,api_conformance_test'
+  before_script:
+    - export PACKAGE=github.com/docker/distribution/registry/handlers
+    - export TAGS=integration,api_conformance_test
   script: $GO_TEST -v -timeout=25m -tags=$TAGS $PACKAGE
 
 database:api-gitlab:
   <<: *database
-  variables:
-    PACKAGE: 'github.com/docker/distribution/registry/handlers'
-    TAGS: 'integration,api_gitlab_test'
-
+  before_script:
+    - export PACKAGE=github.com/docker/distribution/registry/handlers
+    - export TAGS=integration,api_gitlab_test
   script: $GO_TEST -v -timeout=25m -tags=$TAGS $PACKAGE
 
 # Tests that simulate adverse network conditions/errors between the registry and its database.
