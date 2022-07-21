@@ -401,6 +401,9 @@ release:
 
 .version-bump: &version-bump
   stage: release
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache curl
   script:
     - 'curl --fail-with-body --request POST --form token=$TRIGGER_TOKEN --form ref=$CI_DEFAULT_BRANCH --form "variables[DEPS_PIPELINE]=true" "https://gitlab.com/api/v4/projects/$PROJECT_ID/trigger/pipeline"'
   rules:
