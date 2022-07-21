@@ -412,16 +412,17 @@ version-bump:cng:
   variables:
     TRIGGER_TOKEN: $BUMP_VERSION_TRIGGER_TOKEN_CNG
     PROJECT_ID: "4359271"
-
       
 version-bump:charts:
   <<: *version-bump
+  needs: ["version-bump:cng"]
   variables:
     TRIGGER_TOKEN: $BUMP_VERSION_TRIGGER_TOKEN_CHARTS
     PROJECT_ID: "3828396"
- 
+
 version-bump:omnibus:
   <<: *version-bump
+  needs: [ "version-bump:cng"]
   variables:
     TRIGGER_TOKEN: $BUMP_VERSION_TRIGGER_TOKEN_OMNIBUS
     PROJECT_ID: "20699"
