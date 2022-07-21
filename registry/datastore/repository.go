@@ -16,6 +16,7 @@ import (
 
 	gocache "github.com/eko/gocache/v2/cache"
 	"github.com/eko/gocache/v2/marshaler"
+	"github.com/go-redis/redis/v8"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
 	"github.com/opencontainers/go-digest"
@@ -224,8 +225,11 @@ func (c *centralRepositoryCache) key(path string) string {
 func (c *centralRepositoryCache) Get(ctx context.Context, path string) *models.Repository {
 	l := log.GetLogger(log.WithContext(ctx))
 	tmp, err := c.cache.Get(ctx, c.key(path), new(models.Repository))
-	if err != nil || tmp == nil {
-		l.WithError(err).Warn("failed to read repository from cache")
+	if err != nil {
+		// redis.Nil is returned when the key is not found in Redis
+		if err != redis.Nil {
+			l.WithError(err).Error("failed to read repository from cache")
+		}
 		return nil
 	}
 
