@@ -1,3 +1,15 @@
+# [3.52.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.51.1-gitlab...v3.52.0-gitlab) (2022-07-21)
+
+
+### Features
+
+* **datastore:** add ability to cache repository objects in Redis ([3a0e493](https://gitlab.com/gitlab-org/container-registry/commit/3a0e4931ffe5ac1374ce60813b14da20253effda))
+
+
+### Reverts
+
+* upgrade github.com/jackc/pgx/v4 from v4.13.0 to v4.16.1 ([6211766](https://gitlab.com/gitlab-org/container-registry/commit/6211766f7dd2ff44d0db888a517f4d1982642de6))
+
 ## [3.51.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.51.0-gitlab...v3.51.1-gitlab) (2022-07-15)
 
 
