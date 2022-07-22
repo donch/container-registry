@@ -24,6 +24,7 @@ import (
 	v2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/docker/distribution/registry/handlers"
 	"github.com/docker/distribution/registry/internal/migration"
+	"github.com/docker/distribution/registry/internal/testutil"
 	"github.com/stretchr/testify/require"
 )
 
@@ -1534,8 +1535,10 @@ func TestGitlabAPI_RepositoryImport_Migration_ImportComplete(t *testing.T) {
 // iso8601MsFormat is a regular expression to validate ISO8601 timestamps with millisecond precision.
 var iso8601MsFormat = regexp.MustCompile(`^(?:[0-9]{4}-[0-9]{2}-[0-9]{2})?(?:[ T][0-9]{2}:[0-9]{2}:[0-9]{2})?(?:[.][0-9]{3})`)
 
-func TestGitlabAPI_Repository_Get(t *testing.T) {
-	env := newTestEnv(t, disableMirrorFS)
+func testGitlabApiRepositoryGet(t *testing.T, opts ...configOpt) {
+	t.Helper()
+
+	env := newTestEnv(t, opts...)
 	t.Cleanup(env.Shutdown)
 	env.requireDB(t)
 
@@ -1648,6 +1651,15 @@ func TestGitlabAPI_Repository_Get(t *testing.T) {
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	checkBodyHasErrorCodes(t, "wrong response body error code", resp, v1.ErrorCodeInvalidQueryParamValue)
+}
+
+func TestGitlabAPI_Repository_Get(t *testing.T) {
+	testGitlabApiRepositoryGet(t, disableMirrorFS)
+}
+
+func TestGitlabAPI_Repository_Get_WithCentralRepositoryCache(t *testing.T) {
+	srv := testutil.RedisServer(t)
+	testGitlabApiRepositoryGet(t, disableMirrorFS, withRedisCache(srv.Addr()))
 }
 
 func TestGitlabAPI_Repository_Get_SizeWithDescendants_NonExistingBase(t *testing.T) {

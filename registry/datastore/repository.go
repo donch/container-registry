@@ -72,12 +72,13 @@ func WithMigrationStatus(status migration.RepositoryStatus) repositoryOption {
 	}
 }
 
-type repositoryStoreOption func(*repositoryStore)
+// RepositoryStoreOption allows customizing a repositoryStore with additional options.
+type RepositoryStoreOption func(*repositoryStore)
 
 // WithRepositoryCache instantiates the repositoryStore with a cache which will
 // attempt to retrieve a *models.Repository from methods with return that type,
 // rather than communicating with the database.
-func WithRepositoryCache(cache RepositoryCache) repositoryStoreOption {
+func WithRepositoryCache(cache RepositoryCache) RepositoryStoreOption {
 	return func(rstore *repositoryStore) {
 		rstore.cache = cache
 	}
@@ -97,7 +98,7 @@ type repositoryStore struct {
 }
 
 // NewRepositoryStore builds a new repositoryStore.
-func NewRepositoryStore(db Queryer, opts ...repositoryStoreOption) *repositoryStore {
+func NewRepositoryStore(db Queryer, opts ...RepositoryStoreOption) *repositoryStore {
 	rStore := &repositoryStore{db: db, cache: &noOpRepositoryCache{}}
 
 	for _, o := range opts {
