@@ -194,6 +194,13 @@ func withPayloadSizeLimit(n int) configOpt {
 	}
 }
 
+func withRedisCache(srvAddr string) configOpt {
+	return func(config *configuration.Configuration) {
+		config.Redis.Cache.Enabled = true
+		config.Redis.Cache.Addr = srvAddr
+	}
+}
+
 var headerConfig = http.Header{
 	"X-Content-Type-Options": []string{"nosniff"},
 }

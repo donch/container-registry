@@ -109,7 +109,12 @@ func (h *repositoryHandler) GetRepository(w http.ResponseWriter, r *http.Request
 		withSize = true
 	}
 
-	store := datastore.NewRepositoryStore(h.db)
+	var opts []datastore.RepositoryStoreOption
+	if h.App.redisCache != nil {
+		opts = append(opts, datastore.WithRepositoryCache(datastore.NewCentralRepositoryCache(h.App.redisCache)))
+	}
+	store := datastore.NewRepositoryStore(h.db, opts...)
+
 	repo, err := store.FindByPath(h.Context, h.Repository.Named().Name())
 	if err != nil {
 		h.Errors = append(h.Errors, errcode.FromUnknownError(err))

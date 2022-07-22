@@ -40,6 +40,7 @@ import (
 	"github.com/docker/distribution/registry/handlers/internal/metrics"
 	metricskit "github.com/docker/distribution/registry/handlers/internal/metrics/labkit"
 	"github.com/docker/distribution/registry/internal"
+	redismetrics "github.com/docker/distribution/registry/internal/metrics/redis"
 	"github.com/docker/distribution/registry/internal/migration"
 	mrouter "github.com/docker/distribution/registry/internal/migration/router"
 	registrymiddleware "github.com/docker/distribution/registry/middleware/registry"
@@ -53,6 +54,8 @@ import (
 	storagemiddleware "github.com/docker/distribution/registry/storage/driver/middleware"
 	"github.com/docker/distribution/registry/storage/validation"
 	"github.com/docker/distribution/version"
+	gocache "github.com/eko/gocache/v2/cache"
+	"github.com/eko/gocache/v2/store"
 	"github.com/getsentry/sentry-go"
 	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/mux"
@@ -68,6 +71,9 @@ const randomSecretSize = 32
 
 // defaultCheckInterval is the default time in between health checks
 const defaultCheckInterval = 10 * time.Second
+
+// redisCacheTTL is the global expiry duration for objects cached in Redis.
+const redisCacheTTL = 6 * time.Hour
 
 // App is a global registry application object. Shared resources can be placed
 // on this object that will be accessible from all requests. Any writable
@@ -113,6 +119,9 @@ type App struct {
 
 	manifestRefLimit         int
 	manifestPayloadSizeLimit int
+
+	// redisCache is the interface for manipulating cached data on Redis.
+	redisCache *gocache.Cache
 }
 
 // NewApp takes a configuration and returns a configured app, ready to serve
@@ -243,6 +252,14 @@ func NewApp(ctx context.Context, config *configuration.Configuration) (*App, err
 	}
 	app.configureEvents(config)
 	app.configureRedis(config)
+
+	if err := app.configureRedisCache(ctx, config); err != nil {
+		// Because the Redis cache is not a strictly required dependency (data will be served from the metadata DB if
+		// we're unable to serve or find it in cache) we simply log and report a failure here and proceed to not prevent
+		// the app from starting.
+		log.WithError(err).Error("failed configuring Redis cache")
+		errortracking.Capture(err, errortracking.WithContext(ctx))
+	}
 
 	options := registrymiddleware.GetRegistryOptions()
 
@@ -914,9 +931,58 @@ func (app *App) configureEvents(configuration *configuration.Configuration) {
 	}
 }
 
+func (app *App) configureRedisCache(ctx context.Context, config *configuration.Configuration) error {
+	if !config.Redis.Cache.Enabled {
+		return nil
+	}
+
+	opts := &redis.UniversalOptions{
+		Addrs:        strings.Split(config.Redis.Cache.Addr, ","),
+		DB:           config.Redis.Cache.DB,
+		Password:     config.Redis.Cache.Password,
+		DialTimeout:  config.Redis.Cache.DialTimeout,
+		ReadTimeout:  config.Redis.Cache.ReadTimeout,
+		WriteTimeout: config.Redis.Cache.WriteTimeout,
+		PoolSize:     config.Redis.Cache.Pool.Size,
+		MaxConnAge:   config.Redis.Cache.Pool.MaxLifetime,
+		MasterName:   config.Redis.Cache.MainName,
+	}
+	if config.Redis.Cache.TLS.Enabled {
+		opts.TLSConfig = &tls.Config{
+			InsecureSkipVerify: config.Redis.Cache.TLS.Insecure,
+		}
+	}
+	if config.Redis.Cache.Pool.IdleTimeout > 0 {
+		opts.IdleTimeout = config.Redis.Cache.Pool.IdleTimeout
+	}
+
+	// redis.NewUniversalClient will take care of returning the appropriate client type (single, cluster or sentinel)
+	// depending on the configuration options. See https://pkg.go.dev/github.com/go-redis/redis/v8#NewUniversalClient.
+	redisClient := redis.NewUniversalClient(opts)
+
+	redismetrics.InstrumentClient(
+		redisClient,
+		redismetrics.WithInstanceName("cache"),
+	)
+
+	// Ensure the client is correctly configured and the server is reachable. We use a new local context here with a
+	// tight timeout to avoid blocking the application start for too long.
+	pingCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
+	defer cancel()
+	if cmd := redisClient.Ping(pingCtx); cmd.Err() != nil {
+		return cmd.Err()
+	}
+
+	redisStore := store.NewRedis(redisClient, &store.Options{Expiration: redisCacheTTL})
+	app.redisCache = gocache.New(redisStore)
+
+	dlog.GetLogger(dlog.WithContext(app.Context)).Info("redis cache configured successfully")
+
+	return nil
+}
+
 func (app *App) configureRedis(configuration *configuration.Configuration) {
 	if configuration.Redis.Addr == "" {
-		dcontext.GetLogger(app).Infof("redis not configured")
 		return
 	}
 
@@ -956,6 +1022,8 @@ func (app *App) configureRedis(configuration *configuration.Configuration) {
 			"Active": poolStats.TotalConns - poolStats.IdleConns,
 		}
 	}))
+
+	dlog.GetLogger(dlog.WithContext(app.Context)).Info("main redis configured successfully")
 }
 
 // configureSecret creates a random secret if a secret wasn't included in the
