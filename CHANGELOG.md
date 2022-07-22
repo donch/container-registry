@@ -1,3 +1,15 @@
+# [3.53.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.52.0-gitlab...v3.53.0-gitlab) (2022-07-22)
+
+
+### Bug Fixes
+
+* **datastore:** gracefully handle missing Redis cache keys ([c72d743](https://gitlab.com/gitlab-org/container-registry/commit/c72d743bf8302059618cceeaa441782654524ddd))
+
+
+### Features
+
+* **api/gitlab/v1:** allow caching repositories in Redis for the get repository details operation ([aa39dfc](https://gitlab.com/gitlab-org/container-registry/commit/aa39dfc6149fefad01db46b316f349d69c9d1fb1))
+
 # [3.52.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.51.1-gitlab...v3.52.0-gitlab) (2022-07-21)
 
 
