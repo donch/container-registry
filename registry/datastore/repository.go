@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/log"
@@ -21,6 +22,9 @@ import (
 	"github.com/jackc/pgerrcode"
 	"github.com/opencontainers/go-digest"
 )
+
+// cacheOpTimeout defines the timeout applied to cache operations against Redis
+const cacheOpTimeout = 500 * time.Millisecond
 
 // RepositoryReader is the interface that defines read operations for a repository store.
 type RepositoryReader interface {
@@ -225,7 +229,11 @@ func (c *centralRepositoryCache) key(path string) string {
 // Get implements RepositoryCache.
 func (c *centralRepositoryCache) Get(ctx context.Context, path string) *models.Repository {
 	l := log.GetLogger(log.WithContext(ctx))
-	tmp, err := c.cache.Get(ctx, c.key(path), new(models.Repository))
+
+	getCtx, cancel := context.WithTimeout(ctx, cacheOpTimeout)
+	defer cancel()
+
+	tmp, err := c.cache.Get(getCtx, c.key(path), new(models.Repository))
 	if err != nil {
 		// redis.Nil is returned when the key is not found in Redis
 		if err != redis.Nil {
@@ -255,7 +263,10 @@ func (c *centralRepositoryCache) Set(ctx context.Context, r *models.Repository) 
 	if r == nil {
 		return
 	}
-	if err := c.cache.Set(ctx, c.key(r.Path), r, nil); err != nil {
+	setCtx, cancel := context.WithTimeout(ctx, cacheOpTimeout)
+	defer cancel()
+
+	if err := c.cache.Set(setCtx, c.key(r.Path), r, nil); err != nil {
 		log.GetLogger(log.WithContext(ctx)).WithError(err).Warn("failed to write repository to cache")
 	}
 }
