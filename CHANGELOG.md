@@ -1,3 +1,11 @@
+# [3.54.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.53.0-gitlab...v3.54.0-gitlab) (2022-07-26)
+
+
+### Features
+
+* **datastore:** use tight timeout for Redis cache operations ([fd67535](https://gitlab.com/gitlab-org/container-registry/commit/fd67535677193d5162934c08fb7c197f39a05391))
+* **gc:** add temporary debug log for deadlocks during manifest deletes ([841415b](https://gitlab.com/gitlab-org/container-registry/commit/841415b91d61fede5a983cf82083157c56f7872f))
+
 # [3.53.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.52.0-gitlab...v3.53.0-gitlab) (2022-07-22)
 
 
