@@ -46,7 +46,7 @@ default:
       - bin/
 
 variables:
-  BUILDTAGS: "include_gcs include_oss continuous_profiler_stackdriver"
+  BUILDTAGS: "include_gcs,include_oss,continuous_profiler_stackdriver"
   CGO_ENABLED: "1"
 
 stages:
@@ -222,7 +222,7 @@ middleware:storage-googlecdn:
       variables:
         TEST_SHORT_FLAG: ""
     - when: always
-  script: $GO_TEST -v -coverprofile=coverage.out $PACKAGE -args -check.v $TEST_SHORT_FLAG
+  script: $GO_TEST -timeout=30m -v -coverprofile=coverage.out -tags=$BUILDTAGS $PACKAGE -args -check.v $TEST_SHORT_FLAG
 
 filesystem:
   <<: *storage-driver-test
@@ -262,6 +262,16 @@ s3-aws:
     # Configure the minio client to use the local minio service rather than play.minio.io
     - ./mc config host add s3v4 $REGION_ENDPOINT $AWS_ACCESS_KEY $AWS_SECRET_KEY --api S3v4
     - ./mc mb s3v4/$S3_BUCKET
+
+gcs:
+  <<: *storage-driver-test
+  variables:
+    REGISTRY_STORAGE_GCS_BUCKET: $GCS_BUCKET
+    REGISTRY_STORAGE_GCS_TARGET_BUCKET: $GCS_BUCKET
+  before_script:
+    - export TEST_SHORT_FLAG="-test.short"
+    - export GOOGLE_APPLICATION_CREDENTIALS="$CDN_CREDENTIALS"
+    - export PACKAGE=github.com/docker/distribution/registry/storage/driver/gcs
 
 api:
   extends: .go-version-matrix
