@@ -255,6 +255,14 @@ http:
       hosts: [myregistryaddress.org]
   debug:
     addr: localhost:5001
+    tls:
+      enabled: true
+      certificate: /path/to/x509/public
+      key: /path/to/x509/private
+      clientcas:
+        - /path/to/ca.pem
+        - /path/to/another/ca.pem
+      minimumtls: tls1.2
     prometheus:
       enabled: true
       path: /metrics
@@ -973,6 +981,14 @@ http:
       hosts: [myregistryaddress.org]
   debug:
     addr: localhost:5001
+    tls:
+      certificate: /path/to/x509/public
+      key: /path/to/x509/private
+      clientcas:
+        - /path/to/ca.pem
+        - /path/to/another/ca.pem
+      minimumtls: tls1.2
+
   headers:
     X-Content-Type-Options: [nosniff]
   http2:
@@ -1037,8 +1053,19 @@ monitoring registry metrics and health, as well as profiling. Sensitive
 information may be available via the debug endpoint. Please be certain that
 access to the debug endpoint is locked down in a production environment.
 
-The `debug` section takes a single required `addr` parameter, which specifies
-the `HOST:PORT` on which the debug server should accept connections.
+
+| Parameter | Required | Description                                                                    |
+|-----------|----------|--------------------------------------------------------------------------------|
+| `addr`    | yes      | Specifies the `HOST:PORT` on which the debug server should accept connections. |
+
+#### `tls`
+
+The `tls` subsection allows configuring the monitoring service using TLS certificates.
+All the TLS parameters in the parent section are also available here. The only addition is a new
+`enabled` parameter to toggle using the TLS functionality for the debug server.
+If `enabled` is set to true and `http.tls` is provided but `http.debug.tls` is not,
+the monitoring service will inherit the TLS connection settings from the `http.tls` subsection.
+Please refer to the [`tls`](#tls) documentation for details.
 
 #### `prometheus`
 
