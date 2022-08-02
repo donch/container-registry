@@ -1067,6 +1067,8 @@ If `enabled` is set to true and `http.tls` is provided but `http.debug.tls` is n
 the monitoring service will inherit the TLS connection settings from the `http.tls` subsection.
 Please refer to the [`tls`](#tls) documentation for details.
 
+**Note**: `letsencrypt` is not available for the debug server.
+
 #### `prometheus`
 
 The `prometheus` option defines whether the prometheus metrics is enable, as well

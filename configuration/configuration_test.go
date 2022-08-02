@@ -105,20 +105,11 @@ var configStruct = Configuration{
 		Secret       string        `yaml:"secret,omitempty"`
 		RelativeURLs bool          `yaml:"relativeurls,omitempty"`
 		DrainTimeout time.Duration `yaml:"draintimeout,omitempty"`
-		TLS          struct {
-			Certificate string   `yaml:"certificate,omitempty"`
-			Key         string   `yaml:"key,omitempty"`
-			ClientCAs   []string `yaml:"clientcas,omitempty"`
-			MinimumTLS  string   `yaml:"minimumtls,omitempty"`
-			LetsEncrypt struct {
-				CacheFile string   `yaml:"cachefile,omitempty"`
-				Email     string   `yaml:"email,omitempty"`
-				Hosts     []string `yaml:"hosts,omitempty"`
-			} `yaml:"letsencrypt,omitempty"`
-		} `yaml:"tls,omitempty"`
-		Headers http.Header `yaml:"headers,omitempty"`
-		Debug   struct {
-			Addr       string `yaml:"addr,omitempty"`
+		TLS          TLS           `yaml:"tls,omitempty"`
+		Headers      http.Header   `yaml:"headers,omitempty"`
+		Debug        struct {
+			Addr       string   `yaml:"addr,omitempty"`
+			TLS        DebugTLS `yaml:"tls,omitempty"`
 			Prometheus struct {
 				Enabled bool   `yaml:"enabled,omitempty"`
 				Path    string `yaml:"path,omitempty"`
@@ -131,17 +122,7 @@ var configStruct = Configuration{
 			Disabled bool `yaml:"disabled,omitempty"`
 		} `yaml:"http2,omitempty"`
 	}{
-		TLS: struct {
-			Certificate string   `yaml:"certificate,omitempty"`
-			Key         string   `yaml:"key,omitempty"`
-			ClientCAs   []string `yaml:"clientcas,omitempty"`
-			MinimumTLS  string   `yaml:"minimumtls,omitempty"`
-			LetsEncrypt struct {
-				CacheFile string   `yaml:"cachefile,omitempty"`
-				Email     string   `yaml:"email,omitempty"`
-				Hosts     []string `yaml:"hosts,omitempty"`
-			} `yaml:"letsencrypt,omitempty"`
-		}{
+		TLS: TLS{
 			ClientCAs: []string{"/path/to/ca.pem"},
 		},
 		Headers: http.Header{
@@ -1057,6 +1038,111 @@ http:
 	}
 
 	testParameter(t, yml, "REGISTRY_HTTP_DEBUG_PPROF_ENABLED", tt, validator)
+}
+
+func TestParseHTTPDebugTLS_Enabled(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+http:
+  debug:
+    tls:
+      enabled: %s
+`
+	tt := boolParameterTests(false)
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, strconv.FormatBool(got.HTTP.Debug.TLS.Enabled))
+	}
+
+	testParameter(t, yml, "REGISTRY_HTTP_DEBUG_TLS_ENABLED", tt, validator)
+}
+
+func TestParseHTTPDebugTLS_Certificate(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+http:
+  debug:
+    tls:
+      certificate: %s
+`
+	tt := stringParameterTests("")
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, got.HTTP.Debug.TLS.Certificate)
+	}
+
+	testParameter(t, yml, "REGISTRY_HTTP_DEBUG_TLS_CERTIFICATE", tt, validator)
+}
+
+func TestParseHTTPDebugTLS_Key(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+http:
+  debug:
+    tls:
+      key: %s
+`
+	tt := stringParameterTests("")
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, got.HTTP.Debug.TLS.Key)
+	}
+
+	testParameter(t, yml, "REGISTRY_HTTP_DEBUG_TLS_KEY", tt, validator)
+}
+
+func TestParseHTTPDebugTLS_MinimumTLS(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+http:
+  debug:
+    tls:
+      minimumtls: %s
+`
+	tt := stringParameterTests("")
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.Equal(t, want, got.HTTP.Debug.TLS.MinimumTLS)
+	}
+
+	testParameter(t, yml, "REGISTRY_HTTP_DEBUG_TLS_MINIMUMTLS", tt, validator)
+}
+
+func TestParseHTTPDebugTLS_ClientCAs(t *testing.T) {
+	yml := `
+version: 0.1
+storage: inmemory
+http:
+  debug:
+    tls:
+      clientcas: %s
+`
+	tt := []parameterTest{
+		{
+			name:  "slice",
+			value: `["/path/to/ca/1", "/path/to/ca/2"]`,
+			want:  []string{"/path/to/ca/1", "/path/to/ca/2"},
+		},
+		{
+			name:  "empty",
+			value: "[]",
+			want:  []string{},
+		},
+		{
+			name: "default",
+			want: nil,
+		},
+	}
+
+	validator := func(t *testing.T, want interface{}, got *Configuration) {
+		require.ElementsMatch(t, want, got.HTTP.Debug.TLS.ClientCAs)
+	}
+
+	testParameter(t, yml, "REGISTRY_HTTP_DEBUG_TLS_CLIENTCAS", tt, validator)
 }
 
 func TestParseHTTPMonitoringStackdriverEnabled(t *testing.T) {

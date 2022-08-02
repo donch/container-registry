@@ -109,40 +109,7 @@ type Configuration struct {
 		// Mostly, this is useful for testing situations or simple deployments
 		// that require tls. If more complex configurations are required, use
 		// a proxy or make a proposal to add support here.
-		TLS struct {
-			// Certificate specifies the path to an x509 certificate file to
-			// be used for TLS.
-			Certificate string `yaml:"certificate,omitempty"`
-
-			// Key specifies the path to the x509 key file, which should
-			// contain the private portion for the file specified in
-			// Certificate.
-			Key string `yaml:"key,omitempty"`
-
-			// Specifies the CA certs for client authentication
-			// A file may contain multiple CA certificates encoded as PEM
-			ClientCAs []string `yaml:"clientcas,omitempty"`
-
-			// Specifies the lowest TLS version allowed
-			MinimumTLS string `yaml:"minimumtls,omitempty"`
-
-			// LetsEncrypt is used to configuration setting up TLS through
-			// Let's Encrypt instead of manually specifying certificate and
-			// key. If a TLS certificate is specified, the Let's Encrypt
-			// section will not be used.
-			LetsEncrypt struct {
-				// CacheFile specifies cache file to use for lets encrypt
-				// certificates and keys.
-				CacheFile string `yaml:"cachefile,omitempty"`
-
-				// Email is the email to use during Let's Encrypt registration
-				Email string `yaml:"email,omitempty"`
-
-				// Hosts specifies the hosts which are allowed to obtain Let's
-				// Encrypt certificates.
-				Hosts []string `yaml:"hosts,omitempty"`
-			} `yaml:"letsencrypt,omitempty"`
-		} `yaml:"tls,omitempty"`
+		TLS TLS `yaml:"tls,omitempty"`
 
 		// Headers is a set of headers to include in HTTP responses. A common
 		// use case for this would be security headers such as
@@ -156,6 +123,8 @@ type Configuration struct {
 		Debug struct {
 			// Addr specifies the bind address for the debug server.
 			Addr string `yaml:"addr,omitempty"`
+			// TLS configuration for the debug server.
+			TLS DebugTLS `yaml:"tls,omitempty"`
 			// Prometheus configures the Prometheus telemetry endpoint.
 			Prometheus struct {
 				Enabled bool   `yaml:"enabled,omitempty"`
@@ -226,6 +195,63 @@ type Configuration struct {
 	} `yaml:"policy,omitempty"`
 
 	GC GC `yaml:"gc,omitempty"`
+}
+
+// TLS specifies the settings for the http server to listen with a TLS configuration.
+type TLS struct {
+	// Certificate specifies the path to an x509 certificate file to
+	// be used for TLS.
+	Certificate string `yaml:"certificate,omitempty"`
+
+	// Key specifies the path to the x509 key file, which should
+	// contain the private portion for the file specified in
+	// Certificate.
+	Key string `yaml:"key,omitempty"`
+
+	// Specifies the CA certs for client authentication
+	// A file may contain multiple CA certificates encoded as PEM
+	ClientCAs []string `yaml:"clientcas,omitempty"`
+
+	// Specifies the lowest TLS version allowed
+	MinimumTLS string `yaml:"minimumtls,omitempty"`
+
+	// LetsEncrypt is used to configuration setting up TLS through
+	// Let's Encrypt instead of manually specifying certificate and
+	// key. If a TLS certificate is specified, the Let's Encrypt
+	// section will not be used.
+	LetsEncrypt struct {
+		// CacheFile specifies cache file to use for lets encrypt
+		// certificates and keys.
+		CacheFile string `yaml:"cachefile,omitempty"`
+
+		// Email is the email to use during Let's Encrypt registration
+		Email string `yaml:"email,omitempty"`
+
+		// Hosts specifies the hosts which are allowed to obtain Let's
+		// Encrypt certificates.
+		Hosts []string `yaml:"hosts,omitempty"`
+	} `yaml:"letsencrypt,omitempty"`
+}
+
+// DebugTLS specifies the TLS settings for the HTTP Debug server
+type DebugTLS struct {
+	// Enabled is only used to check if TLS is enabled for the debug monitoring service
+	Enabled bool `yaml:"enabled,omitempty"`
+	// Certificate specifies the path to an x509 certificate file to
+	// be used for TLS.
+	Certificate string `yaml:"certificate,omitempty"`
+
+	// Key specifies the path to the x509 key file, which should
+	// contain the private portion for the file specified in
+	// Certificate.
+	Key string `yaml:"key,omitempty"`
+
+	// Specifies the CA certs for client authentication
+	// A file may contain multiple CA certificates encoded as PEM
+	ClientCAs []string `yaml:"clientcas,omitempty"`
+
+	// Specifies the lowest TLS version allowed
+	MinimumTLS string `yaml:"minimumtls,omitempty"`
 }
 
 // RedisTLS specifies settings for Redis TLS connections.
