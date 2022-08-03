@@ -1151,4 +1151,20 @@ func ApplyDefaults(config *Configuration) {
 	if config.Migration.Enabled && config.Migration.TestSlowImport < 0 {
 		config.Migration.TestSlowImport = 0
 	}
+
+	// copy TLS config to debug server when enabled and debug TLS certificate is empty
+	if config.HTTP.Debug.TLS.Enabled {
+		if config.HTTP.Debug.TLS.Certificate == "" {
+			config.HTTP.Debug.TLS.Certificate = config.HTTP.TLS.Certificate
+			config.HTTP.Debug.TLS.Key = config.HTTP.TLS.Key
+		}
+		// Only replace if the debug section is empty which allows finer configuration settings for the
+		// debug server, for example allowing only certain clients to access it.
+		if len(config.HTTP.Debug.TLS.ClientCAs) == 0 {
+			config.HTTP.Debug.TLS.ClientCAs = config.HTTP.TLS.ClientCAs
+		}
+		if config.HTTP.Debug.TLS.MinimumTLS == "" {
+			config.HTTP.Debug.TLS.MinimumTLS = config.HTTP.TLS.MinimumTLS
+		}
+	}
 }
