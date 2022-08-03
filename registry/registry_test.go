@@ -28,17 +28,13 @@ import (
 // * config.HTTP.HTTP2.Disabled is explicitly set to true [http/1.1]
 func TestNextProtos(t *testing.T) {
 	config := &configuration.Configuration{}
-	protos := nextProtos(config)
-	if !reflect.DeepEqual(protos, []string{"h2", "http/1.1"}) {
-		t.Fatalf("expected protos to equal [h2 http/1.1], got %s", protos)
-	}
 	config.HTTP.HTTP2.Disabled = false
-	protos = nextProtos(config)
+	protos := nextProtos(config.HTTP.HTTP2.Disabled)
 	if !reflect.DeepEqual(protos, []string{"h2", "http/1.1"}) {
 		t.Fatalf("expected protos to equal [h2 http/1.1], got %s", protos)
 	}
 	config.HTTP.HTTP2.Disabled = true
-	protos = nextProtos(config)
+	protos = nextProtos(config.HTTP.HTTP2.Disabled)
 	if !reflect.DeepEqual(protos, []string{"http/1.1"}) {
 		t.Fatalf("expected protos to equal [http/1.1], got %s", protos)
 	}
@@ -275,10 +271,10 @@ func freeLnAddr(t *testing.T) net.Addr {
 
 	return addr
 }
-func assertMonitoringResponse(t *testing.T, addr, path string, expectedStatus int) {
+func assertMonitoringResponse(t *testing.T, scheme, addr, path string, expectedStatus int) {
 	t.Helper()
 
-	u := url.URL{Scheme: "http", Host: addr, Path: path}
+	u := url.URL{Scheme: scheme, Host: addr, Path: path}
 	req, err := http.Get(u.String())
 	require.NoError(t, err)
 	defer req.Body.Close()
@@ -292,16 +288,17 @@ func TestConfigureMonitoring_HealthHandler(t *testing.T) {
 	config.HTTP.Debug.Addr = addr
 
 	go func() {
-		opts := configureMonitoring(config)
-		err := monitoring.Start(opts...)
+		opts, err := configureMonitoring(context.Background(), config)
+		require.NoError(t, err)
+		err = monitoring.Start(opts...)
 		require.NoError(t, err)
 	}()
 	// give the monitoring service some time to start
 	time.Sleep(5 * time.Millisecond)
 
-	assertMonitoringResponse(t, addr, "/debug/health", http.StatusOK)
-	assertMonitoringResponse(t, addr, "/debug/pprof", http.StatusNotFound)
-	assertMonitoringResponse(t, addr, "/metrics", http.StatusNotFound)
+	assertMonitoringResponse(t, "http", addr, "/debug/health", http.StatusOK)
+	assertMonitoringResponse(t, "http", addr, "/debug/pprof", http.StatusNotFound)
+	assertMonitoringResponse(t, "http", addr, "/metrics", http.StatusNotFound)
 }
 
 func TestConfigureMonitoring_PprofHandler(t *testing.T) {
@@ -312,15 +309,16 @@ func TestConfigureMonitoring_PprofHandler(t *testing.T) {
 	config.HTTP.Debug.Pprof.Enabled = true
 
 	go func() {
-		opts := configureMonitoring(config)
-		err := monitoring.Start(opts...)
+		opts, err := configureMonitoring(context.Background(), config)
+		require.NoError(t, err)
+		err = monitoring.Start(opts...)
 		require.NoError(t, err)
 	}()
 	time.Sleep(5 * time.Millisecond)
 
-	assertMonitoringResponse(t, addr, "/debug/health", http.StatusOK)
-	assertMonitoringResponse(t, addr, "/debug/pprof", http.StatusOK)
-	assertMonitoringResponse(t, addr, "/metrics", http.StatusNotFound)
+	assertMonitoringResponse(t, "http", addr, "/debug/health", http.StatusOK)
+	assertMonitoringResponse(t, "http", addr, "/debug/pprof", http.StatusOK)
+	assertMonitoringResponse(t, "http", addr, "/metrics", http.StatusNotFound)
 }
 
 func TestConfigureMonitoring_MetricsHandler(t *testing.T) {
@@ -332,18 +330,19 @@ func TestConfigureMonitoring_MetricsHandler(t *testing.T) {
 	config.HTTP.Debug.Prometheus.Path = "/metrics"
 
 	go func() {
-		opts := configureMonitoring(config)
+		opts, err := configureMonitoring(context.Background(), config)
+		require.NoError(t, err)
 		// Use local Prometheus registry for each test, otherwise different tests may attempt to register the same
 		// metrics in the default Prometheus registry, causing a panic.
 		opts = append(opts, monitoring.WithPrometheusRegisterer(prometheus.NewRegistry()))
-		err := monitoring.Start(opts...)
+		err = monitoring.Start(opts...)
 		require.NoError(t, err)
 	}()
 	time.Sleep(5 * time.Millisecond)
 
-	assertMonitoringResponse(t, addr, "/debug/health", http.StatusOK)
-	assertMonitoringResponse(t, addr, "/debug/pprof", http.StatusNotFound)
-	assertMonitoringResponse(t, addr, "/metrics", http.StatusOK)
+	assertMonitoringResponse(t, "http", addr, "/debug/health", http.StatusOK)
+	assertMonitoringResponse(t, "http", addr, "/debug/pprof", http.StatusNotFound)
+	assertMonitoringResponse(t, "http", addr, "/metrics", http.StatusOK)
 }
 
 func TestConfigureMonitoring_All(t *testing.T) {
@@ -356,16 +355,17 @@ func TestConfigureMonitoring_All(t *testing.T) {
 	config.HTTP.Debug.Prometheus.Path = "/metrics"
 
 	go func() {
-		opts := configureMonitoring(config)
+		opts, err := configureMonitoring(context.Background(), config)
+		require.NoError(t, err)
 		opts = append(opts, monitoring.WithPrometheusRegisterer(prometheus.NewRegistry()))
-		err := monitoring.Start(opts...)
+		err = monitoring.Start(opts...)
 		require.NoError(t, err)
 	}()
 	time.Sleep(5 * time.Millisecond)
 
-	assertMonitoringResponse(t, addr, "/debug/health", http.StatusOK)
-	assertMonitoringResponse(t, addr, "/debug/pprof", http.StatusOK)
-	assertMonitoringResponse(t, addr, "/metrics", http.StatusOK)
+	assertMonitoringResponse(t, "http", addr, "/debug/health", http.StatusOK)
+	assertMonitoringResponse(t, "http", addr, "/debug/pprof", http.StatusOK)
+	assertMonitoringResponse(t, "http", addr, "/metrics", http.StatusOK)
 }
 
 func Test_validate_redirect(t *testing.T) {

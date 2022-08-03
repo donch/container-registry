@@ -33,6 +33,8 @@ import (
 	"golang.org/x/crypto/acme/autocert"
 )
 
+var errSkipTLSConfig = errors.New("no TLS config found")
+
 var tlsLookup = map[string]uint16{
 	"":       tls.VersionTLS12,
 	"tls1.2": tls.VersionTLS12,
@@ -62,7 +64,12 @@ var ServeCmd = &cobra.Command{
 		}
 
 		go func() {
-			opts := configureMonitoring(config)
+			opts, err := configureMonitoring(ctx, config)
+			if err != nil {
+				log.WithError(err).Error("failed to configure monitoring service, skipping")
+				return
+			}
+
 			if err := monitoring.Start(opts...); err != nil {
 				log.WithError(err).Error("unable to start monitoring service")
 			}
@@ -143,74 +150,14 @@ func (registry *Registry) ListenAndServe() error {
 		return err
 	}
 
-	if config.HTTP.TLS.Certificate != "" || config.HTTP.TLS.LetsEncrypt.CacheFile != "" {
-		tlsMinVersion, ok := tlsLookup[config.HTTP.TLS.MinimumTLS]
-		if !ok {
-			return fmt.Errorf("unknown minimum TLS level %q specified for http.tls.minimumtls", config.HTTP.TLS.MinimumTLS)
-		}
+	tlsConf, err := getTLSConfig(registry.app.Context, config.HTTP.TLS, config.HTTP.HTTP2.Disabled)
+	if err != nil && !errors.Is(err, errSkipTLSConfig) {
+		return err
+	}
 
-		if config.HTTP.TLS.MinimumTLS != "" {
-			dcontext.GetLogger(registry.app).Infof("restricting TLS to %s or higher", config.HTTP.TLS.MinimumTLS)
-		}
-
-		tlsConf := &tls.Config{
-			ClientAuth:               tls.NoClientCert,
-			NextProtos:               nextProtos(config),
-			MinVersion:               tlsMinVersion,
-			PreferServerCipherSuites: true,
-			CipherSuites: []uint16{
-				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-				tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
-				tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
-				tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
-				tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
-			},
-		}
-
-		if config.HTTP.TLS.LetsEncrypt.CacheFile != "" {
-			if config.HTTP.TLS.Certificate != "" {
-				return fmt.Errorf("cannot specify both certificate and Let's Encrypt")
-			}
-			m := &autocert.Manager{
-				HostPolicy: autocert.HostWhitelist(config.HTTP.TLS.LetsEncrypt.Hosts...),
-				Cache:      autocert.DirCache(config.HTTP.TLS.LetsEncrypt.CacheFile),
-				Email:      config.HTTP.TLS.LetsEncrypt.Email,
-				Prompt:     autocert.AcceptTOS,
-			}
-			tlsConf.GetCertificate = m.GetCertificate
-			tlsConf.NextProtos = append(tlsConf.NextProtos, acme.ALPNProto)
-		} else {
-			tlsConf.Certificates = make([]tls.Certificate, 1)
-			tlsConf.Certificates[0], err = tls.LoadX509KeyPair(config.HTTP.TLS.Certificate, config.HTTP.TLS.Key)
-			if err != nil {
-				return err
-			}
-		}
-
-		if len(config.HTTP.TLS.ClientCAs) != 0 {
-			pool := x509.NewCertPool()
-
-			for _, ca := range config.HTTP.TLS.ClientCAs {
-				caPem, err := os.ReadFile(ca)
-				if err != nil {
-					return err
-				}
-
-				if ok := pool.AppendCertsFromPEM(caPem); !ok {
-					return fmt.Errorf("could not add CA to pool")
-				}
-			}
-
-			for _, subj := range pool.Subjects() {
-				dcontext.GetLogger(registry.app).Debugf("CA Subject: %s", string(subj))
-			}
-
-			tlsConf.ClientAuth = tls.RequireAndVerifyClientCert
-			tlsConf.ClientCAs = pool
-		}
-
+	if tlsConf != nil {
 		ln = tls.NewListener(ln, tlsConf)
+
 		dcontext.GetLogger(registry.app).Infof("listening on %v, tls", ln.Addr())
 	} else {
 		dcontext.GetLogger(registry.app).Infof("listening on %v", ln.Addr())
@@ -268,6 +215,81 @@ func (registry *Registry) ListenAndServe() error {
 		log.Info("graceful shutdown successful")
 		return nil
 	}
+}
+
+func getTLSConfig(ctx context.Context, config configuration.TLS, http2Disabled bool) (*tls.Config, error) {
+	if config.Certificate == "" && config.LetsEncrypt.CacheFile == "" {
+		return nil, errSkipTLSConfig
+	}
+
+	tlsMinVersion, ok := tlsLookup[config.MinimumTLS]
+	if !ok {
+		return nil, fmt.Errorf("unknown minimum TLS level %q specified for http.tls.minimumtls", config.MinimumTLS)
+	}
+
+	if config.MinimumTLS != "" {
+		dcontext.GetLogger(ctx).WithFields(log.Fields{"minimum_tls": config.MinimumTLS}).Info("restricting minimum TLS version")
+	}
+
+	tlsConf := &tls.Config{
+		ClientAuth:               tls.NoClientCert,
+		NextProtos:               nextProtos(http2Disabled),
+		MinVersion:               tlsMinVersion,
+		PreferServerCipherSuites: true,
+		CipherSuites: []uint16{
+			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+			tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+		},
+	}
+
+	if config.LetsEncrypt.CacheFile != "" {
+		if config.Certificate != "" {
+			return nil, fmt.Errorf("cannot specify both certificate and Let's Encrypt")
+		}
+		m := &autocert.Manager{
+			HostPolicy: autocert.HostWhitelist(config.LetsEncrypt.Hosts...),
+			Cache:      autocert.DirCache(config.LetsEncrypt.CacheFile),
+			Email:      config.LetsEncrypt.Email,
+			Prompt:     autocert.AcceptTOS,
+		}
+		tlsConf.GetCertificate = m.GetCertificate
+		tlsConf.NextProtos = append(tlsConf.NextProtos, acme.ALPNProto)
+	} else {
+		var err error
+		tlsConf.Certificates = make([]tls.Certificate, 1)
+		tlsConf.Certificates[0], err = tls.LoadX509KeyPair(config.Certificate, config.Key)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if len(config.ClientCAs) != 0 {
+		pool := x509.NewCertPool()
+
+		for _, ca := range config.ClientCAs {
+			caPem, err := os.ReadFile(ca)
+			if err != nil {
+				return nil, err
+			}
+
+			if ok := pool.AppendCertsFromPEM(caPem); !ok {
+				return nil, fmt.Errorf("could not add CA to pool")
+			}
+		}
+
+		for _, subj := range pool.Subjects() {
+			dcontext.GetLogger(ctx).WithFields(log.Fields{"ca_subject": string(subj)}).Debug("client CA subject")
+		}
+
+		tlsConf.ClientAuth = tls.RequireAndVerifyClientCert
+		tlsConf.ClientCAs = pool
+	}
+
+	return tlsConf, nil
 }
 
 func configureReporting(config *configuration.Configuration, h http.Handler) (http.Handler, error) {
@@ -340,18 +362,24 @@ func configureAccessLogging(config *configuration.Configuration, h http.Handler)
 	return logkit.AccessLogger(h, logkit.WithAccessLogger(logger)), nil
 }
 
-func configureMonitoring(config *configuration.Configuration) []monitoring.Option {
+func configureMonitoring(ctx context.Context, config *configuration.Configuration) ([]monitoring.Option, error) {
+	l := dcontext.GetLogger(ctx)
+
 	var opts []monitoring.Option
 	addr := config.HTTP.Debug.Addr
+
+	ln, err := listener.NewListener("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
 
 	if addr != "" {
 		mux := http.NewServeMux()
 		mux.HandleFunc("/debug/health", health.StatusHandler)
-		log.WithFields(log.Fields{"address": addr, "path": "/debug/health"}).Info("starting health checker")
+		l.WithFields(log.Fields{"address": addr, "path": "/debug/health"}).Info("starting health checker")
 
 		opts = []monitoring.Option{
 			monitoring.WithServeMux(mux),
-			monitoring.WithListenerAddress(addr),
 		}
 
 		if config.HTTP.Debug.Prometheus.Enabled {
@@ -361,16 +389,34 @@ func configureMonitoring(config *configuration.Configuration) []monitoring.Optio
 				"package":  version.Package,
 				"revision": version.Revision,
 			}))
-			log.WithFields(log.Fields{"address": addr, "path": config.HTTP.Debug.Prometheus.Path}).Info("starting Prometheus listener")
+			l.WithFields(log.Fields{"address": addr, "path": config.HTTP.Debug.Prometheus.Path}).Info("starting Prometheus listener")
 		} else {
 			opts = append(opts, monitoring.WithoutMetrics())
 		}
 
 		if config.HTTP.Debug.Pprof.Enabled {
-			log.WithFields(log.Fields{"address": addr, "path": "/debug/pprof/"}).Info("starting pprof listener")
+			l.WithFields(log.Fields{"address": addr, "path": "/debug/pprof/"}).Info("starting pprof listener")
 		} else {
 			opts = append(opts, monitoring.WithoutPprof())
 		}
+
+		if config.HTTP.Debug.TLS.Enabled {
+			tlsConf, err := getTLSConfig(ctx, configuration.TLS{
+				Certificate: config.HTTP.Debug.TLS.Certificate,
+				Key:         config.HTTP.Debug.TLS.Key,
+				ClientCAs:   config.HTTP.Debug.TLS.ClientCAs,
+				MinimumTLS:  config.HTTP.Debug.TLS.MinimumTLS,
+			}, config.HTTP.HTTP2.Disabled)
+			if err != nil {
+				l.WithError(err).Warn("failed to configure TLS for debug server")
+			} else {
+				ln = tls.NewListener(ln, tlsConf)
+				l.Info("configured TLS for debug server")
+			}
+		}
+
+		// set listener here so that TLS is configured properly if enabled
+		opts = append(opts, monitoring.WithListener(ln))
 	} else {
 		opts = []monitoring.Option{
 			monitoring.WithoutMetrics(),
@@ -382,14 +428,14 @@ func configureMonitoring(config *configuration.Configuration) []monitoring.Optio
 		opts = append(opts, monitoring.WithProfilerCredentialsFile(config.Profiling.Stackdriver.KeyFile))
 		if err := configureStackdriver(config); err != nil {
 			log.WithError(err).Error("failed to configure Stackdriver profiler")
-			return opts
+			return opts, nil
 		}
 		log.Info("starting Stackdriver profiler")
 	} else {
 		opts = append(opts, monitoring.WithoutContinuousProfiling())
 	}
 
-	return opts
+	return opts, nil
 }
 
 func configureStackdriver(config *configuration.Configuration) error {
@@ -565,8 +611,8 @@ func validate(config *configuration.Configuration) error {
 	return errs.ErrorOrNil()
 }
 
-func nextProtos(config *configuration.Configuration) []string {
-	switch config.HTTP.HTTP2.Disabled {
+func nextProtos(http2Disabled bool) []string {
+	switch http2Disabled {
 	case true:
 		return []string{"http/1.1"}
 	default:
