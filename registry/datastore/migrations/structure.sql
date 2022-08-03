@@ -62,11 +62,27 @@ CREATE FUNCTION public.gc_track_deleted_layers ()
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    INSERT INTO gc_blob_review_queue (digest, review_after, event)
-        VALUES (OLD.digest, gc_review_after ('layer_delete'), 'layer_delete')
-    ON CONFLICT (digest)
-        DO UPDATE SET
-            review_after = gc_review_after ('layer_delete'), event = 'layer_delete';
+    IF (TG_LEVEL = 'STATEMENT') THEN
+        INSERT INTO gc_blob_review_queue (digest, review_after, event)
+        SELECT
+            deleted_rows.digest,
+            gc_review_after ('layer_delete'),
+            'layer_delete'
+        FROM
+            old_table deleted_rows
+        ORDER BY
+            deleted_rows.digest ASC
+        ON CONFLICT (digest)
+            DO UPDATE SET
+                review_after = gc_review_after ('layer_delete'),
+                event = 'layer_delete';
+    ELSIF (TG_LEVEL = 'ROW') THEN
+        INSERT INTO gc_blob_review_queue (digest, review_after, event)
+            VALUES (OLD.digest, gc_review_after ('layer_delete'), 'layer_delete')
+        ON CONFLICT (digest)
+            DO UPDATE SET
+                review_after = gc_review_after ('layer_delete'), event = 'layer_delete';
+    END IF;
     RETURN NULL;
 END;
 $$;
