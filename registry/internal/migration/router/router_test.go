@@ -84,7 +84,11 @@ func Test_MigrationStatus(t *testing.T) {
 			repo := makeRepository(t, registry, tt.path)
 
 			if tt.repoOnFS {
-				_, err := testutil.UploadRandomSchema2Image(repo)
+				manifest, err := testutil.UploadRandomSchema2Image(repo)
+				require.NoError(t, err)
+
+				ctx := context.Background()
+				err = repo.Tags(ctx).Tag(ctx, "test", distribution.Descriptor{Digest: manifest.ManifestDigest})
 				require.NoError(t, err)
 			}
 
