@@ -1,3 +1,11 @@
+# [3.55.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.54.0-gitlab...v3.55.0-gitlab) (2022-08-04)
+
+
+### Features
+
+* **gc:** add random jitter of 5 to 60 seconds to review due dates ([52c600c](https://gitlab.com/gitlab-org/container-registry/commit/52c600c7b6ae2036882fca59fdf80481b0ccb893))
+* add support for http.debug.tls for monitoring service ([9d2eea9](https://gitlab.com/gitlab-org/container-registry/commit/9d2eea9743d39f820f72c2293c2553d52ee020a0))
+
 # [3.54.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.53.0-gitlab...v3.54.0-gitlab) (2022-07-26)
 
 
