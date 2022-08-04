@@ -653,7 +653,6 @@ func TestBlobMount_Migration_FromOldToOldRepoWithMigrationRoot(t *testing.T) {
 	rootDir := t.TempDir()
 	migrationDir := filepath.Join(rootDir, "/new")
 
-	// Create a repository on the old code path and seed it with a layer.
 	env1 := newTestEnv(t, withFSDriver(rootDir))
 	defer env1.Shutdown()
 
@@ -663,6 +662,12 @@ func TestBlobMount_Migration_FromOldToOldRepoWithMigrationRoot(t *testing.T) {
 
 	env1.config.Database.Enabled = false
 
+	// Create two repositores on the old code path and seed it with layers.
+	oldRepo1 := "old/repo-1"
+	oldRepo2 := "old/repo-2"
+
+	seedRandomSchema2Manifest(t, env1, oldRepo1, putByTag("test"))
+	seedRandomSchema2Manifest(t, env1, oldRepo2, putByTag("test"))
 	args1, _ := createNamedRepoWithBlob(t, env1, "old/repo-1")
 	args2, _ := createNamedRepoWithBlob(t, env1, "old/repo-2")
 
@@ -671,7 +676,7 @@ func TestBlobMount_Migration_FromOldToOldRepoWithMigrationRoot(t *testing.T) {
 	env2 := newTestEnv(t, withFSDriver(rootDir), withMigrationEnabled, withMigrationRootDirectory(migrationDir))
 	defer env2.Shutdown()
 
-	createNamedRepoWithBlob(t, env2, "new/repo")
+	seedRandomSchema2Manifest(t, env2, "new/repo", putByTag("test"))
 
 	assertBlobPostMountResponse(t, env2, args1.imageName.String(), args2.imageName.String(), args1.layerDigest, http.StatusCreated)
 }
@@ -1211,7 +1216,7 @@ func TestManifestAPI_Migration_Schema2(t *testing.T) {
 	oldRepoPath := "old-repo"
 
 	// Push up a random image to create the repository on the filesystem
-	seedRandomSchema2Manifest(t, env1, oldRepoPath, putByDigest, writeToFilesystemOnly)
+	seedRandomSchema2Manifest(t, env1, oldRepoPath, putByTag("test"), writeToFilesystemOnly)
 
 	// Bring up a new environment in migration mode.
 	env2 := newTestEnv(t, withFSDriver(rootDir), withMigrationEnabled, withMigrationRootDirectory(migrationDir))
@@ -1388,6 +1393,10 @@ func TestAPI_MigrationPathResponseHeader(t *testing.T) {
 		t.Skip("skipping test because the metadata database is not enabled")
 	}
 
+	// Disable the database or the repository will be written out of migration
+	// mode as a native repository.
+	env1.config.Database.Enabled = false
+
 	oldRepoRef, err := reference.WithName("old-repo")
 	require.NoError(t, err)
 	newRepoRef, err := reference.WithName("new-repo")
@@ -1410,31 +1419,45 @@ func TestAPI_MigrationPathResponseHeader(t *testing.T) {
 func testMigrationPathRespHeader(t *testing.T, env *testEnv, repoRef reference.Named, expectedValue string) {
 	t.Helper()
 
-	// test write operation, with a blob upload start
-	layerUploadURL, err := env.builder.BuildBlobUploadURL(repoRef)
+	// test write operation, with a manifest upload
+	manifest := &schema2.Manifest{
+		Versioned: manifest.Versioned{
+			SchemaVersion: 2,
+			MediaType:     schema2.MediaTypeManifest,
+		},
+		Layers: make([]distribution.Descriptor, 1),
+	}
+
+	// Create a manifest config and push up its content.
+	cfgPayload, cfgDesc := schema2Config()
+	uploadURLBase, _ := startPushLayer(t, env, repoRef)
+	pushLayer(t, env.builder, repoRef, cfgDesc.Digest, uploadURLBase, bytes.NewReader(cfgPayload))
+	manifest.Config = cfgDesc
+
+	// Create and push up a random layer.
+	rs, dgst, size := createRandomSmallLayer()
+
+	uploadURLBase, _ = startPushLayer(t, env, repoRef)
+	pushLayer(t, env.builder, repoRef, dgst, uploadURLBase, rs)
+
+	manifest.Layers[0] = distribution.Descriptor{
+		Digest:    dgst,
+		MediaType: schema2.MediaTypeLayer,
+		Size:      size,
+	}
+
+	deserializedManifest, err := schema2.FromStruct(*manifest)
 	require.NoError(t, err)
 
-	u, err := url.Parse(layerUploadURL)
-	require.NoError(t, err)
+	manifestURL := buildManifestTagURL(t, env, repoRef.Name(), "test")
 
-	base, err := url.Parse(env.server.URL)
-	require.NoError(t, err)
-
-	layerUploadURL = base.ResolveReference(u).String()
-	resp, err := http.Post(layerUploadURL, "", nil)
-	require.NoError(t, err)
-
+	resp := putManifest(t, "putting manifest no error", manifestURL, schema2.MediaTypeManifest, deserializedManifest.Manifest)
 	defer resp.Body.Close()
-
-	checkResponse(t, "", resp, http.StatusAccepted)
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
 	require.Equal(t, expectedValue, resp.Header.Get("Gitlab-Migration-Path"))
 
 	// test read operation, with a get for an unknown manifest
-	ref, err := reference.WithTag(repoRef, "foo")
-	require.NoError(t, err)
-
-	manifestURL, err := env.builder.BuildManifestURL(ref)
-	require.NoError(t, err)
+	manifestURL = buildManifestTagURL(t, env, repoRef.Name(), "foo")
 
 	resp, err = http.Get(manifestURL)
 	require.NoError(t, err)

@@ -427,7 +427,7 @@ type RepositoryValidator interface {
 
 // Exists determines whether the repository exists in the storage backend or not.
 func (repo *repository) Exists(ctx context.Context) (bool, error) {
-	p, err := pathFor(repositoryRootPathSpec{name: repo.name.Name()})
+	p, err := pathFor(manifestTagsPathSpec{name: repo.name.Name()})
 	if err != nil {
 		return false, err
 	}
