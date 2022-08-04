@@ -72,6 +72,19 @@ func randomManifest(t testing.TB, r *models.Repository, configBlob *models.Blob)
 	return m
 }
 
+const (
+	// defaultReviewAfterDelay is the default delay applied by online GC triggers to review tasks.
+	defaultReviewAfterDelay = 24 * time.Hour
+
+	// minReviewAfterJitter is the minimum jitter in seconds that the online GC triggers will use to set a task's review
+	// due date (`review_after` column) whenever they are created or updated.
+	minReviewAfterJitter = 5 * time.Second
+
+	// minReviewAfterJitter is the maximum jitter in seconds that the online GC triggers will use to set a task's review
+	// due date (`review_after` column) whenever they are created or updated.
+	maxReviewAfterJitter = 60 * time.Second
+)
+
 func TestGC_TrackBlobUploads(t *testing.T) {
 	require.NoError(t, testutil.TruncateAllTables(suite.db))
 
@@ -81,19 +94,17 @@ func TestGC_TrackBlobUploads(t *testing.T) {
 	err := bs.Create(suite.ctx, b)
 	require.NoError(t, err)
 
-	// Check that a corresponding task was created and scheduled for 1 day ahead. This is done by the
-	// `gc_track_blob_uploads` trigger/function
+	// Check that a corresponding task was created and scheduled for defaultReviewAfterDelay plus
+	// [minReviewAfterJitter, maxReviewAfterJitter] ahead. This is done by the `gc_track_blob_uploads` trigger/function.
 	brs := datastore.NewGCBlobTaskStore(suite.db)
 	rr, err := brs.FindAll(suite.ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(rr))
-	require.Equal(t, &models.GCBlobTask{
-		ReviewAfter: b.CreatedAt.Add(24 * time.Hour),
-		ReviewCount: 0,
-		Digest:      b.Digest,
-		CreatedAt:   b.CreatedAt,
-		Event:       "blob_upload",
-	}, rr[0])
+	require.Equal(t, 0, rr[0].ReviewCount)
+	require.Equal(t, b.Digest, rr[0].Digest)
+	require.Equal(t, "blob_upload", rr[0].Event)
+	require.Greater(t, rr[0].ReviewAfter, b.CreatedAt.Add(defaultReviewAfterDelay+minReviewAfterJitter))
+	require.Less(t, rr[0].ReviewAfter, b.CreatedAt.Add(defaultReviewAfterDelay+maxReviewAfterJitter))
 }
 
 func TestGC_TrackBlobUploads_PostponeReviewOnConflict(t *testing.T) {
@@ -119,15 +130,23 @@ func TestGC_TrackBlobUploads_PostponeReviewOnConflict(t *testing.T) {
 	err = bs.Create(suite.ctx, b)
 	require.NoError(t, err)
 
-	// check that we still have only one review record but its due date was postponed to now (re-create time) + 1 day
+	// Check that we still have only one review record but its due date was postponed to now (re-create time) plus
+	// defaultReviewAfterDelay and [minReviewAfterJitter, maxReviewAfterJitter]. This is done by the
+	// `gc_track_blob_uploads` trigger/function.
 	rr2, err := brs.FindAll(suite.ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(rr2))
 	require.Equal(t, rr[0].ReviewCount, rr2[0].ReviewCount)
 	require.Equal(t, rr[0].Digest, rr2[0].Digest)
-	// this is fast, so review_after is only a few milliseconds ahead of the original time
-	require.True(t, rr2[0].ReviewAfter.After(rr[0].ReviewAfter))
-	require.WithinDuration(t, rr[0].ReviewAfter, rr2[0].ReviewAfter, 200*time.Millisecond)
+	require.Equal(t, "blob_upload", rr[0].Event)
+	// We cannot control the random jitter applied when the blob was first created and then recreated. This means that
+	// for this particular test case, the "review after" after the recreation might be smaller than the "review after"
+	// after the original create. So we cannot say that the latter must always be later than the former. The best we can
+	// do is to assert that the "review after" has changed and that it's at least defaultReviewAfterDelay plus
+	// [minReviewAfterJitter, maxReviewAfterJitter] ahead of the blob creation time.
+	require.NotEqual(t, rr2[0].ReviewAfter, rr[0].ReviewAfter)
+	require.Greater(t, rr2[0].ReviewAfter, b.CreatedAt.Add(defaultReviewAfterDelay+minReviewAfterJitter))
+	require.Less(t, rr2[0].ReviewAfter, b.CreatedAt.Add(defaultReviewAfterDelay+maxReviewAfterJitter))
 }
 
 func TestGC_TrackBlobUploads_DoesNothingIfTriggerDisabled(t *testing.T) {
@@ -302,21 +321,21 @@ func TestGC_TrackManifestUploads(t *testing.T) {
 	err = ms.Create(suite.ctx, m)
 	require.NoError(t, err)
 
-	// Check that a corresponding task was created and scheduled for 1 day ahead. This is done by the
-	// `gc_track_manifest_uploads` trigger/function
+	// Check that a corresponding task was created and scheduled for defaultReviewAfterDelay plus
+	// [minReviewAfterJitter, maxReviewAfterJitter] ahead. This is done by the `gc_track_manifest_uploads`
+	// trigger/function.
 	brs := datastore.NewGCManifestTaskStore(suite.db)
 	tt, err := brs.FindAll(suite.ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(tt))
-	require.Equal(t, &models.GCManifestTask{
-		NamespaceID:  r.NamespaceID,
-		RepositoryID: r.ID,
-		ManifestID:   m.ID,
-		ReviewAfter:  m.CreatedAt.Add(24 * time.Hour),
-		ReviewCount:  0,
-		CreatedAt:    m.CreatedAt,
-		Event:        "manifest_upload",
-	}, tt[0])
+	require.Equal(t, r.NamespaceID, tt[0].NamespaceID)
+	require.Equal(t, r.ID, tt[0].RepositoryID)
+	require.Equal(t, m.ID, tt[0].ManifestID)
+	require.Equal(t, 0, tt[0].ReviewCount)
+	require.Equal(t, m.CreatedAt, tt[0].CreatedAt)
+	require.Equal(t, "manifest_upload", tt[0].Event)
+	require.Greater(t, tt[0].ReviewAfter, m.CreatedAt.Add(defaultReviewAfterDelay+minReviewAfterJitter))
+	require.Less(t, tt[0].ReviewAfter, m.CreatedAt.Add(defaultReviewAfterDelay+maxReviewAfterJitter))
 }
 
 func TestGC_TrackManifestUploads_DoesNothingIfTriggerDisabled(t *testing.T) {
@@ -388,17 +407,19 @@ func TestGC_TrackDeletedManifests(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, ok)
 
-	// check that a corresponding task was created for the config blob and scheduled for 1 day ahead
+	// Check that a corresponding task was created for the config blob and scheduled for defaultReviewAfterDelay plus
+	// [minReviewAfterJitter, maxReviewAfterJitter] ahead. This is done by the `gc_track_deleted_manifests`
+	// trigger/function.
 	tt, err := brs.FindAll(suite.ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(tt))
 	require.Equal(t, 0, tt[0].ReviewCount)
 	require.Equal(t, b.Digest, tt[0].Digest)
 	require.Equal(t, "manifest_delete", tt[0].Event)
-	// ignore the few milliseconds between blob creation and queueing for review in response to the manifest delete
-	require.WithinDuration(t, tt[0].ReviewAfter, b.CreatedAt.Add(24*time.Hour), 200*time.Millisecond)
-	// ignore the few milliseconds between deleting the manifest and queueing task in response to it
-	require.WithinDuration(t, tt[0].CreatedAt, deletedAt, 10*time.Millisecond)
+	require.Greater(t, tt[0].ReviewAfter, deletedAt.Add(defaultReviewAfterDelay+minReviewAfterJitter))
+	require.Less(t, tt[0].ReviewAfter, deletedAt.Add(defaultReviewAfterDelay+maxReviewAfterJitter))
+	// ignore the few milliseconds between deleting the manifest and queueing a task in response to it
+	require.Less(t, tt[0].CreatedAt, deletedAt.Add(200*time.Millisecond))
 }
 
 func TestGC_TrackDeletedManifests_PostponeReviewOnConflict(t *testing.T) {
@@ -431,19 +452,28 @@ func TestGC_TrackDeletedManifests_PostponeReviewOnConflict(t *testing.T) {
 	require.Equal(t, 1, len(rr))
 
 	// delete manifest
+	deletedAt := time.Now()
 	ok, err := rs.DeleteManifest(suite.ctx, r, m.Digest)
 	require.NoError(t, err)
 	require.True(t, ok)
 
-	// check that we still have only one review record but its due date was postponed to now (delete time) + 1 day
+	// Check that we still have only one review record but its due date was postponed to now (delete time) plus
+	// defaultReviewAfterDelay and [minReviewAfterJitter, maxReviewAfterJitter]. This is done by the
+	// `gc_track_deleted_manifests` trigger/function.
 	rr2, err := brs.FindAll(suite.ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(rr2))
 	require.Equal(t, rr[0].ReviewCount, rr2[0].ReviewCount)
 	require.Equal(t, rr[0].Digest, rr2[0].Digest)
-	// this is fast, so review_after is only a few milliseconds ahead of the original time
-	require.True(t, rr2[0].ReviewAfter.After(rr[0].ReviewAfter))
-	require.LessOrEqual(t, rr2[0].ReviewAfter.Sub(rr[0].ReviewAfter).Milliseconds(), int64(200))
+	// We cannot control the random jitter applied when the config blob was first created and then when the manifest was
+	// deleted (causing the config blob task to be pushed forward). This means that for this particular test case, the
+	// "review after" after the manifest delete might be smaller than the "review after" after the blob creation. So we
+	// cannot say that the latter must always be later than the former. The best we can do is to assert that the "review
+	// after" has changed and that it's at least defaultReviewAfterDelay plus
+	// [minReviewAfterJitter, maxReviewAfterJitter] ahead of the manifest list delete time.
+	require.NotEqual(t, rr2[0].ReviewAfter, rr[0].ReviewAfter)
+	require.Greater(t, rr2[0].ReviewAfter, deletedAt.Add(defaultReviewAfterDelay+minReviewAfterJitter))
+	require.Less(t, rr2[0].ReviewAfter, deletedAt.Add(defaultReviewAfterDelay+maxReviewAfterJitter))
 }
 
 func TestGC_TrackDeletedManifests_DoesNothingIfTriggerDisabled(t *testing.T) {
@@ -531,21 +561,22 @@ func TestGC_TrackDeletedLayers(t *testing.T) {
 	require.Zero(t, count)
 
 	// dissociate layer blob
-	timestamp := time.Now()
+	dissociatedAt := time.Now()
 	err = ms.DissociateLayerBlob(suite.ctx, m, b)
 	require.NoError(t, err)
 
-	// check that a corresponding task was created for the layer blob and scheduled for 1 day ahead
+	// check that a corresponding task was created for the layer blob and scheduled for defaultReviewAfterDelay plus
+	// [minReviewAfterJitter, maxReviewAfterJitter] ahead. This is done by the `gc_track_deleted_layers`
+	// trigger/function.
 	tt, err := brs.FindAll(suite.ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(tt))
 	require.Equal(t, 0, tt[0].ReviewCount)
 	require.Equal(t, b.Digest, tt[0].Digest)
 	require.Equal(t, "layer_delete", tt[0].Event)
-	// ignore the few milliseconds between blob creation and queueing for review in response to the layer dissociation
-	require.WithinDuration(t, tt[0].ReviewAfter, b.CreatedAt.Add(24*time.Hour), 200*time.Millisecond)
+	require.Less(t, tt[0].ReviewAfter, dissociatedAt.Add(defaultReviewAfterDelay+maxReviewAfterJitter))
 	// ignore the few milliseconds between dissociating the layer and queueing task in response to it
-	require.WithinDuration(t, tt[0].CreatedAt, timestamp, 10*time.Millisecond)
+	require.Less(t, tt[0].CreatedAt, dissociatedAt.Add(200*time.Millisecond))
 }
 
 func TestGC_TrackDeletedLayers_PostponeReviewOnConflict(t *testing.T) {
@@ -585,15 +616,22 @@ func TestGC_TrackDeletedLayers_PostponeReviewOnConflict(t *testing.T) {
 	err = ms.DissociateLayerBlob(suite.ctx, m, b)
 	require.NoError(t, err)
 
-	// check that we still have only one review record but its due date was postponed to now (delete time) + 1 day
+	// Check that we still have only one review record but its due date was postponed to now (delete time) plus
+	// defaultReviewAfterDelay and [minReviewAfterJitter, maxReviewAfterJitter]. This is done by the
+	// `gc_track_deleted_layers` trigger/function.
 	rr2, err := brs.FindAll(suite.ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(rr2))
 	require.Equal(t, rr[0].ReviewCount, rr2[0].ReviewCount)
 	require.Equal(t, rr[0].Digest, rr2[0].Digest)
-	// this is fast, so review_after is only a few milliseconds ahead of the original time
-	require.True(t, rr2[0].ReviewAfter.After(rr[0].ReviewAfter))
-	require.LessOrEqual(t, rr2[0].ReviewAfter.Sub(rr[0].ReviewAfter).Milliseconds(), int64(200))
+	// We cannot control the random jitter applied when the layer was first associated and then dissociated. This means
+	// that for this particular test case, the "review after" after the dissociation might be smaller than the "review
+	// after" after the association. So we cannot say that the latter must always be later than the former. The best we
+	// can do is to assert that the "review after" has changed and that it's at least defaultReviewAfterDelay plus
+	// [minReviewAfterJitter, maxReviewAfterJitter] ahead of the manifest creation time.
+	require.NotEqual(t, rr2[0].ReviewAfter, rr[0].ReviewAfter)
+	require.Greater(t, rr2[0].ReviewAfter, m.CreatedAt.Add(defaultReviewAfterDelay+minReviewAfterJitter))
+	require.Less(t, rr2[0].ReviewAfter, m.CreatedAt.Add(defaultReviewAfterDelay+maxReviewAfterJitter))
 }
 
 func TestGC_TrackDeletedLayers_DoesNothingIfTriggerDisabled(t *testing.T) {
@@ -676,13 +714,14 @@ func TestGC_TrackDeletedManifestLists(t *testing.T) {
 	require.Zero(t, count)
 
 	// delete manifest list
-	timestamp := time.Now()
+	deletedAt := time.Now()
 	ok, err := rs.DeleteManifest(suite.ctx, r, ml.Digest)
 	require.NoError(t, err)
 	require.True(t, ok)
 
-	// Check that a corresponding task was created and scheduled for 1 day ahead. This is done by the
-	// `gc_track_deleted_manifest_lists` trigger/function
+	// Check that a corresponding task was created and scheduled for defaultReviewAfterDelay plus
+	// [minReviewAfterJitter, maxReviewAfterJitter] ahead. This is done by the `gc_track_deleted_manifest_lists`
+	// trigger/function.
 	rr, err := mrs.FindAll(suite.ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(rr))
@@ -690,10 +729,10 @@ func TestGC_TrackDeletedManifestLists(t *testing.T) {
 	require.Equal(t, m.ID, rr[0].ManifestID)
 	require.Equal(t, 0, rr[0].ReviewCount)
 	require.Equal(t, "manifest_list_delete", rr[0].Event)
-	// ignore the few milliseconds between now and queueing for review in response to the manifest list delete
-	require.WithinDuration(t, rr[0].ReviewAfter, time.Now().Add(24*time.Hour), 100*time.Millisecond)
+	require.Greater(t, rr[0].ReviewAfter, deletedAt.Add(defaultReviewAfterDelay+minReviewAfterJitter))
+	require.Less(t, rr[0].ReviewAfter, deletedAt.Add(defaultReviewAfterDelay+maxReviewAfterJitter))
 	// ignore the few milliseconds between deleting the manifest list and queueing task in response to it
-	require.WithinDuration(t, rr[0].CreatedAt, timestamp, 10*time.Millisecond)
+	require.Less(t, rr[0].CreatedAt, deletedAt.Add(200*time.Millisecond))
 }
 
 func TestGC_TrackDeletedManifestLists_PostponeReviewOnConflict(t *testing.T) {
@@ -729,20 +768,29 @@ func TestGC_TrackDeletedManifestLists_PostponeReviewOnConflict(t *testing.T) {
 	require.Equal(t, m.ID, rr[0].ManifestID)
 
 	// delete manifest list
+	deletedAt := time.Now()
 	ok, err := rs.DeleteManifest(suite.ctx, r, ml.Digest)
 	require.NoError(t, err)
 	require.True(t, ok)
 
-	// check that we still have only one review record for m but its due date was postponed to now (delete time) + 1 day
+	// Check that we still have only one review record for m but its due date was postponed to now (delete time) plus
+	// defaultReviewAfterDelay and [minReviewAfterJitter, maxReviewAfterJitter].
 	rr2, err := mrs.FindAll(suite.ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(rr2)) // the manifest list delete cascaded and deleted its review record as well
 	require.Equal(t, rr[0].RepositoryID, rr2[0].RepositoryID)
 	require.Equal(t, rr[0].ManifestID, rr2[0].ManifestID)
 	require.Equal(t, rr[0].ReviewCount, rr2[0].ReviewCount)
-	// review_after should be a few milliseconds ahead of the original time
-	require.True(t, rr2[0].ReviewAfter.After(rr[0].ReviewAfter))
-	require.WithinDuration(t, rr2[0].ReviewAfter, rr[0].ReviewAfter, 200*time.Millisecond)
+	// We cannot control the random jitter applied when the config blob was first created and then when the manifest was
+	// deleted (causing the config blob task to be pushed forward). This means that for this particular test case, the
+	// "review after" after the manifest delete might be smaller than the "review after" after the blob creation. So we
+	// cannot say that the latter must always be later than the former. The best we can do is to assert that the "review
+	// after" has changed and that it's at least defaultReviewAfterDelay plus
+	// [minReviewAfterJitter, maxReviewAfterJitter] ahead of the manifest list delete time.
+	require.NotEqual(t, rr2[0].ReviewAfter, rr[0].ReviewAfter)
+	require.Greater(t, rr2[0].ReviewAfter, deletedAt.Add(defaultReviewAfterDelay+minReviewAfterJitter))
+	require.Less(t, rr2[0].ReviewAfter, deletedAt.Add(defaultReviewAfterDelay+maxReviewAfterJitter))
+
 }
 
 func TestGC_TrackDeletedManifestLists_DoesNothingIfTriggerDisabled(t *testing.T) {
@@ -829,7 +877,7 @@ func TestGC_TrackSwitchedTags(t *testing.T) {
 	require.NoError(t, err)
 
 	// switch tag to new manifest
-	timestamp := time.Now()
+	switchedAt := time.Now()
 	err = ts.CreateOrUpdate(suite.ctx, &models.Tag{
 		Name:         "latest",
 		NamespaceID:  r.NamespaceID,
@@ -838,7 +886,8 @@ func TestGC_TrackSwitchedTags(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// check that a corresponding task was created for the manifest and scheduled for 1 day ahead
+	// check that a corresponding task was created for the manifest and scheduled for defaultReviewAfterDelay plus
+	// [minReviewAfterJitter, maxReviewAfterJitter] ahead. This is done by the `gc_track_switched_tags` trigger/function.
 	rr, err := mrs.FindAll(suite.ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(rr))
@@ -846,10 +895,8 @@ func TestGC_TrackSwitchedTags(t *testing.T) {
 	require.Equal(t, m.ID, rr[0].ManifestID)
 	require.Equal(t, 0, rr[0].ReviewCount)
 	require.Equal(t, "tag_switch", rr[0].Event)
-	// ignore the few milliseconds between manifest creation and queueing for review in response to the tag deletion
-	require.WithinDuration(t, rr[0].ReviewAfter, m.CreatedAt.Add(24*time.Hour), 200*time.Millisecond)
-	// ignore the few milliseconds between switching the tag and queueing task in response to it
-	require.WithinDuration(t, rr[0].CreatedAt, timestamp, 10*time.Millisecond)
+	require.Greater(t, rr[0].ReviewAfter, switchedAt.Add(defaultReviewAfterDelay+minReviewAfterJitter))
+	require.Less(t, rr[0].ReviewAfter, switchedAt.Add(defaultReviewAfterDelay+maxReviewAfterJitter))
 }
 
 func TestGC_TrackSwitchedTags_PostponeReviewOnConflict(t *testing.T) {
@@ -894,6 +941,7 @@ func TestGC_TrackSwitchedTags_PostponeReviewOnConflict(t *testing.T) {
 	require.NoError(t, err)
 
 	// switch tag to new manifest
+	switchedAt := time.Now()
 	err = ts.CreateOrUpdate(suite.ctx, &models.Tag{
 		Name:         "latest",
 		NamespaceID:  r.NamespaceID,
@@ -902,16 +950,24 @@ func TestGC_TrackSwitchedTags_PostponeReviewOnConflict(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// check that we still have only one review record but its due date was postponed to now (delete time) + 1 day
+	// check that we still have only one review record but its due date was postponed to now (delete time) plus
+	// defaultReviewAfterDelay and [minReviewAfterJitter, maxReviewAfterJitter]. This is done by the
+	// `gc_track_switched_tags` trigger/function.
 	rr2, err := mrs.FindAll(suite.ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(rr2))
 	require.Equal(t, rr[0].RepositoryID, rr2[0].RepositoryID)
 	require.Equal(t, rr[0].ManifestID, rr2[0].ManifestID)
 	require.Equal(t, 0, rr2[0].ReviewCount)
-	// review_after is only a few milliseconds ahead of the original time
-	require.True(t, rr2[0].ReviewAfter.After(rr[0].ReviewAfter))
-	require.WithinDuration(t, rr[0].ReviewAfter, rr2[0].ReviewAfter, 100*time.Millisecond)
+	// We cannot control the random jitter applied when the manifest was first created and then when its tag was
+	// switched (causing the manifest task to be pushed forward). This means that for this particular test case, the
+	// "review after" after the tag switch might be smaller than the "review after" after the manifest creation. So we
+	// cannot say that the latter must always be later than the former. The best we can do is to assert that the "review
+	// after" has changed and that it's at least defaultReviewAfterDelay plus
+	// [minReviewAfterJitter, maxReviewAfterJitter] ahead of the tag switch time.
+	require.NotEqual(t, rr2[0].ReviewAfter, rr[0].ReviewAfter)
+	require.Greater(t, rr2[0].ReviewAfter, switchedAt.Add(defaultReviewAfterDelay+minReviewAfterJitter))
+	require.Less(t, rr2[0].ReviewAfter, switchedAt.Add(defaultReviewAfterDelay+maxReviewAfterJitter))
 }
 
 func TestGC_TrackSwitchedTags_DoesNothingIfTriggerDisabled(t *testing.T) {
@@ -1005,12 +1061,14 @@ func TestGC_TrackDeletedTags(t *testing.T) {
 	require.Zero(t, count)
 
 	// delete tag
-	timestamp := time.Now()
+	deletedAt := time.Now()
 	ok, err := rs.DeleteTagByName(suite.ctx, r, "latest")
 	require.NoError(t, err)
 	require.True(t, ok)
 
-	// check that a corresponding task was created for the manifest and scheduled for 1 day ahead
+	// Check that a corresponding task was created for the manifest and scheduled to now (delete time) plus
+	// defaultReviewAfterDelay and [minReviewAfterJitter, maxReviewAfterJitter]. This is done by the
+	// `gc_track_deleted_tags` trigger/function.
 	rr, err := mrs.FindAll(suite.ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(rr))
@@ -1018,10 +1076,8 @@ func TestGC_TrackDeletedTags(t *testing.T) {
 	require.Equal(t, m.ID, rr[0].ManifestID)
 	require.Equal(t, 0, rr[0].ReviewCount)
 	require.Equal(t, "tag_delete", rr[0].Event)
-	// ignore the few milliseconds between manifest creation and queueing for review in response to the tag deletion
-	require.WithinDuration(t, rr[0].ReviewAfter, m.CreatedAt.Add(24*time.Hour), 100*time.Millisecond)
-	// ignore the few milliseconds between deleting the tag and queueing task in response to it
-	require.WithinDuration(t, rr[0].CreatedAt, timestamp, 10*time.Millisecond)
+	require.Greater(t, rr[0].ReviewAfter, deletedAt.Add(defaultReviewAfterDelay+minReviewAfterJitter))
+	require.Less(t, rr[0].ReviewAfter, deletedAt.Add(defaultReviewAfterDelay+maxReviewAfterJitter))
 }
 
 func TestGC_TrackDeletedTags_MultipleTags(t *testing.T) {
@@ -1064,14 +1120,15 @@ func TestGC_TrackDeletedTags_MultipleTags(t *testing.T) {
 	require.Zero(t, count)
 
 	// delete tags
-	timestamp := time.Now()
+	deletedAt := time.Now()
 	for _, tag := range tags {
 		ok, err := rs.DeleteTagByName(suite.ctx, r, tag)
 		require.NoError(t, err)
 		require.True(t, ok)
 	}
 
-	// check that a single corresponding task was created for the manifest and scheduled for 1 day ahead
+	// Check that a single corresponding task was created for the manifest and scheduled for defaultReviewAfterDelay
+	// plus [minReviewAfterJitter, maxReviewAfterJitter]. This is done by the `gc_track_deleted_tags` trigger/function.
 	rr, err := mrs.FindAll(suite.ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(rr))
@@ -1079,10 +1136,8 @@ func TestGC_TrackDeletedTags_MultipleTags(t *testing.T) {
 	require.Equal(t, m.ID, rr[0].ManifestID)
 	require.Equal(t, 0, rr[0].ReviewCount)
 	require.Equal(t, "tag_delete", rr[0].Event)
-	// ignore the few milliseconds between manifest creation and queueing for review in response to the tag deletion
-	require.WithinDuration(t, rr[0].ReviewAfter, m.CreatedAt.Add(24*time.Hour), 200*time.Millisecond)
-	// ignore the few milliseconds between deleting the tags and queueing task in response to it
-	require.WithinDuration(t, rr[0].CreatedAt, timestamp, 10*time.Millisecond)
+	require.Greater(t, rr[0].ReviewAfter, deletedAt.Add(defaultReviewAfterDelay+minReviewAfterJitter))
+	require.Less(t, rr[0].ReviewAfter, deletedAt.Add(defaultReviewAfterDelay+maxReviewAfterJitter))
 }
 
 func TestGC_TrackDeletedTags_ManifestDeleteCascade(t *testing.T) {
@@ -1159,20 +1214,28 @@ func TestGC_TrackDeletedTags_PostponeReviewOnConflict(t *testing.T) {
 	require.Equal(t, 1, len(rr))
 
 	// delete tag
+	deletedAt := time.Now()
 	ok, err := rs.DeleteTagByName(suite.ctx, r, "latest")
 	require.NoError(t, err)
 	require.True(t, ok)
 
-	// check that we still have only one review record but its due date was postponed to now (delete time) + 1 day
+	// Check that we still have only one review record but its due date was postponed to now (delete time) plus
+	// defaultReviewAfterDelay and [minReviewAfterJitter, maxReviewAfterJitter].
 	rr2, err := mrs.FindAll(suite.ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(rr2))
 	require.Equal(t, rr[0].RepositoryID, rr2[0].RepositoryID)
 	require.Equal(t, rr[0].ManifestID, rr2[0].ManifestID)
 	require.Equal(t, 0, rr2[0].ReviewCount)
-	// review_after is only a few milliseconds ahead of the original time
-	require.True(t, rr2[0].ReviewAfter.After(rr[0].ReviewAfter))
-	require.WithinDuration(t, rr[0].ReviewAfter, rr2[0].ReviewAfter, 100*time.Millisecond)
+	// We cannot control the random jitter applied when the manifest was first created and then when its tag was
+	// deleted (causing the manifest task to be pushed forward). This means that for this particular test case, the
+	// "review after" after the tag deletion might be smaller than the "review after" after the manifest creation. So we
+	// cannot say that the latter must always be later than the former. The best we can do is to assert that the "review
+	// after" has changed and that it's at least defaultReviewAfterDelay plus
+	// [minReviewAfterJitter, maxReviewAfterJitter] ahead of the tag deletion time.
+	require.NotEqual(t, rr2[0].ReviewAfter, rr[0].ReviewAfter)
+	require.Greater(t, rr2[0].ReviewAfter, deletedAt.Add(defaultReviewAfterDelay+minReviewAfterJitter))
+	require.Less(t, rr2[0].ReviewAfter, deletedAt.Add(defaultReviewAfterDelay+maxReviewAfterJitter))
 }
 
 func TestGC_TrackDeletedTags_DoesNothingIfTriggerDisabled(t *testing.T) {

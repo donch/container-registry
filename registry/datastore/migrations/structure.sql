@@ -13,7 +13,10 @@ CREATE FUNCTION public.gc_review_after (e text)
     AS $$
 DECLARE
     result timestamp with time zone;
+    jitter_s interval;
 BEGIN
+    SELECT
+        (random() * (60 - 5 + 1) + 5) * INTERVAL '1 second' INTO jitter_s;
     SELECT
         (now() + value) INTO result
     FROM
@@ -21,9 +24,9 @@ BEGIN
     WHERE
         event = e;
     IF result IS NULL THEN
-        RETURN now() + interval '1 day';
+        RETURN now() + interval '1 day' + jitter_s;
     ELSE
-        RETURN result;
+        RETURN result + jitter_s;
     END IF;
 END;
 $$;
