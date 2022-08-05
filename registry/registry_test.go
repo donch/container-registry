@@ -3,6 +3,7 @@ package registry
 import (
 	"bufio"
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	"github.com/docker/distribution/configuration"
+	"github.com/docker/distribution/registry/internal/testutil"
 	_ "github.com/docker/distribution/registry/storage/driver/inmemory"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
@@ -275,97 +277,124 @@ func assertMonitoringResponse(t *testing.T, scheme, addr, path string, expectedS
 	t.Helper()
 
 	u := url.URL{Scheme: scheme, Host: addr, Path: path}
-	req, err := http.Get(u.String())
+
+	c := &http.Client{Timeout: 100 * time.Millisecond, Transport: http.DefaultTransport.(*http.Transport).Clone()}
+	if scheme == "https" {
+		// disable checking TLS certificate for testutil cert
+		c.Transport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	}
+
+	req, err := c.Get(u.String())
 	require.NoError(t, err)
 	defer req.Body.Close()
-	require.Equal(t, expectedStatus, req.StatusCode)
+	require.Equal(t, expectedStatus, req.StatusCode, path)
 }
 
-func TestConfigureMonitoring_HealthHandler(t *testing.T) {
-	addr := freeLnAddr(t).String()
+func TestConfigureMonitoring(t *testing.T) {
+	tcs := map[string]struct {
+		config            func() *configuration.Configuration
+		monitorConfigFunc func(config *configuration.Configuration) func()
+		assertionPaths    map[string]int
+	}{
+		"health_handler": {
+			config: func() *configuration.Configuration {
+				addr := freeLnAddr(t).String()
+				config := &configuration.Configuration{}
+				config.HTTP.Debug.Addr = addr
+				return config
+			},
+			monitorConfigFunc: func(config *configuration.Configuration) func() {
+				return func() {
+					opts, err := configureMonitoring(context.Background(), config)
+					require.NoError(t, err)
+					err = monitoring.Start(opts...)
+					require.NoError(t, err)
+				}
+			},
+			assertionPaths: map[string]int{
+				"/debug/health": http.StatusOK,
+				"/debug/pprof":  http.StatusNotFound,
+				"/metrics":      http.StatusNotFound,
+			},
+		},
+		"metrics_handler": {
+			config: func() *configuration.Configuration {
+				addr := freeLnAddr(t).String()
+				config := &configuration.Configuration{}
+				config.HTTP.Debug.Addr = addr
+				config.HTTP.Debug.Prometheus.Enabled = true
+				config.HTTP.Debug.Prometheus.Path = "/metrics"
+				return config
+			},
+			monitorConfigFunc: func(config *configuration.Configuration) func() {
+				return func() {
+					opts, err := configureMonitoring(context.Background(), config)
+					require.NoError(t, err)
+					// Use local Prometheus registry for each test, otherwise different tests may attempt to register the same
+					// metrics in the default Prometheus registry, causing a panic.
+					opts = append(opts, monitoring.WithPrometheusRegisterer(prometheus.NewRegistry()))
+					err = monitoring.Start(opts...)
+					require.NoError(t, err)
+				}
+			},
+			assertionPaths: map[string]int{
+				"/debug/health": http.StatusOK,
+				"/debug/pprof":  http.StatusNotFound,
+				"/metrics":      http.StatusOK,
+			},
+		},
+		"all_handlers": {
+			config: func() *configuration.Configuration {
+				addr := freeLnAddr(t).String()
+				config := &configuration.Configuration{}
+				config.HTTP.Debug.Addr = addr
+				config.HTTP.Debug.Pprof.Enabled = true
+				config.HTTP.Debug.Prometheus.Enabled = true
+				config.HTTP.Debug.Prometheus.Path = "/metrics"
+				return config
+			},
+			monitorConfigFunc: func(config *configuration.Configuration) func() {
+				return func() {
+					opts, err := configureMonitoring(context.Background(), config)
+					require.NoError(t, err)
+					// Use local Prometheus registry for each test, otherwise different tests may attempt to register the same
+					// metrics in the default Prometheus registry, causing a panic.
+					opts = append(opts, monitoring.WithPrometheusRegisterer(prometheus.NewRegistry()))
+					err = monitoring.Start(opts...)
+					require.NoError(t, err)
+				}
+			},
+			assertionPaths: map[string]int{
+				"/debug/health": http.StatusOK,
+				"/debug/pprof":  http.StatusOK,
+				"/metrics":      http.StatusOK,
+			},
+		},
+	}
 
-	config := &configuration.Configuration{}
-	config.HTTP.Debug.Addr = addr
+	for tn, tc := range tcs {
+		for _, scheme := range []string{"http", "https"} {
+			t.Run(fmt.Sprintf("%s_%s", tn, scheme), func(t *testing.T) {
+				config := tc.config()
+				if scheme == "https" {
+					config.HTTP.Debug.TLS = configuration.DebugTLS{
+						Enabled:     true,
+						Certificate: testutil.TLSCertFilename(t),
+						Key:         testutil.TLSKeytFilename(t),
+					}
+				}
 
-	go func() {
-		opts, err := configureMonitoring(context.Background(), config)
-		require.NoError(t, err)
-		err = monitoring.Start(opts...)
-		require.NoError(t, err)
-	}()
-	// give the monitoring service some time to start
-	time.Sleep(5 * time.Millisecond)
+				go tc.monitorConfigFunc(config)()
 
-	assertMonitoringResponse(t, "http", addr, "/debug/health", http.StatusOK)
-	assertMonitoringResponse(t, "http", addr, "/debug/pprof", http.StatusNotFound)
-	assertMonitoringResponse(t, "http", addr, "/metrics", http.StatusNotFound)
-}
-
-func TestConfigureMonitoring_PprofHandler(t *testing.T) {
-	addr := freeLnAddr(t).String()
-
-	config := &configuration.Configuration{}
-	config.HTTP.Debug.Addr = addr
-	config.HTTP.Debug.Pprof.Enabled = true
-
-	go func() {
-		opts, err := configureMonitoring(context.Background(), config)
-		require.NoError(t, err)
-		err = monitoring.Start(opts...)
-		require.NoError(t, err)
-	}()
-	time.Sleep(5 * time.Millisecond)
-
-	assertMonitoringResponse(t, "http", addr, "/debug/health", http.StatusOK)
-	assertMonitoringResponse(t, "http", addr, "/debug/pprof", http.StatusOK)
-	assertMonitoringResponse(t, "http", addr, "/metrics", http.StatusNotFound)
-}
-
-func TestConfigureMonitoring_MetricsHandler(t *testing.T) {
-	addr := freeLnAddr(t).String()
-
-	config := &configuration.Configuration{}
-	config.HTTP.Debug.Addr = addr
-	config.HTTP.Debug.Prometheus.Enabled = true
-	config.HTTP.Debug.Prometheus.Path = "/metrics"
-
-	go func() {
-		opts, err := configureMonitoring(context.Background(), config)
-		require.NoError(t, err)
-		// Use local Prometheus registry for each test, otherwise different tests may attempt to register the same
-		// metrics in the default Prometheus registry, causing a panic.
-		opts = append(opts, monitoring.WithPrometheusRegisterer(prometheus.NewRegistry()))
-		err = monitoring.Start(opts...)
-		require.NoError(t, err)
-	}()
-	time.Sleep(5 * time.Millisecond)
-
-	assertMonitoringResponse(t, "http", addr, "/debug/health", http.StatusOK)
-	assertMonitoringResponse(t, "http", addr, "/debug/pprof", http.StatusNotFound)
-	assertMonitoringResponse(t, "http", addr, "/metrics", http.StatusOK)
-}
-
-func TestConfigureMonitoring_All(t *testing.T) {
-	addr := freeLnAddr(t).String()
-
-	config := &configuration.Configuration{}
-	config.HTTP.Debug.Addr = addr
-	config.HTTP.Debug.Pprof.Enabled = true
-	config.HTTP.Debug.Prometheus.Enabled = true
-	config.HTTP.Debug.Prometheus.Path = "/metrics"
-
-	go func() {
-		opts, err := configureMonitoring(context.Background(), config)
-		require.NoError(t, err)
-		opts = append(opts, monitoring.WithPrometheusRegisterer(prometheus.NewRegistry()))
-		err = monitoring.Start(opts...)
-		require.NoError(t, err)
-	}()
-	time.Sleep(5 * time.Millisecond)
-
-	assertMonitoringResponse(t, "http", addr, "/debug/health", http.StatusOK)
-	assertMonitoringResponse(t, "http", addr, "/debug/pprof", http.StatusOK)
-	assertMonitoringResponse(t, "http", addr, "/metrics", http.StatusOK)
+				for path, expectedStatus := range tc.assertionPaths {
+					require.Eventually(t, func() bool {
+						assertMonitoringResponse(t, scheme, config.HTTP.Debug.Addr, path, expectedStatus)
+						return true
+					}, 5*time.Second, 500*time.Millisecond)
+				}
+			})
+		}
+	}
 }
 
 func Test_validate_redirect(t *testing.T) {
