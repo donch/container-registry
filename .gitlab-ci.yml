@@ -180,7 +180,7 @@ database:structure-sql:
   image: golang:${GO_VERSION}-buster
   parallel:
     matrix:
-      - GO_VERSION: [ "1.17", "1.18" ]
+      - GO_VERSION: [ "1.17", "1.18", "1.19" ]
   variables:
     GOTESTSUM_VERSION: v1.8.1
     GO_TEST: 'go run gotest.tools/gotestsum@$GOTESTSUM_VERSION --junitfile junit.xml --format testname --'
