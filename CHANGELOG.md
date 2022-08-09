@@ -1,3 +1,15 @@
+# [3.56.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.55.0-gitlab...v3.56.0-gitlab) (2022-08-09)
+
+
+### Bug Fixes
+
+* **storage:** repositories must contain tags to be considered old in migration mode ([4baee1b](https://gitlab.com/gitlab-org/container-registry/commit/4baee1bbb58787dfcd130ff19b07d39578493dd6))
+
+
+### Features
+
+* **gc:** add statement-level trigger support for layer deletions ([4986d7e](https://gitlab.com/gitlab-org/container-registry/commit/4986d7ebbf904aa4052af8315e40ca5aeb0d6636))
+
 # [3.55.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.54.0-gitlab...v3.55.0-gitlab) (2022-08-04)
 
 
