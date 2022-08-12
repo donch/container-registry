@@ -15477,8 +15477,8 @@ CREATE TRIGGER gc_track_configuration_blobs_trigger
     EXECUTE FUNCTION public.gc_track_configuration_blobs ();
 
 CREATE TRIGGER gc_track_deleted_layers_trigger
-    AFTER DELETE ON public.layers
-    FOR EACH ROW
+    AFTER DELETE ON public.layers REFERENCING OLD TABLE AS old_table
+    FOR EACH STATEMENT
     EXECUTE FUNCTION public.gc_track_deleted_layers ();
 
 CREATE TRIGGER gc_track_deleted_manifest_lists_trigger

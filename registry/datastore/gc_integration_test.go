@@ -635,6 +635,9 @@ func TestGC_TrackDeletedLayers_PostponeReviewOnConflict(t *testing.T) {
 }
 
 func TestGC_TrackDeletedLayers_DoesNothingIfTriggerDisabled(t *testing.T) {
+	// FIXME: See https://gitlab.com/gitlab-org/container-registry/-/merge_requests/1104#note_1055446124 for context.
+	t.Skip("Test skipped due to PosgtreSQL bug. Re-enable once PostgreSQL 12.12 is released.")
+
 	require.NoError(t, testutil.TruncateAllTables(suite.db))
 
 	enable, err := testutil.GCTrackDeletedLayersTrigger.Disable(suite.db)

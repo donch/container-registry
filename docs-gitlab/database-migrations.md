@@ -41,6 +41,32 @@ END;
 $$;
 ```
 
+##### Create Trigger
+
+`CREATE OR REPLACE` for triggers is only supported on PostreSQL 14, so we need a custom idempotent `CREATE`:
+
+```sql
+DO $$
+  BEGIN
+    IF NOT EXISTS (
+            SELECT
+            FROM
+              pg_trigger
+            WHERE
+              tgname = 'gc_track_deleted_layers_trigger'
+              AND tgrelid = 'layers'::regclass) THEN
+      CREATE TRIGGER gc_track_deleted_layers_trigger
+        AFTER DELETE ON layers REFERENCING OLD TABLE AS old_table
+        FOR EACH STATEMENT
+      EXECUTE FUNCTION gc_track_deleted_layers ();
+    END IF;
+  END
+$$
+```
+
+If replacing an existing trigger in a single migration (`DROP` existent followed by `CREATE` new), there is no need to
+do this check as the trigger is guaranteed to no longer exist after the `DROP` statement.
+
 ##### Insert Rows
 
 When inserting rows on tables we should take care to ensure idempotency. This means
