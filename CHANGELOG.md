@@ -1,3 +1,10 @@
+# [3.57.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.56.0-gitlab...v3.57.0-gitlab) (2022-08-16)
+
+
+### Features
+
+* **gc:** use statement-level trigger for tracking deleted layers ([4ae4c53](https://gitlab.com/gitlab-org/container-registry/commit/4ae4c53ac741ad6ff21e190a945452b1d821ac82))
+
 # [3.56.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.55.0-gitlab...v3.56.0-gitlab) (2022-08-09)
 
 
