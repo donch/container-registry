@@ -23,7 +23,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jackc/pgconn v1.12.1
-	github.com/jackc/pgerrcode v0.0.0-20201024163028-a0d42d470451
+	github.com/jackc/pgerrcode v0.0.0-20220416144525-469b46aa5efa
 	github.com/jackc/pgx/v4 v4.13.0
 	github.com/jszwec/csvutil v1.5.1
 	github.com/mitchellh/mapstructure v1.4.1
