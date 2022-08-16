@@ -10,7 +10,7 @@ require (
 	github.com/aws/aws-sdk-go v1.44.64
 	github.com/benbjohnson/clock v1.3.0
 	github.com/cenkalti/backoff/v4 v4.1.3
-	github.com/denverdino/aliyungo v0.0.0-20210518071019-eb3bbb144d8a
+	github.com/denverdino/aliyungo v0.0.0-20220714084452-7034e8b75db5
 	github.com/docker/go-metrics v0.0.1
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7
 	github.com/eko/gocache/v2 v2.3.1
@@ -22,7 +22,7 @@ require (
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/jackc/pgconn v1.10.0
+	github.com/jackc/pgconn v1.12.1
 	github.com/jackc/pgerrcode v0.0.0-20201024163028-a0d42d470451
 	github.com/jackc/pgx/v4 v4.13.0
 	github.com/jszwec/csvutil v1.5.1
@@ -86,7 +86,7 @@ require (
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
 	github.com/jackc/pgio v1.0.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
-	github.com/jackc/pgproto3/v2 v2.1.1 // indirect
+	github.com/jackc/pgproto3/v2 v2.3.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
 	github.com/jackc/pgtype v1.8.1 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
@@ -95,6 +95,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.12 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/oklog/ulid/v2 v2.0.2 // indirect
+	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/pegasus-kv/thrift v0.13.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/common v0.33.0 // indirect
