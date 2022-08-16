@@ -8,7 +8,7 @@ require (
 	github.com/Shopify/toxiproxy v2.1.4+incompatible
 	github.com/alicebob/miniredis/v2 v2.22.0
 	github.com/aws/aws-sdk-go v1.44.64
-	github.com/benbjohnson/clock v1.1.0
+	github.com/benbjohnson/clock v1.3.0
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/denverdino/aliyungo v0.0.0-20210518071019-eb3bbb144d8a
 	github.com/docker/go-metrics v0.0.1
