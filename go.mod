@@ -35,7 +35,7 @@ require (
 	github.com/prometheus/client_model v0.2.0
 	github.com/rubenv/sql-migrate v1.1.2
 	github.com/sirupsen/logrus v1.9.0
-	github.com/spf13/cobra v1.2.1
+	github.com/spf13/cobra v1.5.0
 	github.com/stretchr/testify v1.7.1
 	github.com/vmihailenco/msgpack v4.0.4+incompatible
 	gitlab.com/gitlab-org/labkit v1.16.0
