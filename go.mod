@@ -27,7 +27,7 @@ require (
 	github.com/jackc/pgx/v4 v4.16.1
 	github.com/jszwec/csvutil v1.7.1
 	github.com/mitchellh/mapstructure v1.5.0
-	github.com/ncw/swift v1.0.52
+	github.com/ncw/swift v1.0.53
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.0.2
