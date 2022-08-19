@@ -108,13 +108,13 @@ db-structure-dump:
 
 dev-tools:
 	@npm install -g \
-		@commitlint/cli@13 \
-		@commitlint/config-conventional@13 \
-		semantic-release@17 \
-		@semantic-release/commit-analyzer@8 \
-		@semantic-release/release-notes-generator@9 \
-		@semantic-release/changelog@5 \
-		@semantic-release/git@9
+		@commitlint/cli@17 \
+		@commitlint/config-conventional@17 \
+		semantic-release@19 \
+		@semantic-release/commit-analyzer@9 \
+		@semantic-release/release-notes-generator@10 \
+		@semantic-release/changelog@6 \
+		@semantic-release/git@10
 
 # https://github.com/semantic-release/git#environment-variables
 export GIT_AUTHOR_NAME="$(shell git config user.name)"
