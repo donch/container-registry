@@ -5,6 +5,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 	time "time"
 
@@ -143,4 +144,48 @@ func (m *MockClock) Timer(arg0 time.Duration) *clock.Timer {
 func (mr *MockClockMockRecorder) Timer(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Timer", reflect.TypeOf((*MockClock)(nil).Timer), arg0)
+}
+
+// Until mocks base method.
+func (m *MockClock) Until(arg0 time.Time) time.Duration {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Until", arg0)
+	ret0, _ := ret[0].(time.Duration)
+	return ret0
+}
+
+// Until indicates an expected call of Until.
+func (mr *MockClockMockRecorder) Until(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Until", reflect.TypeOf((*MockClock)(nil).Until), arg0)
+}
+
+// WithDeadline mocks base method.
+func (m *MockClock) WithDeadline(arg0 context.Context, arg1 time.Time) (context.Context, context.CancelFunc) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WithDeadline", arg0, arg1)
+	ret0, _ := ret[0].(context.Context)
+	ret1, _ := ret[1].(context.CancelFunc)
+	return ret0, ret1
+}
+
+// WithDeadline indicates an expected call of WithDeadline.
+func (mr *MockClockMockRecorder) WithDeadline(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithDeadline", reflect.TypeOf((*MockClock)(nil).WithDeadline), arg0, arg1)
+}
+
+// WithTimeout mocks base method.
+func (m *MockClock) WithTimeout(arg0 context.Context, arg1 time.Duration) (context.Context, context.CancelFunc) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WithTimeout", arg0, arg1)
+	ret0, _ := ret[0].(context.Context)
+	ret1, _ := ret[1].(context.CancelFunc)
+	return ret0, ret1
+}
+
+// WithTimeout indicates an expected call of WithTimeout.
+func (mr *MockClockMockRecorder) WithTimeout(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithTimeout", reflect.TypeOf((*MockClock)(nil).WithTimeout), arg0, arg1)
 }
