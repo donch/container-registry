@@ -16,6 +16,7 @@ const (
 	totalConnsName = "pool_stats_total_conns"
 	idleConnsName  = "pool_stats_idle_conns"
 	staleConnsName = "pool_stats_stale_conns"
+	maxConnsName   = "pool_stats_max_conns"
 
 	// Descriptions for the recorded metrics.
 	hitsDesc       = "The number of times a free connection was found in the pool."
@@ -24,6 +25,7 @@ const (
 	totalConnsDesc = "The total number of connections in the pool."
 	idleConnsDesc  = "The number of idle connections in the pool."
 	staleConnsDesc = "The number of stale connections removed from the pool."
+	maxConnsDesc   = "The maximum number of connections in the pool."
 
 	subSystem           = "redis"
 	defaultInstanceName = "unnamed"
@@ -39,6 +41,7 @@ var _ PoolStatsGetter = (*redis.Client)(nil)
 // Options represents options to customize the exported metrics.
 type Options struct {
 	InstanceName string
+	MaxConns     int
 }
 
 // Option is a functional option to customize defaults.
@@ -64,6 +67,15 @@ func WithInstanceName(name string) Option {
 	}
 }
 
+// WithMaxConns enables a gauge metric to report the size of the Redis connection pool. This cannot be automatically
+// detected as all other pool metrics because redis.PoolStats does not expose such attribute. Use this if you need to
+// monitor the pool saturation.
+func WithMaxConns(n int) Option {
+	return func(options *Options) {
+		options.MaxConns = n
+	}
+}
+
 // poolStatsCollector is a Prometheus collector for Redis connection pool statuses.
 type poolStatsCollector struct {
 	client  PoolStatsGetter
@@ -75,6 +87,7 @@ type poolStatsCollector struct {
 	totalConnsDesc *prometheus.Desc
 	idleConnsDesc  *prometheus.Desc
 	staleConnsDesc *prometheus.Desc
+	maxConnsDesc   *prometheus.Desc
 }
 
 // Describe implements prometheus.Collector.
@@ -85,6 +98,7 @@ func (c *poolStatsCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.totalConnsDesc
 	ch <- c.idleConnsDesc
 	ch <- c.staleConnsDesc
+	ch <- c.maxConnsDesc
 }
 
 // Collect implements prometheus.Collector.
@@ -96,6 +110,7 @@ func (c *poolStatsCollector) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(c.totalConnsDesc, prometheus.GaugeValue, float64(stats.TotalConns))
 	ch <- prometheus.MustNewConstMetric(c.idleConnsDesc, prometheus.GaugeValue, float64(stats.IdleConns))
 	ch <- prometheus.MustNewConstMetric(c.staleConnsDesc, prometheus.GaugeValue, float64(stats.StaleConns))
+	ch <- prometheus.MustNewConstMetric(c.maxConnsDesc, prometheus.GaugeValue, float64(c.options.MaxConns))
 }
 
 var _ prometheus.Collector = (*poolStatsCollector)(nil)
@@ -108,7 +123,8 @@ func NewPoolStatsCollector(client PoolStatsGetter, opts ...Option) prometheus.Co
 	constLabels := prometheus.Labels{"instance": options.InstanceName}
 
 	return &poolStatsCollector{
-		client: client,
+		options: options,
+		client:  client,
 		hitsDesc: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.NamespacePrefix, subSystem, hitsName),
 			hitsDesc,
@@ -142,6 +158,12 @@ func NewPoolStatsCollector(client PoolStatsGetter, opts ...Option) prometheus.Co
 		staleConnsDesc: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.NamespacePrefix, subSystem, staleConnsName),
 			staleConnsDesc,
+			nil,
+			constLabels,
+		),
+		maxConnsDesc: prometheus.NewDesc(
+			prometheus.BuildFQName(metrics.NamespacePrefix, subSystem, maxConnsName),
+			maxConnsDesc,
 			nil,
 			constLabels,
 		),

@@ -963,6 +963,7 @@ func (app *App) configureRedisCache(ctx context.Context, config *configuration.C
 	redismetrics.InstrumentClient(
 		redisClient,
 		redismetrics.WithInstanceName("cache"),
+		redismetrics.WithMaxConns(opts.PoolSize),
 	)
 
 	// Ensure the client is correctly configured and the server is reachable. We use a new local context here with a

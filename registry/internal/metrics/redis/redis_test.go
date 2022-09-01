@@ -8,7 +8,7 @@ import (
 
 	"github.com/docker/distribution/metrics"
 
-	redis "github.com/go-redis/redis/v8"
+	"github.com/go-redis/redis/v8"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
@@ -38,9 +38,10 @@ func TestNewPoolStatsCollector(t *testing.T) {
 	}
 
 	tests := []struct {
-		name           string
-		opts           []Option
-		expectedLabels prometheus.Labels
+		name             string
+		opts             []Option
+		expectedLabels   prometheus.Labels
+		expectedMaxConns int
 	}{
 		{
 			name: "default",
@@ -57,6 +58,16 @@ func TestNewPoolStatsCollector(t *testing.T) {
 				"instance": "bar",
 			},
 		},
+		{
+			name: "with max conns",
+			opts: []Option{
+				WithMaxConns(5),
+			},
+			expectedLabels: prometheus.Labels{
+				"instance": defaultInstanceName,
+			},
+			expectedMaxConns: 5,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -68,6 +79,7 @@ func TestNewPoolStatsCollector(t *testing.T) {
 			validateMetric(t, c, totalConnsName, totalConnsDesc, "gauge", float64(mock.TotalConns), tt.expectedLabels)
 			validateMetric(t, c, idleConnsName, idleConnsDesc, "gauge", float64(mock.IdleConns), tt.expectedLabels)
 			validateMetric(t, c, staleConnsName, staleConnsDesc, "gauge", float64(mock.StaleConns), tt.expectedLabels)
+			validateMetric(t, c, maxConnsName, maxConnsDesc, "gauge", float64(tt.expectedMaxConns), tt.expectedLabels)
 		})
 	}
 
