@@ -58,6 +58,8 @@ This table gives us the flexibility to use different delays depending on the eve
 
 Before inserting into the review queues, each online GC function will query this table through a special function, `gc_review_after (e text)`, using the name of the event that it is reacting to as input argument. As a result, the function will return the appropriate `review_after` value or the default value of 1 day in the future.
 
+To avoid scheduling multiple tasks to the exact same time, the `gc_review_after` functions adds a jitter of up to 60 seconds to every returned duration.
+
 ## Tracking blob and manifest uploads
 
 To know which configuration and layer blobs can be garbage collected, we need to keep track of those in use.
@@ -240,15 +242,31 @@ END;
 $$
 LANGUAGE plpgsql;
 
-CREATE FUNCTION gc_track_deleted_layers ()
+CREATE OR REPLACE FUNCTION gc_track_deleted_layers ()
     RETURNS TRIGGER
-    AS $$
+AS $$
 BEGIN
-    INSERT INTO gc_blob_review_queue (digest, review_after, event)
-        VALUES (OLD.digest, gc_review_after('layer_delete'), 'layer_delete')
-    ON CONFLICT (digest)
-        DO UPDATE SET
-            review_after = gc_review_after('layer_delete'), event = 'layer_delete';
+    IF (TG_LEVEL = 'STATEMENT') THEN
+        INSERT INTO gc_blob_review_queue (digest, review_after, event)
+        SELECT
+            deleted_rows.digest,
+            gc_review_after ('layer_delete'),
+            'layer_delete'
+        FROM
+            old_table deleted_rows
+        ORDER BY
+            deleted_rows.digest ASC
+        ON CONFLICT (digest)
+            DO UPDATE SET
+                          review_after = gc_review_after ('layer_delete'),
+                          event = 'layer_delete';
+    ELSIF (TG_LEVEL = 'ROW') THEN
+        INSERT INTO gc_blob_review_queue (digest, review_after, event)
+        VALUES (OLD.digest, gc_review_after ('layer_delete'), 'layer_delete')
+        ON CONFLICT (digest)
+            DO UPDATE SET
+                          review_after = gc_review_after ('layer_delete'), event = 'layer_delete';
+    END IF;
     RETURN NULL;
 END;
 $$
@@ -260,10 +278,12 @@ CREATE TRIGGER gc_track_deleted_manifests_trigger
     EXECUTE PROCEDURE gc_track_deleted_manifests ();
 
 CREATE TRIGGER gc_track_deleted_layers_trigger
-    AFTER DELETE ON layers
-    FOR EACH ROW
-    EXECUTE PROCEDURE gc_track_deleted_layers ();
+    AFTER DELETE ON layers REFERENCING OLD TABLE AS old_table
+    FOR EACH STATEMENT
+    EXECUTE FUNCTION gc_track_deleted_layers ();
 ```
+
+Note that the `gc_track_deleted_layers` function supports both row and statement level executions, and that `gc_track_deleted_layers_trigger` uses the latter. This is done like so to avoid deadlocks where multiple concurrent manifest deletions attempt to upsert the same blob references in a different order on the blob review queue. See [gitlab-org/container-registry#732](https://gitlab.com/gitlab-org/container-registry/-/issues/732) for additional details.
 
 #### Manifest lists
 
