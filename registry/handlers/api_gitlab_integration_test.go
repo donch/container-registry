@@ -228,7 +228,7 @@ func TestGitlabAPI_RepositoryPreImport_Put_PreImportTimeout(t *testing.T) {
 	// pre import timed out but notification is sent anyway.
 	mockedImportNotifSrv.waitForImportNotification(
 		t, repoPath, string(migration.RepositoryStatusPreImportFailed),
-		"timeout:", 2*time.Second,
+		"timeout", 2*time.Second,
 	)
 }
 
@@ -277,7 +277,7 @@ func TestGitlabAPI_RepositoryImport_Put_ImportTimeout(t *testing.T) {
 	// final import timed out but notification is sent anyway.
 	mockedImportNotifSrv.waitForImportNotification(
 		t, repoPath, string(migration.RepositoryStatusImportFailed),
-		"timeout:", 2*time.Second,
+		"timeout", 2*time.Second,
 	)
 }
 
