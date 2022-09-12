@@ -292,7 +292,7 @@ notifications:
            - pull
 redis:
   addr: localhost:16379,localhost:26379
-  mainName: mainserver
+  mainname: mainserver
   password: asecret
   db: 0
   dialtimeout: 10ms
@@ -308,7 +308,7 @@ redis:
   cache:
     enabled: true
     addr: localhost:16379,localhost:26379
-    mainName: mainserver
+    mainname: mainserver
     password: asecret
     db: 0
     dialtimeout: 10ms
@@ -1182,7 +1182,7 @@ The `events` structure configures the information provided in event notification
 ```yaml
 redis:
   addr: localhost:16379,localhost:26379
-  mainName: mainserver
+  mainname: mainserver
   password: asecret
   db: 0
   dialtimeout: 10ms
@@ -1198,7 +1198,7 @@ redis:
   cache:
     enabled: true
     addr: localhost:16380,localhost:26381
-    mainName: mainserver
+    mainname: mainserver
     password: asecret
     db: 0
     dialtimeout: 10ms
@@ -1270,7 +1270,7 @@ redis:
   cache:
     enabled: true
     addr: localhost:16379,localhost:26379
-    mainName: mainserver
+    mainname: mainserver
     password: asecret
     db: 0
     dialtimeout: 10ms
