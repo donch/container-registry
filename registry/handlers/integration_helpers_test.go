@@ -29,6 +29,7 @@ import (
 	"github.com/docker/distribution/manifest/ocischema"
 	"github.com/docker/distribution/manifest/schema1"
 	"github.com/docker/distribution/manifest/schema2"
+	"github.com/docker/distribution/notifications"
 	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/api/errcode"
 	"github.com/docker/distribution/registry/api/urls"
@@ -38,6 +39,7 @@ import (
 	"github.com/docker/distribution/registry/handlers"
 	registryhandlers "github.com/docker/distribution/registry/handlers"
 	"github.com/docker/distribution/registry/internal/migration"
+	rtestutil "github.com/docker/distribution/registry/internal/testutil"
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
 	"github.com/docker/distribution/registry/storage/driver/factory"
 	_ "github.com/docker/distribution/registry/storage/driver/filesystem"
@@ -201,6 +203,12 @@ func withRedisCache(srvAddr string) configOpt {
 	}
 }
 
+func withNotifications(notifCfg configuration.Notifications) configOpt {
+	return func(config *configuration.Configuration) {
+		config.Notifications = notifCfg
+	}
+}
+
 var headerConfig = http.Header{
 	"X-Content-Type-Options": []string{"nosniff"},
 }
@@ -324,6 +332,7 @@ type testEnv struct {
 	server  *httptest.Server
 	builder *urls.Builder
 	db      *datastore.DB
+	ns      *rtestutil.NotificationServer
 }
 
 func (e *testEnv) requireDB(t *testing.T) {
@@ -378,6 +387,13 @@ func newTestEnvWithConfig(t *testing.T, config *configuration.Configuration) *te
 		}
 	}
 
+	var notifServer *rtestutil.NotificationServer
+	if len(config.Notifications.Endpoints) == 1 {
+		notifServer = rtestutil.NewNotificationServer(t)
+		// ensure URL is set properly with mock server URL
+		config.Notifications.Endpoints[0].URL = notifServer.URL
+	}
+
 	app, err := registryhandlers.NewApp(ctx, config)
 	require.NoError(t, err)
 	handler := correlation.InjectCorrelationID(app, correlation.WithPropagation())
@@ -405,6 +421,7 @@ func newTestEnvWithConfig(t *testing.T, config *configuration.Configuration) *te
 		server:  server,
 		builder: builder,
 		db:      db,
+		ns:      notifServer,
 	}
 }
 
@@ -442,6 +459,7 @@ type manifestOpts struct {
 	manifestURL           string
 	putManifest           bool
 	writeToFilesystemOnly bool
+	assertNotification    bool
 
 	// Non-optional values which be passed through by the testing func for ease of use.
 	repoPath string
@@ -464,6 +482,10 @@ func writeToFilesystemOnly(t *testing.T, env *testEnv, opts *manifestOpts) {
 	require.True(t, env.config.Database.Enabled, "this option is only available when the database is enabled")
 
 	opts.writeToFilesystemOnly = true
+}
+
+func withAssertNotification(t *testing.T, env *testEnv, opts *manifestOpts) {
+	opts.assertNotification = true
 }
 
 func schema2Config() ([]byte, distribution.Descriptor) {
@@ -498,6 +520,10 @@ func schema2Config() ([]byte, distribution.Descriptor) {
 // seedRandomSchema2Manifest generates a random schema2 manifest and puts its config and layers.
 func seedRandomSchema2Manifest(t *testing.T, env *testEnv, repoPath string, opts ...manifestOptsFunc) *schema2.DeserializedManifest {
 	t.Helper()
+
+	if env.ns != nil {
+		opts = append(opts, withAssertNotification)
+	}
 
 	config := &manifestOpts{
 		repoPath: repoPath,
@@ -564,6 +590,11 @@ func seedRandomSchema2Manifest(t *testing.T, env *testEnv, repoPath string, opts
 		require.NoError(t, err)
 		dgst := digest.FromBytes(payload)
 		require.Equal(t, dgst.String(), resp.Header.Get("Docker-Content-Digest"))
+
+		if config.assertNotification {
+			expectedEvent := buildExpectedNotificationEvent("push", schema2.MediaTypeManifest, config.repoPath, "", dgst, int64(len(payload)))
+			env.ns.AssertEventNotification(t, expectedEvent)
+		}
 	}
 
 	return deserializedManifest
@@ -645,6 +676,10 @@ func ociConfig() ([]byte, distribution.Descriptor) {
 func seedRandomOCIManifest(t *testing.T, env *testEnv, repoPath string, opts ...manifestOptsFunc) *ocischema.DeserializedManifest {
 	t.Helper()
 
+	if env.ns != nil {
+		opts = append(opts, withAssertNotification)
+	}
+
 	config := &manifestOpts{
 		repoPath: repoPath,
 	}
@@ -705,6 +740,11 @@ func seedRandomOCIManifest(t *testing.T, env *testEnv, repoPath string, opts ...
 		require.NoError(t, err)
 		dgst := digest.FromBytes(payload)
 		require.Equal(t, dgst.String(), resp.Header.Get("Docker-Content-Digest"))
+
+		if config.assertNotification {
+			expectedEvent := buildExpectedNotificationEvent("push", v1.MediaTypeImageManifest, config.repoPath, "", dgst, int64(len(payload)))
+			env.ns.AssertEventNotification(t, expectedEvent)
+		}
 	}
 
 	return deserializedManifest
@@ -732,6 +772,10 @@ func randomPlatformSpec() manifestlist.PlatformSpec {
 // seedRandomOCIImageIndex generates a random oci image index and puts its images.
 func seedRandomOCIImageIndex(t *testing.T, env *testEnv, repoPath string, opts ...manifestOptsFunc) *manifestlist.DeserializedManifestList {
 	t.Helper()
+
+	if env.ns != nil {
+		opts = append(opts, withAssertNotification)
+	}
 
 	config := &manifestOpts{
 		repoPath: repoPath,
@@ -794,9 +838,29 @@ func seedRandomOCIImageIndex(t *testing.T, env *testEnv, repoPath string, opts .
 		require.NoError(t, err)
 		dgst := digest.FromBytes(payload)
 		require.Equal(t, dgst.String(), resp.Header.Get("Docker-Content-Digest"))
+
+		if config.assertNotification {
+			expectedEvent := buildExpectedNotificationEvent("push", v1.MediaTypeImageIndex, config.repoPath, "", dgst, int64(len(payload)))
+			env.ns.AssertEventNotification(t, expectedEvent)
+		}
 	}
 
 	return deserializedManifest
+}
+
+func buildExpectedNotificationEvent(action, mediaType, repoPath, tagName string, dgst digest.Digest, size int64) notifications.Event {
+	return notifications.Event{
+		Action: action,
+		Target: notifications.Target{
+			Descriptor: distribution.Descriptor{
+				MediaType: mediaType,
+				Digest:    dgst,
+				Size:      size,
+			},
+			Repository: repoPath,
+			Tag:        tagName,
+		},
+	}
 }
 
 func buildManifestTagURL(t *testing.T, env *testEnv, repoPath, tagName string) string {

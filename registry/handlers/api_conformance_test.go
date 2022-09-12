@@ -18,8 +18,10 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/docker/distribution"
+	"github.com/docker/distribution/configuration"
 	"github.com/docker/distribution/manifest"
 	"github.com/docker/distribution/manifest/manifestlist"
 	"github.com/docker/distribution/manifest/ocischema"
@@ -112,16 +114,22 @@ func TestAPIConformance(t *testing.T) {
 	}
 
 	type envOpt struct {
-		name             string
-		opts             []configOpt
-		migrationEnabled bool
-		migrationRoot    string
+		name                 string
+		opts                 []configOpt
+		migrationEnabled     bool
+		notificationsEnabled bool
+		migrationRoot        string
 	}
 
 	var envOpts = []envOpt{
 		{
 			name: "with filesystem mirroring",
 			opts: []configOpt{},
+		},
+		{
+			name:                 "with notifications enabled",
+			opts:                 []configOpt{},
+			notificationsEnabled: true,
 		},
 	}
 
@@ -193,6 +201,27 @@ func TestAPIConformance(t *testing.T) {
 					o.opts = append(o.opts, withMigrationEnabled, withMigrationRootDirectory(migrationRoot))
 				}
 
+				if o.notificationsEnabled {
+					notifCfg := configuration.Notifications{
+						Endpoints: []configuration.Endpoint{
+							{
+								Name:              t.Name(),
+								Disabled:          false,
+								Headers:           http.Header{"test-header": []string{t.Name()}},
+								Timeout:           100 * time.Millisecond,
+								Threshold:         1,
+								Backoff:           100 * time.Millisecond,
+								IgnoredMediaTypes: []string{"application/octet-stream"},
+								// TODO: Handle pulls and deletes in rtestutil.NotificationServer as
+								// part of https://gitlab.com/gitlab-org/container-registry/-/issues/763
+								Ignore: configuration.Ignore{Actions: []string{"pull", "delete"}},
+							},
+						},
+					}
+
+					o.opts = append(o.opts, withNotifications(notifCfg))
+				}
+
 				f(t, o.opts...)
 			})
 		}
@@ -226,20 +255,23 @@ func manifest_Put_Schema2_ByTag_IsIdempotent(t *testing.T, opts ...configOpt) {
 
 	manifestDigestURL := buildManifestDigestURL(t, env, repoPath, deserializedManifest)
 
-	// Put the same manifest twice to test idempotentcy.
-	resp := putManifest(t, "putting manifest by tag no error", manifestURL, schema2.MediaTypeManifest, deserializedManifest.Manifest)
-	defer resp.Body.Close()
-	require.Equal(t, http.StatusCreated, resp.StatusCode)
-	require.Equal(t, "nosniff", resp.Header.Get("X-Content-Type-Options"))
-	require.Equal(t, manifestDigestURL, resp.Header.Get("Location"))
-	require.Equal(t, dgst.String(), resp.Header.Get("Docker-Content-Digest"))
+	testFunc := func() {
+		resp := putManifest(t, "putting manifest by tag no error", manifestURL, schema2.MediaTypeManifest, deserializedManifest.Manifest)
+		defer resp.Body.Close()
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
+		require.Equal(t, "nosniff", resp.Header.Get("X-Content-Type-Options"))
+		require.Equal(t, manifestDigestURL, resp.Header.Get("Location"))
+		require.Equal(t, dgst.String(), resp.Header.Get("Docker-Content-Digest"))
 
-	resp = putManifest(t, "putting manifest by tag no error", manifestURL, schema2.MediaTypeManifest, deserializedManifest.Manifest)
-	defer resp.Body.Close()
-	require.Equal(t, http.StatusCreated, resp.StatusCode)
-	require.Equal(t, "nosniff", resp.Header.Get("X-Content-Type-Options"))
-	require.Equal(t, manifestDigestURL, resp.Header.Get("Location"))
-	require.Equal(t, dgst.String(), resp.Header.Get("Docker-Content-Digest"))
+		if env.ns != nil {
+			expectedEvent := buildExpectedNotificationEvent("push", schema2.MediaTypeManifest, repoPath, tagName, dgst, int64(len(payload)))
+			env.ns.AssertEventNotification(t, expectedEvent)
+		}
+	}
+
+	// Put the same manifest twice to test idempotentcy.
+	testFunc()
+	testFunc()
 }
 
 func manifest_Put_Schema2_ByTag_SameDigest_Parallel_IsIdempotent(t *testing.T, opts ...configOpt) {
