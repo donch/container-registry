@@ -50,31 +50,7 @@ type Event struct {
 	Action string `json:"action,omitempty"`
 
 	// Target uniquely describes the target of the event.
-	Target struct {
-		// TODO(stevvooe): Use http.DetectContentType for layers, maybe.
-
-		distribution.Descriptor
-
-		// Length in bytes of content. Same as Size field in Descriptor.
-		// Provided for backwards compatibility.
-		Length int64 `json:"length,omitempty"`
-
-		// Repository identifies the named repository.
-		Repository string `json:"repository,omitempty"`
-
-		// FromRepository identifies the named repository which a blob was mounted
-		// from if appropriate.
-		FromRepository string `json:"fromRepository,omitempty"`
-
-		// URL provides a direct link to the content.
-		URL string `json:"url,omitempty"`
-
-		// Tag provides the tag
-		Tag string `json:"tag,omitempty"`
-
-		// References provides the references descriptors.
-		References []distribution.Descriptor `json:"references,omitempty"`
-	} `json:"target,omitempty"`
+	Target Target `json:"target,omitempty"`
 
 	// Request covers the request that generated the event.
 	Request RequestRecord `json:"request,omitempty"`
@@ -87,6 +63,33 @@ type Event struct {
 	// differently, while the actor "initiates" the event, the source
 	// "generates" it.
 	Source SourceRecord `json:"source,omitempty"`
+}
+
+// Target uniquely describes the target of the event.
+type Target struct {
+	// TODO(stevvooe): Use http.DetectContentType for layers, maybe.
+
+	distribution.Descriptor
+
+	// Length in bytes of content. Same as Size field in Descriptor.
+	// Provided for backwards compatibility.
+	Length int64 `json:"length,omitempty"`
+
+	// Repository identifies the named repository.
+	Repository string `json:"repository,omitempty"`
+
+	// FromRepository identifies the named repository which a blob was mounted
+	// from if appropriate.
+	FromRepository string `json:"fromRepository,omitempty"`
+
+	// URL provides a direct link to the content.
+	URL string `json:"url,omitempty"`
+
+	// Tag provides the tag
+	Tag string `json:"tag,omitempty"`
+
+	// References provides the references descriptors.
+	References []distribution.Descriptor `json:"references,omitempty"`
 }
 
 // ActorRecord specifies the agent that initiated the event. For most
