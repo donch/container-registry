@@ -80,7 +80,7 @@ func (ns *NotificationServer) AssertEventNotification(t *testing.T, expectedEven
 			// TODO: handle different push validations
 			err = ns.validateManifestPush(t, expectedEvent, receivedEvent)
 			if err != nil {
-				t.Logf("event mismatch: %v", err)
+				t.Logf("manifest push event mismatch: %v", err)
 				continue
 			}
 			// found a match!
@@ -88,7 +88,13 @@ func (ns *NotificationServer) AssertEventNotification(t *testing.T, expectedEven
 		case "pull":
 			t.Errorf("pull not implemented")
 		case "delete":
-			t.Errorf("delete not implemented")
+			err := ns.validateManifestDelete(t, expectedEvent, receivedEvent)
+			if err != nil {
+				t.Logf("manifest delete event mismatch: %v", err)
+				continue
+			}
+
+			return
 		default:
 			t.Errorf("unknown action: %q", expectedEvent.Action)
 		}
@@ -131,6 +137,38 @@ func (ns *NotificationServer) validateManifestPush(t *testing.T, expectedEvent, 
 
 	if expectedEvent.Target.Size != receivedEvent.Target.Size {
 		return fmt.Errorf("expected target size: %d but got: %d", expectedEvent.Target.Size, receivedEvent.Target.Size)
+	}
+
+	return nil
+}
+
+// validateManifestDelete only action, repository and tag are part of the received event
+func (ns *NotificationServer) validateManifestDelete(t *testing.T, expectedEvent, receivedEvent notifications.Event) error {
+	t.Helper()
+
+	require.NotEmpty(t, receivedEvent.ID, "event ID was empty")
+	require.NotEmpty(t, receivedEvent.Timestamp, "timestamp was empty")
+	require.NotEmpty(t, receivedEvent.Request, "request was empty")
+	require.NotEmpty(t, receivedEvent.Source, "source was empty")
+
+	if expectedEvent.Action != receivedEvent.Action {
+		return fmt.Errorf("expected action: %q but got: %q", expectedEvent.Action, receivedEvent.Action)
+	}
+
+	if expectedEvent.Target.Digest != receivedEvent.Target.Digest {
+		return fmt.Errorf("expected target digest: %q but got: %q", expectedEvent.Target.Digest, receivedEvent.Target.Digest)
+	}
+
+	if expectedEvent.Target.Repository != receivedEvent.Target.Repository {
+		return fmt.Errorf("expected target repository: %q but got: %q", expectedEvent.Target.Repository, receivedEvent.Target.Repository)
+	}
+
+	// delete manifest sends two events, one with digest and one with tag so we need to validate
+	// according to the expected event's tag
+	if expectedEvent.Target.Tag != "" && expectedEvent.Target.Tag != receivedEvent.Target.Tag {
+		return fmt.Errorf("expected tag: %q but got: %q", expectedEvent.Target.Tag, receivedEvent.Target.Tag)
+	} else if expectedEvent.Target.Tag == "" && receivedEvent.Target.Tag != "" {
+		return fmt.Errorf("expected tag to be empty but but got: %q", receivedEvent.Target.Tag)
 	}
 
 	return nil
