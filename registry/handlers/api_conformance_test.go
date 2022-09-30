@@ -212,9 +212,9 @@ func TestAPIConformance(t *testing.T) {
 								Threshold:         1,
 								Backoff:           100 * time.Millisecond,
 								IgnoredMediaTypes: []string{"application/octet-stream"},
-								// TODO: Handle pulls and deletes in rtestutil.NotificationServer as
+								// TODO: Handle pulls in rtestutil.NotificationServer as
 								// part of https://gitlab.com/gitlab-org/container-registry/-/issues/763
-								Ignore: configuration.Ignore{Actions: []string{"pull", "delete"}},
+								Ignore: configuration.Ignore{Actions: []string{"pull"}},
 							},
 						},
 					}
@@ -264,7 +264,7 @@ func manifest_Put_Schema2_ByTag_IsIdempotent(t *testing.T, opts ...configOpt) {
 		require.Equal(t, dgst.String(), resp.Header.Get("Docker-Content-Digest"))
 
 		if env.ns != nil {
-			expectedEvent := buildExpectedNotificationEvent("push", schema2.MediaTypeManifest, repoPath, tagName, dgst, int64(len(payload)))
+			expectedEvent := buildEventManifestPush(schema2.MediaTypeManifest, repoPath, tagName, dgst, int64(len(payload)))
 			env.ns.AssertEventNotification(t, expectedEvent)
 		}
 	}
@@ -1584,6 +1584,19 @@ func manifest_Delete_Schema2(t *testing.T, opts ...configOpt) {
 
 	require.Equal(t, http.StatusNotFound, resp.StatusCode)
 	checkBodyHasErrorCodes(t, "getting freshly-deleted manifest", resp, v2.ErrorCodeManifestUnknown)
+
+	if env.ns != nil {
+		_, payload, err := deserializedManifest.Payload()
+		require.NoError(t, err)
+
+		dgst := digest.FromBytes(payload)
+
+		expectedEventByDigest := buildEventManifestDeleteByDigest(schema2.MediaTypeManifest, repoPath, dgst)
+		env.ns.AssertEventNotification(t, expectedEventByDigest)
+
+		expectedEvent := buildEventManifestDeleteByTag(schema2.MediaTypeManifest, repoPath, tagName)
+		env.ns.AssertEventNotification(t, expectedEvent)
+	}
 }
 
 func manifest_Delete_Schema2_AlreadyDeleted(t *testing.T, opts ...configOpt) {
@@ -1603,6 +1616,19 @@ func manifest_Delete_Schema2_AlreadyDeleted(t *testing.T, opts ...configOpt) {
 	defer resp.Body.Close()
 
 	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	if env.ns != nil {
+		_, payload, err := deserializedManifest.Payload()
+		require.NoError(t, err)
+
+		dgst := digest.FromBytes(payload)
+
+		expectedEventByDigest := buildEventManifestDeleteByDigest(schema2.MediaTypeManifest, repoPath, dgst)
+		env.ns.AssertEventNotification(t, expectedEventByDigest)
+
+		expectedEventByTag := buildEventManifestDeleteByTag("", repoPath, tagName)
+		env.ns.AssertEventNotification(t, expectedEventByTag)
+	}
 
 	resp, err = httpDelete(manifestDigestURL)
 	require.NoError(t, err)
@@ -1628,6 +1654,19 @@ func manifest_Delete_Schema2_Reupload(t *testing.T, opts ...configOpt) {
 	defer resp.Body.Close()
 
 	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	if env.ns != nil {
+		_, payload, err := deserializedManifest.Payload()
+		require.NoError(t, err)
+
+		dgst := digest.FromBytes(payload)
+
+		expectedEventByDigest := buildEventManifestDeleteByDigest(schema2.MediaTypeManifest, repoPath, dgst)
+		env.ns.AssertEventNotification(t, expectedEventByDigest)
+
+		expectedEvent := buildEventManifestDeleteByTag(schema2.MediaTypeManifest, repoPath, tagName)
+		env.ns.AssertEventNotification(t, expectedEvent)
+	}
 
 	// Re-upload manifest by digest
 	resp = putManifest(t, "reuploading manifest no error", manifestDigestURL, schema2.MediaTypeManifest, deserializedManifest.Manifest)
@@ -1714,6 +1753,19 @@ func manifest_Delete_Schema2_ClearsTags(t *testing.T, opts ...configOpt) {
 	defer resp.Body.Close()
 
 	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	if env.ns != nil {
+		_, payload, err := deserializedManifest.Payload()
+		require.NoError(t, err)
+
+		dgst := digest.FromBytes(payload)
+
+		expectedEventByDigest := buildEventManifestDeleteByDigest(schema2.MediaTypeManifest, repoPath, dgst)
+		env.ns.AssertEventNotification(t, expectedEventByDigest)
+
+		expectedEvent := buildEventManifestDeleteByTag(schema2.MediaTypeManifest, repoPath, tagName)
+		env.ns.AssertEventNotification(t, expectedEvent)
+	}
 
 	// Ensure that the tag is not listed.
 	resp, err = http.Get(tagsURL)
@@ -2794,6 +2846,11 @@ func tags_Delete(t *testing.T, opts ...configOpt) {
 	if resp.Body != http.NoBody {
 		t.Fatalf("unexpected response body")
 	}
+
+	if env.ns != nil {
+		expectedEvent := buildEventManifestDeleteByTag(schema2.MediaTypeManifest, "foo/bar", tag)
+		env.ns.AssertEventNotification(t, expectedEvent)
+	}
 }
 
 func tags_Delete_Unknown(t *testing.T, opts ...configOpt) {
@@ -2905,6 +2962,10 @@ func tags_Delete_WithSameImageID(t *testing.T, opts ...configOpt) {
 
 	checkResponse(t, msg, resp, http.StatusAccepted)
 
+	if env.ns != nil {
+		expectedEvent := buildEventManifestDeleteByTag(schema2.MediaTypeManifest, imageName.String(), tag1)
+		env.ns.AssertEventNotification(t, expectedEvent)
+	}
 	// check the other tag is still there
 	tagsURL, err := env.builder.BuildTagsURL(imageName)
 	if err != nil {

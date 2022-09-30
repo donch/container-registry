@@ -592,7 +592,7 @@ func seedRandomSchema2Manifest(t *testing.T, env *testEnv, repoPath string, opts
 		require.Equal(t, dgst.String(), resp.Header.Get("Docker-Content-Digest"))
 
 		if config.assertNotification {
-			expectedEvent := buildExpectedNotificationEvent("push", schema2.MediaTypeManifest, config.repoPath, "", dgst, int64(len(payload)))
+			expectedEvent := buildEventManifestPush(schema2.MediaTypeManifest, config.repoPath, "", dgst, int64(len(payload)))
 			env.ns.AssertEventNotification(t, expectedEvent)
 		}
 	}
@@ -742,7 +742,7 @@ func seedRandomOCIManifest(t *testing.T, env *testEnv, repoPath string, opts ...
 		require.Equal(t, dgst.String(), resp.Header.Get("Docker-Content-Digest"))
 
 		if config.assertNotification {
-			expectedEvent := buildExpectedNotificationEvent("push", v1.MediaTypeImageManifest, config.repoPath, "", dgst, int64(len(payload)))
+			expectedEvent := buildEventManifestPush(v1.MediaTypeImageManifest, config.repoPath, "", dgst, int64(len(payload)))
 			env.ns.AssertEventNotification(t, expectedEvent)
 		}
 	}
@@ -840,7 +840,7 @@ func seedRandomOCIImageIndex(t *testing.T, env *testEnv, repoPath string, opts .
 		require.Equal(t, dgst.String(), resp.Header.Get("Docker-Content-Digest"))
 
 		if config.assertNotification {
-			expectedEvent := buildExpectedNotificationEvent("push", v1.MediaTypeImageIndex, config.repoPath, "", dgst, int64(len(payload)))
+			expectedEvent := buildEventManifestPush(v1.MediaTypeImageIndex, config.repoPath, "", dgst, int64(len(payload)))
 			env.ns.AssertEventNotification(t, expectedEvent)
 		}
 	}
@@ -848,14 +848,36 @@ func seedRandomOCIImageIndex(t *testing.T, env *testEnv, repoPath string, opts .
 	return deserializedManifest
 }
 
-func buildExpectedNotificationEvent(action, mediaType, repoPath, tagName string, dgst digest.Digest, size int64) notifications.Event {
+func buildEventManifestPush(mediaType, repoPath, tagName string, dgst digest.Digest, size int64) notifications.Event {
 	return notifications.Event{
-		Action: action,
+		Action: "push",
 		Target: notifications.Target{
 			Descriptor: distribution.Descriptor{
 				MediaType: mediaType,
 				Digest:    dgst,
 				Size:      size,
+			},
+			Repository: repoPath,
+			Tag:        tagName,
+		},
+	}
+}
+
+func buildEventManifestDeleteByDigest(mediaType, repoPath string, dgst digest.Digest) notifications.Event {
+	return buildEventManifestDelete(mediaType, repoPath, "", dgst)
+}
+
+func buildEventManifestDeleteByTag(mediaType, repoPath, tag string) notifications.Event {
+	return buildEventManifestDelete(mediaType, repoPath, tag, "")
+}
+
+func buildEventManifestDelete(mediaType, repoPath, tagName string, dgst digest.Digest) notifications.Event {
+	return notifications.Event{
+		Action: "delete",
+		Target: notifications.Target{
+			Descriptor: distribution.Descriptor{
+				MediaType: mediaType,
+				Digest:    dgst,
 			},
 			Repository: repoPath,
 			Tag:        tagName,
