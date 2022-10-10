@@ -1921,7 +1921,9 @@ func TestGitlabAPI_RepositoryImport_MaxConcurrentImports_OneByOne(t *testing.T) 
 		t, repoPath1, string(migration.RepositoryStatusPreImportComplete), "pre import completed successfully", 2*time.Second,
 	)
 
-	// attempt second import for repoPath2 should succeed
+	// attempt second import for repoPath2 after waiting a bit should succeed
+	time.Sleep(50 * time.Millisecond)
+
 	req3, err := http.NewRequest(http.MethodPut, importURL2, nil)
 	require.NoError(t, err)
 
