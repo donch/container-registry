@@ -389,7 +389,7 @@ func newTestEnvWithConfig(t *testing.T, config *configuration.Configuration) *te
 
 	var notifServer *rtestutil.NotificationServer
 	if len(config.Notifications.Endpoints) == 1 {
-		notifServer = rtestutil.NewNotificationServer(t)
+		notifServer = rtestutil.NewNotificationServer(t, config.Database.Enabled)
 		// ensure URL is set properly with mock server URL
 		config.Notifications.Endpoints[0].URL = notifServer.URL
 	}
@@ -859,6 +859,20 @@ func buildEventManifestPush(mediaType, repoPath, tagName string, dgst digest.Dig
 			},
 			Repository: repoPath,
 			Tag:        tagName,
+		},
+	}
+}
+
+func buildEventManifestPull(mediaType, repoPath string, dgst digest.Digest, size int64) notifications.Event {
+	return notifications.Event{
+		Action: "pull",
+		Target: notifications.Target{
+			Descriptor: distribution.Descriptor{
+				MediaType: mediaType,
+				Digest:    dgst,
+				Size:      size,
+			},
+			Repository: repoPath,
 		},
 	}
 }

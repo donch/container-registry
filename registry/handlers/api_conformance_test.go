@@ -212,9 +212,6 @@ func TestAPIConformance(t *testing.T) {
 								Threshold:         1,
 								Backoff:           100 * time.Millisecond,
 								IgnoredMediaTypes: []string{"application/octet-stream"},
-								// TODO: Handle pulls in rtestutil.NotificationServer as
-								// part of https://gitlab.com/gitlab-org/container-registry/-/issues/763
-								Ignore: configuration.Ignore{Actions: []string{"pull"}},
 							},
 						},
 					}
@@ -478,6 +475,15 @@ func manifest_Get_Schema2_NonMatchingEtag(t *testing.T, opts ...configOpt) {
 			require.NoError(t, err)
 
 			require.EqualValues(t, deserializedManifest, fetchedManifest)
+
+			if env.ns != nil {
+				sizeStr := resp.Header.Get("Content-Length")
+				size, err := strconv.Atoi(sizeStr)
+				require.NoError(t, err)
+
+				expectedEvent := buildEventManifestPull(schema2.MediaTypeManifest, repoPath, dgst, int64(size))
+				env.ns.AssertEventNotification(t, expectedEvent)
+			}
 		})
 	}
 }
@@ -1442,6 +1448,11 @@ func manifest_Head_Schema2(t *testing.T, opts ...configOpt) {
 			require.EqualValues(t, len(payload), cl)
 
 			require.Equal(t, dgst.String(), resp.Header.Get("Docker-Content-Digest"))
+
+			if env.ns != nil {
+				expectedEvent := buildEventManifestPull(schema2.MediaTypeManifest, repoPath, dgst, int64(cl))
+				env.ns.AssertEventNotification(t, expectedEvent)
+			}
 		})
 	}
 }
@@ -1552,6 +1563,15 @@ func manifest_Get_Schema2_NoAcceptHeaders(t *testing.T, opts ...configOpt) {
 			require.NoError(t, err)
 
 			require.EqualValues(t, deserializedManifest, fetchedManifest)
+
+			if env.ns != nil {
+				sizeStr := resp.Header.Get("Content-Length")
+				size, err := strconv.Atoi(sizeStr)
+				require.NoError(t, err)
+
+				expectedEvent := buildEventManifestPull(schema2.MediaTypeManifest, repoPath, dgst, int64(size))
+				env.ns.AssertEventNotification(t, expectedEvent)
+			}
 		})
 	}
 }
@@ -1898,6 +1918,15 @@ func manifest_Get_OCI_NonMatchingEtag(t *testing.T, opts ...configOpt) {
 			require.NoError(t, err)
 
 			require.EqualValues(t, deserializedManifest, fetchedManifest)
+
+			if env.ns != nil {
+				sizeStr := resp.Header.Get("Content-Length")
+				size, err := strconv.Atoi(sizeStr)
+				require.NoError(t, err)
+
+				expectedEvent := buildEventManifestPull(v1.MediaTypeImageManifest, repoPath, dgst, int64(size))
+				env.ns.AssertEventNotification(t, expectedEvent)
+			}
 		})
 	}
 }
@@ -2177,6 +2206,15 @@ func manifest_Get_OCIIndex_NonMatchingEtag(t *testing.T, opts ...configOpt) {
 			require.NoError(t, err)
 
 			require.EqualValues(t, deserializedManifest, fetchedManifest)
+
+			if env.ns != nil {
+				sizeStr := resp.Header.Get("Content-Length")
+				size, err := strconv.Atoi(sizeStr)
+				require.NoError(t, err)
+
+				expectedEvent := buildEventManifestPull(v1.MediaTypeImageIndex, repoPath, dgst, int64(size))
+				env.ns.AssertEventNotification(t, expectedEvent)
+			}
 		})
 	}
 }
@@ -2315,6 +2353,11 @@ func manifest_Get_ManifestList_FallbackToSchema2(t *testing.T, opts ...configOpt
 	require.NoError(t, err)
 
 	require.EqualValues(t, deserializedManifest, fetchedManifest)
+
+	if env.ns != nil {
+		expectedEvent := buildEventManifestPull(manifestlist.MediaTypeManifestList, repoPath, dgst, int64(len(payload)))
+		env.ns.AssertEventNotification(t, expectedEvent)
+	}
 }
 
 func blob_Get(t *testing.T, opts ...configOpt) {
