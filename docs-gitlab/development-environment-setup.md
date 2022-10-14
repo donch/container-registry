@@ -78,7 +78,7 @@ listening at `localhost:5000`.
 The registry name, `dev-registry`, can be used to easily reference the container
 in docker commands and is arbitrary.
 
-This container is ran with host networking. This option facilitates an easier
+This container is ran with host networking on linux machines. This option facilitates an easier
 and more general configuration, especially when using external services, such as
 GCS or S3, but also removes the network isolation that a container typically
 provides.
@@ -89,6 +89,24 @@ docker run -d \
     --network=host \
     --name dev-registry \
     -v `pwd`/config/filesystem.yml:/etc/docker/registry/config.yml \
+    registry:dev
+```
+
+The host networking driver in the command above [only works on Linux hosts](https://docs.docker.com/network/host/)
+and is not supported on Docker Desktop for Mac, Docker Desktop for Windows, or Docker EE 
+for Windows Server. The reason for this behavior is that on Mac and Windows, docker daemon is 
+actually running in a virtual machine, not natively on the host. Thus, it is not actually connected
+to the host ports of your Mac or Windows machine, but rather to the host ports of the virtual machine.
+
+A way around this is to port-forward the desired container port to localhost by adding
+ `-p 5000:5000` and removing the `--network=host` option in the command above, to become:
+
+```bash
+docker run -d \
+    --restart=always \ 
+    --name dev-registry \
+    -v `pwd`/config/filesystem.yml:/etc/docker/registry/config.yml \
+    -p 5000:5000 \
     registry:dev
 ```
 
@@ -356,8 +374,11 @@ Error starting userland proxy: listen tcp4 172.16.123.1:5000: bind: cannot assig
 ```
 
 It is possible that another service is listening on port `5000` such as `AirPlay Receiver` as described on this
-[Apple developer forum post](https://developer.apple.com/forums/thread/682332). You can disable it by opening
-**System Preferences > Sharing** and unchecking **AirPlay Receiver**.
+[Apple developer forum post](https://developer.apple.com/forums/thread/682332).
+
+You may check if the port is in use, using: `lsof -i tcp:5000`.
+
+If the culprit happens to be `AirPlay Receiver`, you can disable it by opening **System Preferences > Sharing** and unchecking **AirPlay Receiver**.
 
 ### $XDG_RUNTIME_DIR is not set 
 
