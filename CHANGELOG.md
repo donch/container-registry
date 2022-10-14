@@ -1,3 +1,10 @@
+# [3.58.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.57.0-gitlab...v3.58.0-gitlab) (2022-10-14)
+
+
+### Features
+
+* add new Prometheus metric for Redis connection pool size ([dfb2e15](https://gitlab.com/gitlab-org/container-registry/commit/dfb2e15b93fe4980445080c469053accbb35aeb0))
+
 # [3.57.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.56.0-gitlab...v3.57.0-gitlab) (2022-08-16)
 
 
