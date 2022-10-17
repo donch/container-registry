@@ -202,7 +202,6 @@ func (eq *eventQueue) next() []Event {
 
 		eq.cond.Wait()
 	}
-
 	front := eq.events.Front()
 	block := front.Value.([]Event)
 	eq.events.Remove(front)

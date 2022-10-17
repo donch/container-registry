@@ -905,12 +905,15 @@ func (app *App) configureEvents(configuration *configuration.Configuration) {
 		})
 
 		sinks = append(sinks, endpoint)
+
 	}
 
 	// NOTE(stevvooe): Moving to a new queuing implementation is as easy as
 	// replacing broadcaster with a rabbitmq implementation. It's recommended
 	// that the registry instances also act as the workers to keep deployment
 	// simple.
+	// TODO: replace broadcaster with a new worker that will consume events from the queue
+	// https://gitlab.com/gitlab-org/container-registry/-/issues/765
 	app.events.sink = notifications.NewBroadcaster(sinks...)
 
 	// Populate registry event source
@@ -1187,6 +1190,8 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 			// This is required as part of a partial/temporary mitigation for
 			// https://gitlab.com/gitlab-org/container-registry/-/issues/682.
 			ctx.eventBridge = app.eventBridge(ctx, r)
+
+			ctx.queueBridge = app.queueBridge(ctx, r)
 
 			// assign and decorate the authorized repository with an event bridge.
 			ctx.Repository, ctx.RepositoryRemover = notifications.Listen(
@@ -1470,6 +1475,15 @@ func (app *App) eventBridge(ctx *Context, r *http.Request) notifications.Listene
 	request := notifications.NewRequestRecord(dcontext.GetRequestID(ctx), r)
 
 	return notifications.NewBridge(ctx.urlBuilder, app.events.source, actor, request, app.events.sink, app.Config.Notifications.EventConfig.IncludeReferences)
+}
+
+func (app *App) queueBridge(ctx *Context, r *http.Request) *notifications.QueueBridge {
+	actor := notifications.ActorRecord{
+		Name: getUserName(ctx, r),
+	}
+	request := notifications.NewRequestRecord(dcontext.GetRequestID(ctx), r)
+
+	return notifications.NewQueueBridge(app.events.source, actor, request, app.events.sink)
 }
 
 // nameRequired returns true if the route requires a name.
