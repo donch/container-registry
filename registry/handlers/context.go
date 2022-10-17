@@ -50,7 +50,11 @@ type Context struct {
 
 	// This is required as part of a partial/temporary mitigation for
 	// https://gitlab.com/gitlab-org/container-registry/-/issues/682.
+	// TODO: remove this eventBridge and only use the queueBridge below
 	eventBridge notifications.Listener
+
+	// queueBridge is used to connect the handler with the notifications.Queue
+	queueBridge *notifications.QueueBridge
 }
 
 // Value overrides context.Context.Value to ensure that calls are routed to

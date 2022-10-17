@@ -1402,17 +1402,10 @@ func (imh *manifestHandler) DeleteManifest(w http.ResponseWriter, r *http.Reques
 			imh.appendManifestDeleteError(err)
 			return
 		}
+	}
 
-		// This is a temporary mitigation for https://gitlab.com/gitlab-org/container-registry/-/issues/726. It restores
-		// the manifest delete notifications for repositories on the new code path. Restoring this particular event is a
-		// top priority as it is needed to trigger usage calculations on the Rails side. We will need to rework the
-		// centralized notification mechanism as a whole and restore all event notifications later on as part of
-		// https://gitlab.com/gitlab-org/container-registry/-/issues/691.
-		if !imh.writeFSMetadata {
-			if err := imh.eventBridge.ManifestDeleted(imh.Repository.Named(), imh.Digest); err != nil {
-				l.WithError(err).Error("dispatching tag delete to listener")
-			}
-		}
+	if err := imh.queueBridge.ManifestDeleted(imh.Repository.Named(), imh.Digest); err != nil {
+		l.WithError(err).Error("queuing manifest delete")
 	}
 
 	w.WriteHeader(http.StatusAccepted)

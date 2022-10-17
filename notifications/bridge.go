@@ -11,6 +11,7 @@ import (
 	"github.com/opencontainers/go-digest"
 )
 
+// TODO: remove this bridge https://gitlab.com/gitlab-org/container-registry/-/issues/767
 type bridge struct {
 	ub                URLBuilder
 	includeReferences bool
@@ -86,7 +87,7 @@ func (b *bridge) ManifestPulled(repo reference.Named, sm distribution.Manifest, 
 }
 
 func (b *bridge) ManifestDeleted(repo reference.Named, dgst digest.Digest) error {
-	return b.createManifestDeleteEventAndWrite(EventActionDelete, repo, dgst)
+	return nil
 }
 
 func (b *bridge) BlobPushed(repo reference.Named, desc distribution.Descriptor) error {
