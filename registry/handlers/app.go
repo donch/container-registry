@@ -1483,7 +1483,7 @@ func (app *App) queueBridge(ctx *Context, r *http.Request) *notifications.QueueB
 	}
 	request := notifications.NewRequestRecord(dcontext.GetRequestID(ctx), r)
 
-	return notifications.NewQueueBridge(app.events.source, actor, request, app.events.sink)
+	return notifications.NewQueueBridge(ctx.urlBuilder, app.events.source, actor, request, app.events.sink, app.Config.Notifications.EventConfig.IncludeReferences)
 }
 
 // nameRequired returns true if the route requires a name.

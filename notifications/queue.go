@@ -18,35 +18,99 @@ type QueueBridge struct {
 	// TODO: replace sink with a Queue when we implement
 	// https://gitlab.com/gitlab-org/container-registry/-/issues/335
 	sink Sink
+
+	ub                URLBuilder
+	includeReferences bool
 }
 
 // NewQueueBridge creates an instance of the QueueBridge with the source, actor, request and the queue
-func NewQueueBridge(source SourceRecord, actor ActorRecord, request RequestRecord, sink Sink) *QueueBridge {
+func NewQueueBridge(ub URLBuilder, source SourceRecord, actor ActorRecord, request RequestRecord, sink Sink, includeReferences bool) *QueueBridge {
 	return &QueueBridge{
 		source:  source,
 		actor:   actor,
 		request: request,
 		// TODO: use a queue instead of using a sink explicitly https://gitlab.com/gitlab-org/container-registry/-/issues/764
-		sink: sink,
+		sink:              sink,
+		ub:                ub,
+		includeReferences: includeReferences,
 	}
+}
+
+// ManifestPushed creates a manifest event with the repository and its options. It
+// queues the event to be sent.
+func (qb *QueueBridge) ManifestPushed(repo reference.Named, sm distribution.Manifest, options ...distribution.ManifestServiceOption) error {
+	manifestEvent, err := qb.createManifestEvent(EventActionPush, repo, sm)
+	if err != nil {
+		return err
+	}
+
+	for _, option := range options {
+		if opt, ok := option.(distribution.WithTagOption); ok {
+			manifestEvent.Target.Tag = opt.Tag
+			break
+		}
+	}
+
+	return qb.sink.Write(*manifestEvent)
 }
 
 // ManifestDeleted creates and queues an event with the deleted manifest repository and digest.
 func (qb *QueueBridge) ManifestDeleted(repo reference.Named, dgst digest.Digest) error {
-	event := Event{
+	event := qb.createEvent(EventActionDelete)
+	event.Target = Target{
+		Descriptor: distribution.Descriptor{
+			Digest: dgst,
+		},
+		Repository: repo.Name(),
+	}
+
+	return qb.sink.Write(*event)
+}
+
+func (qb *QueueBridge) createManifestEvent(action string, repo reference.Named, sm distribution.Manifest) (*Event, error) {
+	event := qb.createEvent(action)
+	event.Target.Repository = repo.Name()
+
+	mt, p, err := sm.Payload()
+	if err != nil {
+		return nil, err
+	}
+
+	// Ensure we have the canonical manifest descriptor here
+	manifest, desc, err := distribution.UnmarshalManifest(mt, p)
+	if err != nil {
+		return nil, err
+	}
+
+	event.Target.MediaType = mt
+	event.Target.Length = desc.Size
+	event.Target.Size = desc.Size
+	event.Target.Digest = desc.Digest
+	if qb.includeReferences {
+		event.Target.References = append(event.Target.References, manifest.References()...)
+	}
+
+	ref, err := reference.WithDigest(repo, event.Target.Digest)
+	if err != nil {
+		return nil, err
+	}
+
+	event.Target.URL, err = qb.ub.BuildManifestURL(ref)
+	if err != nil {
+		return nil, err
+	}
+
+	return event, nil
+}
+
+// createEvent creates an event with actor and source populated.
+func (qb *QueueBridge) createEvent(action string) *Event {
+	return &Event{
 		ID:        uuid.Generate().String(),
 		Timestamp: time.Now(),
-		Action:    EventActionDelete,
+		Action:    action,
 		Source:    qb.source,
 		Actor:     qb.actor,
 		Request:   qb.request,
-		Target: Target{
-			Descriptor: distribution.Descriptor{
-				Digest: dgst,
-			},
-			Repository: repo.Name(),
-		},
 	}
-
-	return qb.sink.Write(event)
 }

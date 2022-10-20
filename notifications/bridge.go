@@ -57,18 +57,7 @@ func NewRequestRecord(id string, r *http.Request) RequestRecord {
 }
 
 func (b *bridge) ManifestPushed(repo reference.Named, sm distribution.Manifest, options ...distribution.ManifestServiceOption) error {
-	manifestEvent, err := b.createManifestEvent(EventActionPush, repo, sm)
-	if err != nil {
-		return err
-	}
-
-	for _, option := range options {
-		if opt, ok := option.(distribution.WithTagOption); ok {
-			manifestEvent.Target.Tag = opt.Tag
-			break
-		}
-	}
-	return b.sink.Write(*manifestEvent)
+	return nil
 }
 
 func (b *bridge) ManifestPulled(repo reference.Named, sm distribution.Manifest, options ...distribution.ManifestServiceOption) error {
