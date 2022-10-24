@@ -712,15 +712,10 @@ func (imh *manifestHandler) PutManifest(w http.ResponseWriter, r *http.Request) 
 			imh.appendPutError(err)
 			return
 		}
-		// This is a partial temporary mitigation for https://gitlab.com/gitlab-org/container-registry/-/issues/682.
-		// It restores the manifest push (by tag) notifications for repositories on the new code path. Restoring this
-		// particular event is a top priority as it is needed to trigger usage calculations on the Rails side. We will
-		// need to rework the notification mechanism as a whole and restore all event notifications later on.
-		if _, ok := manifestWriter.(*dbManifestWriter); ok && !imh.writeFSMetadata {
-			if err := imh.eventBridge.ManifestPushed(imh.Repository.Named(), manifest, distribution.WithTagOption{Tag: imh.Tag}); err != nil {
-				l.WithError(err).Error("dispatching manifest push to listener")
-			}
-		}
+	}
+
+	if err := imh.queueBridge.ManifestPushed(imh.Repository.Named(), manifest, distribution.WithTagOption{Tag: imh.Tag}); err != nil {
+		l.WithError(err).Error("dispatching manifest push to listener")
 	}
 
 	// Construct a canonical url for the uploaded manifest.
