@@ -32,7 +32,7 @@ secret_detection:
     # For merge requests, create a pipeline.
     - if: '$CI_MERGE_REQUEST_IID'
 
-gosec-sast:
+semgrep-sast:
   <<: *rules-for-scanners
 
 default:
