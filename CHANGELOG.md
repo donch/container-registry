@@ -1,3 +1,10 @@
+# [3.59.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.58.0-gitlab...v3.59.0-gitlab) (2022-10-24)
+
+
+### Features
+
+* **configuration:** remove the ability to externally configure testslowimport ([27f9752](https://gitlab.com/gitlab-org/container-registry/commit/27f97522355396d82971914afe791bbaea0bd613))
+
 # [3.58.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.57.0-gitlab...v3.58.0-gitlab) (2022-10-14)
 
 
