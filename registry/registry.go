@@ -359,7 +359,17 @@ func configureAccessLogging(config *configuration.Configuration, h http.Handler)
 		return nil, err
 	}
 
-	return logkit.AccessLogger(h, logkit.WithAccessLogger(logger)), nil
+	// This func is used by WithExtraFields to add additional fields to the logger
+	extraFieldGenerator := func(r *http.Request) log.Fields {
+		fields := make(log.Fields)
+		// Set the `CF-ray` header to the log field only if it exists in the request
+		if rv, ok := r.Header[http.CanonicalHeaderKey(dcontext.CFRayIDHeader)]; ok && rv != nil {
+			fields[string(dcontext.CFRayIDLogKey)] = r.Header.Get(dcontext.CFRayIDHeader)
+		}
+		return fields
+	}
+
+	return logkit.AccessLogger(h, logkit.WithAccessLogger(logger), logkit.WithExtraFields(extraFieldGenerator)), nil
 }
 
 func configureMonitoring(ctx context.Context, config *configuration.Configuration) ([]monitoring.Option, error) {

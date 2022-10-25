@@ -1,6 +1,7 @@
 package context
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
@@ -8,6 +9,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestWithRequest(t *testing.T) {
@@ -288,4 +291,48 @@ func TestRemoteAddr(t *testing.T) {
 	}
 
 	rsp.Body.Close()
+}
+
+func TestWithCFRayID(t *testing.T) {
+	testcases := []struct {
+		name                 string
+		requestHeaders       map[string]string
+		expectedContextValue interface{}
+		expectedCFRayIDKey   CFRayIDKey
+	}{
+		{
+			name:                 "a request with a CF-ray header",
+			requestHeaders:       map[string]string{"CF-ray": "value"},
+			expectedContextValue: "value",
+		},
+		{
+			name:                 "a request with a CF-ray header that has an empty value",
+			requestHeaders:       map[string]string{"CF-ray": ""},
+			expectedContextValue: "",
+		},
+		{
+			name:                 "a request without a CF-ray header",
+			requestHeaders:       map[string]string{},
+			expectedContextValue: nil,
+		},
+	}
+	t.Logf("Running Test %s", t.Name())
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := context.TODO()
+			req := generateRequestWithHeaders(test.requestHeaders)
+			actualContext := WithCFRayID(ctx, req)
+			require.Equal(t, test.expectedContextValue, actualContext.Value(CFRayIDLogKey))
+		})
+	}
+}
+
+func generateRequestWithHeaders(headers map[string]string) *http.Request {
+	var header http.Header = map[string][]string{}
+	for key, val := range headers {
+		header.Add(key, val)
+	}
+	return &http.Request{
+		Header: header,
+	}
 }
