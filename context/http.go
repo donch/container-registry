@@ -147,6 +147,25 @@ func WithVars(ctx context.Context, r *http.Request) context.Context {
 	}
 }
 
+type CFRayIDKey string
+
+const (
+	CFRayIDHeader = "CF-ray"
+	CFRayIDLogKey = CFRayIDKey("CF-RAY")
+)
+
+// WithCFRayID extracts a `CF-ray` ID (https://developers.cloudflare.com/fundamentals/get-started/reference/http-request-headers/#cf-ray)
+// request header (if present) from the request (r) and sets the value extracted in the returned context (ctx) with a key of CFRayIDLogKey.
+// In the event that the `CF-ray` ID Header is not present the CFRayIDLogKey is not set in the context, if the header is present but empty
+// the CFRayIDLogKey is set with an empty value.
+func WithCFRayID(ctx context.Context, r *http.Request) context.Context {
+	if rv, ok := r.Header[http.CanonicalHeaderKey(CFRayIDHeader)]; ok && rv != nil {
+		ctx = context.WithValue(ctx, CFRayIDLogKey, r.Header.Get(CFRayIDHeader))
+	}
+	return ctx
+
+}
+
 // GetRequestLogger returns a logger that contains fields from the request in
 // the current context. If the request is not available in the context, no
 // fields will display. Request loggers can safely be pushed onto the context.

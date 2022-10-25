@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/docker/distribution/configuration"
+	dcontext "github.com/docker/distribution/context"
 	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/api/errcode"
 	"github.com/docker/distribution/registry/api/urls"
@@ -28,6 +30,8 @@ import (
 	memorycache "github.com/docker/distribution/registry/storage/cache/memory"
 	"github.com/docker/distribution/registry/storage/driver/testdriver"
 	"github.com/golang/mock/gomock"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -647,4 +651,154 @@ func Test_updateOnlineGCSettings_Timeout(t *testing.T) {
 
 	err := updateOnlineGCSettings(context.Background(), dbMock, config)
 	require.EqualError(t, err, context.Canceled.Error())
+}
+
+// TestGitlabAPI_LogsCFRayID ensures that the CF_ray Id
+// is logged if it exists in the request header
+// `GET /gitlab/v1/` endpoint.
+func TestGitlabAPI_LogsCFRayID(t *testing.T) {
+
+	testcases := []struct {
+		name          string
+		headers       map[string]string
+		checkContains func(buf bytes.Buffer) bool
+	}{
+		{
+
+			name:    "a request with a CF-ray header",
+			headers: map[string]string{"CF-Ray": "value"},
+			checkContains: func(buf bytes.Buffer) bool {
+				return assert.Contains(t, buf.String(), "CF-RAY=value")
+			},
+		},
+		{
+
+			name:    "a request with a CF-ray header but empty value",
+			headers: map[string]string{"CF-Ray": ""},
+			checkContains: func(buf bytes.Buffer) bool {
+				return assert.NotContains(t, buf.String(), "CF-RAY=value") &&
+					assert.Contains(t, buf.String(), "CF-RAY= ")
+			},
+		},
+		{
+
+			name:    "a request without a CF-ray header",
+			headers: map[string]string{"Not-CF-Ray": "value"},
+			checkContains: func(buf bytes.Buffer) bool {
+				return assert.NotContains(t, buf.String(), "CF-RAY")
+			},
+		},
+	}
+	t.Logf("Running Test %s", t.Name())
+	for _, test := range testcases {
+		ctx := context.TODO()
+		config := testConfig()
+
+		// use a logger that writes to a buffer instead of stdout
+		var buf bytes.Buffer
+		ctx = dcontext.WithLogger(ctx, bufferStreamLogger(ctx, &buf))
+
+		app, err := NewApp(ctx, config)
+		require.NoError(t, err)
+
+		server := httptest.NewServer(app)
+		defer server.Close()
+
+		builder, err := urls.NewBuilderFromString(server.URL, false)
+		require.NoError(t, err)
+
+		url, err := builder.BuildGitlabV1BaseURL()
+		require.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodGet, url, nil)
+		require.NoError(t, err)
+		for headerKey, headerVal := range test.headers {
+			req.Header.Add(headerKey, headerVal)
+		}
+
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+		test.checkContains(buf)
+	}
+}
+
+// TestGitlabAPI_LogsCFRayID ensures that the CF_ray Id
+// is logged if it exists in the request header
+// `GET /v2/` endpoint.
+func TestDistributionAPI_LogsCFRayID(t *testing.T) {
+
+	testcases := []struct {
+		name          string
+		headers       map[string]string
+		checkContains func(buf bytes.Buffer) bool
+	}{
+		{
+
+			name:    "a request with a CF-ray header",
+			headers: map[string]string{"CF-Ray": "value"},
+			checkContains: func(buf bytes.Buffer) bool {
+				return assert.Contains(t, buf.String(), "CF-RAY=value")
+			},
+		},
+		{
+
+			name:    "a request with a CF-ray header but empty value",
+			headers: map[string]string{"CF-Ray": ""},
+			checkContains: func(buf bytes.Buffer) bool {
+				return assert.NotContains(t, buf.String(), "CF-RAY=value") &&
+					assert.Contains(t, buf.String(), "CF-RAY= ")
+			},
+		},
+		{
+
+			name:    "a request without a CF-ray header",
+			headers: map[string]string{"Not-CF-Ray": "value"},
+			checkContains: func(buf bytes.Buffer) bool {
+				return assert.NotContains(t, buf.String(), "CF-RAY")
+			},
+		},
+	}
+	t.Logf("Running Test %s", t.Name())
+	for _, test := range testcases {
+		ctx := context.TODO()
+		config := testConfig()
+
+		// use a logger that writes to a buffer instead of stdout
+		var buf bytes.Buffer
+		ctx = dcontext.WithLogger(ctx, bufferStreamLogger(ctx, &buf))
+
+		app, err := NewApp(ctx, config)
+		require.NoError(t, err)
+
+		server := httptest.NewServer(app)
+		defer server.Close()
+
+		builder, err := urls.NewBuilderFromString(server.URL, false)
+		require.NoError(t, err)
+
+		url, err := builder.BuildBaseURL()
+		require.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodGet, url, nil)
+		require.NoError(t, err)
+		for headerKey, headerVal := range test.headers {
+			req.Header.Add(headerKey, headerVal)
+		}
+
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+		test.checkContains(buf)
+	}
+}
+func bufferStreamLogger(ctx context.Context, buf *bytes.Buffer) *logrus.Entry {
+
+	fields := logrus.Fields{}
+	fields["test"] = true
+	logger := logrus.StandardLogger().WithFields(fields)
+	logger.Logger.Level = logrus.DebugLevel
+	logger.Logger.SetOutput(buf)
+
+	return logger.WithFields(fields)
 }

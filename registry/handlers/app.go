@@ -1095,6 +1095,10 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 
 		ctx := app.context(w, r)
 
+		// attach CF-RayID header to context and pass the key to the logger
+		ctx.Context = dcontext.WithCFRayID(ctx.Context, r)
+		ctx.Context = dcontext.WithLogger(ctx.Context, dcontext.GetLogger(ctx.Context, dcontext.CFRayIDLogKey))
+
 		if err := app.authorized(w, r, ctx); err != nil {
 			var authErr auth.Challenge
 			if !errors.As(err, &authErr) {
@@ -1279,6 +1283,9 @@ func (app *App) dispatcherGitlab(dispatch dispatchFunc) http.Handler {
 			App:     app,
 			Context: dcontext.WithVars(r.Context(), r),
 		}
+		// attach CF-RayID header to context and pass the key to the logger
+		ctx.Context = dcontext.WithCFRayID(ctx.Context, r)
+		ctx.Context = dcontext.WithLogger(ctx.Context, dcontext.GetLogger(ctx.Context, dcontext.CFRayIDLogKey))
 
 		if err := app.authorized(w, r, ctx); err != nil {
 			var authErr auth.Challenge
