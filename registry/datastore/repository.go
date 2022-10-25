@@ -1024,10 +1024,19 @@ func (s *repositoryStore) topLevelSizeWithDescendants(ctx context.Context, r *mo
 					SELECT DISTINCT ON (l.digest)
 						l.size
 					FROM
-						layers AS l
-						JOIN cte ON l.top_level_namespace_id = $1
-							AND l.repository_id = cte.repository_id
-							AND l.manifest_id = cte.manifest_id) AS q`
+						cte
+					CROSS JOIN LATERAL (
+						SELECT
+							digest,
+							size
+						FROM
+							layers
+						WHERE
+							top_level_namespace_id = $1
+							AND repository_id = cte.repository_id
+							AND manifest_id = cte.manifest_id
+						ORDER BY
+							digest) l) AS q`
 
 	var size int64
 	if err := s.db.QueryRowContext(ctx, q, r.NamespaceID).Scan(&size); err != nil {
