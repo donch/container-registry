@@ -1,3 +1,21 @@
+# [3.60.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.59.0-gitlab...v3.60.0-gitlab) (2022-10-25)
+
+
+### Bug Fixes
+
+* **s3:** treat s3 serialization error as retry-able ([#753](https://gitlab.com/gitlab-org/container-registry/issues/753)) ([f91a995](https://gitlab.com/gitlab-org/container-registry/commit/f91a995e1e504de73112c9658788a488fdc42c3b))
+
+
+### Features
+
+* **configuration:** add ability to log specific CF-ray header ([106bb9e](https://gitlab.com/gitlab-org/container-registry/commit/106bb9ef6e624ac778515cb7e2cee9a802a2bd4f))
+* s3 driver support for ExistsPath ([37b8f72](https://gitlab.com/gitlab-org/container-registry/commit/37b8f723142be054ac96afe66bf8a88049a4e201))
+
+
+### Performance Improvements
+
+* temporary workaround for top-level namespace usage calculation ([3b3a19a](https://gitlab.com/gitlab-org/container-registry/commit/3b3a19a14006d503f7f0678a04b671705c034b4e))
+
 # [3.59.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.58.0-gitlab...v3.59.0-gitlab) (2022-10-24)
 
 
