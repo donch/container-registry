@@ -656,9 +656,9 @@ type mockDeleteObjectsError struct {
 	s3iface.S3API
 }
 
-// DeleteObjects mocks a serialization error while processing a DeleteObjects response.
+// DeleteObjects mocks a presign expire error while processing a DeleteObjects response.
 func (m *mockDeleteObjectsError) DeleteObjectsWithContext(ctx aws.Context, input *s3.DeleteObjectsInput, opts ...request.Option) (*s3.DeleteObjectsOutput, error) {
-	return nil, awserr.New(request.ErrCodeSerialization, "failed reading response body", nil)
+	return nil, awserr.New(request.ErrCodeInvalidPresignExpire, "failed reading response body", nil)
 }
 
 func testDeleteFilesError(t *testing.T, mock s3iface.S3API, numFiles int) (int, error) {
@@ -699,7 +699,7 @@ func TestDeleteFilesError(t *testing.T) {
 		t.Errorf("expected the number of spawned goroutines to be 2, got %d", errs.Len())
 	}
 
-	expected := awserr.New(request.ErrCodeSerialization, "failed reading response body", nil).Error()
+	expected := awserr.New(request.ErrCodeInvalidPresignExpire, "failed reading response body", nil).Error()
 	for _, e := range errs.Errors {
 		if e.Error() != expected {
 			t.Errorf("expected error %q, got %q", expected, e)

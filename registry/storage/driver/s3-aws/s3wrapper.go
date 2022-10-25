@@ -286,7 +286,7 @@ func wrapAWSerr(e error) error {
 	// Don't attempt to backoff from errors that are known to be client errors.
 	var awsErr awserr.Error
 	if errors.As(e, &awsErr) {
-		if awsErr.Code() == request.ErrCodeInvalidPresignExpire || awsErr.Code() == request.ErrCodeSerialization {
+		if awsErr.Code() == request.ErrCodeInvalidPresignExpire {
 			return backoff.Permanent(e)
 		}
 	}
