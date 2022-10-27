@@ -157,6 +157,10 @@ docker pull localhost:5000/alpine:latest
 
 If you are using macOS, you may need to use `0.0.0.0` instead of `localhost`.
 
+## Metadata database setup
+
+Follow [this document](./database-local-setup.md) for local environment setup with the metadata database enabled.
+
 ## Alternatives to Docker Desktop
 
 If you use macOS without [Docker Desktop](https://hub.docker.com/editions/community/docker-ce-desktop-mac), you must set up:
