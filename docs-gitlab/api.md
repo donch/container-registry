@@ -69,6 +69,7 @@ curl --header "Authorization: Bearer <token>" "https://registry.gitlab.com/gitla
 | ------------------ | ---------------------------------------------------------------------------------------------------------------- |
 | `200 OK`           | The registry implements this API specification.                                                                  |
 | `401 Unauthorized` | The client should take action based on the contents of the `WWW-Authenticate` header and try the endpoint again. |
+| `404 Not Found`    | The registry implements this API specification, but it is unavailable because the metadata database is disabled. |
 | Others             | The registry does not implement this API specification.                                                          |
 
 #### Example

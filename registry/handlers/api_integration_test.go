@@ -34,6 +34,7 @@ import (
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
 	"github.com/docker/distribution/registry/storage/driver/factory"
 	"github.com/docker/distribution/testutil"
+	"github.com/docker/distribution/version"
 
 	"github.com/opencontainers/go-digest"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
@@ -2658,4 +2659,43 @@ func Test_PrometheusMetricsCollectionDoesNotPanic_InMigrationMode(t *testing.T) 
 	defer env.Shutdown()
 
 	testPrometheusMetricsCollectionDoesNotPanic(t, env)
+}
+
+func TestGitLabAPIBase_Get_404WhenDBIsNotEnabled(t *testing.T) {
+	env := newTestEnv(t)
+	defer env.Shutdown()
+	env.requireDB(t)
+
+	baseURL, err := env.builder.BuildGitlabV1BaseURL()
+	require.NoError(t, err)
+
+	req, err := http.NewRequest("GET", baseURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
+	require.Equal(t, "2", resp.Header.Get("Content-Length"))
+	require.Equal(t, strings.TrimPrefix(version.Version, "v"), resp.Header.Get("Gitlab-Container-Registry-Version"))
+
+	p, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	require.Equal(t, "{}", string(p))
+
+	// Disable the database, the base URL should return 404.
+	env.config.Database.Enabled = false
+
+	req, err = http.NewRequest("GET", baseURL, nil)
+	require.NoError(t, err)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+	require.Equal(t, strings.TrimPrefix(version.Version, "v"), resp.Header.Get("Gitlab-Container-Registry-Version"))
 }
