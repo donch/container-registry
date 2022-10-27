@@ -560,25 +560,31 @@ func baseURLAuth(t *testing.T, opts ...configOpt) {
 	v2base, err := env.builder.BuildBaseURL()
 	require.NoError(t, err)
 
-	gitLabV1Base, err := env.builder.BuildGitlabV1BaseURL()
-	require.NoError(t, err)
-
-	var tests = []struct {
+	type test struct {
 		name                    string
 		url                     string
 		wantExtFeatures         bool
 		wantDistributionVersion bool
-	}{
+	}
+
+	var tests = []test{
 		{
 			name:                    "v2 base route",
 			url:                     v2base,
 			wantExtFeatures:         true,
 			wantDistributionVersion: true,
 		},
-		{
+	}
+
+	// The v1 API base route returns 404s if the database is not enabled.
+	if env.config.Database.Enabled {
+		gitLabV1Base, err := env.builder.BuildGitlabV1BaseURL()
+		require.NoError(t, err)
+
+		tests = append(tests, test{
 			name: "GitLab v1 base route",
 			url:  gitLabV1Base,
-		},
+		})
 	}
 
 	for _, test := range tests {
