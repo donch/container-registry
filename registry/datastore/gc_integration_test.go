@@ -83,6 +83,14 @@ const (
 	// minReviewAfterJitter is the maximum jitter in seconds that the online GC triggers will use to set a task's review
 	// due date (`review_after` column) whenever they are created or updated.
 	maxReviewAfterJitter = 60 * time.Second
+
+	// defaultReviewAfterWithMinJitterDelay is the default delay plus the minimum jitter in seconds applied by online GC triggers
+	// to review tasks plus the minimum jitter in seconds that the online GC triggers will use to set a task's review.
+	defaultReviewAfterWithMinJitterDelay = defaultReviewAfterDelay + minReviewAfterJitter
+
+	// defaultReviewAfterWithMaxJitterDelay is the default delay plus the minimum jitter in seconds applied by online GC triggers
+	// to review tasks plus the maximum jitter in seconds that the online GC triggers will use to set a task's review.
+	defaultReviewAfterWithMaxJitterDelay = defaultReviewAfterDelay + maxReviewAfterJitter
 )
 
 func TestGC_TrackBlobUploads(t *testing.T) {
@@ -103,8 +111,7 @@ func TestGC_TrackBlobUploads(t *testing.T) {
 	require.Equal(t, 0, rr[0].ReviewCount)
 	require.Equal(t, b.Digest, rr[0].Digest)
 	require.Equal(t, "blob_upload", rr[0].Event)
-	require.Greater(t, rr[0].ReviewAfter, b.CreatedAt.Add(defaultReviewAfterDelay+minReviewAfterJitter))
-	require.Less(t, rr[0].ReviewAfter, b.CreatedAt.Add(defaultReviewAfterDelay+maxReviewAfterJitter))
+	assertGCReviewDelayInMinMaxRange(t, rr[0].ReviewAfter, b.CreatedAt)
 }
 
 func TestGC_TrackBlobUploads_PostponeReviewOnConflict(t *testing.T) {
@@ -145,8 +152,7 @@ func TestGC_TrackBlobUploads_PostponeReviewOnConflict(t *testing.T) {
 	// do is to assert that the "review after" has changed and that it's at least defaultReviewAfterDelay plus
 	// [minReviewAfterJitter, maxReviewAfterJitter] ahead of the blob creation time.
 	require.NotEqual(t, rr2[0].ReviewAfter, rr[0].ReviewAfter)
-	require.Greater(t, rr2[0].ReviewAfter, b.CreatedAt.Add(defaultReviewAfterDelay+minReviewAfterJitter))
-	require.Less(t, rr2[0].ReviewAfter, b.CreatedAt.Add(defaultReviewAfterDelay+maxReviewAfterJitter))
+	assertGCReviewDelayInMinMaxRange(t, rr[0].ReviewAfter, b.CreatedAt)
 }
 
 func TestGC_TrackBlobUploads_DoesNothingIfTriggerDisabled(t *testing.T) {
@@ -334,8 +340,7 @@ func TestGC_TrackManifestUploads(t *testing.T) {
 	require.Equal(t, 0, tt[0].ReviewCount)
 	require.Equal(t, m.CreatedAt, tt[0].CreatedAt)
 	require.Equal(t, "manifest_upload", tt[0].Event)
-	require.Greater(t, tt[0].ReviewAfter, m.CreatedAt.Add(defaultReviewAfterDelay+minReviewAfterJitter))
-	require.Less(t, tt[0].ReviewAfter, m.CreatedAt.Add(defaultReviewAfterDelay+maxReviewAfterJitter))
+	assertGCReviewDelayInMinMaxRange(t, tt[0].ReviewAfter, m.CreatedAt)
 }
 
 func TestGC_TrackManifestUploads_DoesNothingIfTriggerDisabled(t *testing.T) {
@@ -416,8 +421,7 @@ func TestGC_TrackDeletedManifests(t *testing.T) {
 	require.Equal(t, 0, tt[0].ReviewCount)
 	require.Equal(t, b.Digest, tt[0].Digest)
 	require.Equal(t, "manifest_delete", tt[0].Event)
-	require.Greater(t, tt[0].ReviewAfter, deletedAt.Add(defaultReviewAfterDelay+minReviewAfterJitter))
-	require.Less(t, tt[0].ReviewAfter, deletedAt.Add(defaultReviewAfterDelay+maxReviewAfterJitter))
+	assertGCReviewDelayInMinMaxRange(t, tt[0].ReviewAfter, deletedAt)
 	// ignore the few milliseconds between deleting the manifest and queueing a task in response to it
 	require.Less(t, tt[0].CreatedAt, deletedAt.Add(200*time.Millisecond))
 }
@@ -472,8 +476,7 @@ func TestGC_TrackDeletedManifests_PostponeReviewOnConflict(t *testing.T) {
 	// after" has changed and that it's at least defaultReviewAfterDelay plus
 	// [minReviewAfterJitter, maxReviewAfterJitter] ahead of the manifest list delete time.
 	require.NotEqual(t, rr2[0].ReviewAfter, rr[0].ReviewAfter)
-	require.Greater(t, rr2[0].ReviewAfter, deletedAt.Add(defaultReviewAfterDelay+minReviewAfterJitter))
-	require.Less(t, rr2[0].ReviewAfter, deletedAt.Add(defaultReviewAfterDelay+maxReviewAfterJitter))
+	assertGCReviewDelayInMinMaxRange(t, rr2[0].ReviewAfter, deletedAt)
 }
 
 func TestGC_TrackDeletedManifests_DoesNothingIfTriggerDisabled(t *testing.T) {
@@ -574,7 +577,7 @@ func TestGC_TrackDeletedLayers(t *testing.T) {
 	require.Equal(t, 0, tt[0].ReviewCount)
 	require.Equal(t, b.Digest, tt[0].Digest)
 	require.Equal(t, "layer_delete", tt[0].Event)
-	require.Less(t, tt[0].ReviewAfter, dissociatedAt.Add(defaultReviewAfterDelay+maxReviewAfterJitter))
+	require.Less(t, tt[0].ReviewAfter, dissociatedAt.Add(defaultReviewAfterWithMaxJitterDelay))
 	// ignore the few milliseconds between dissociating the layer and queueing task in response to it
 	require.Less(t, tt[0].CreatedAt, dissociatedAt.Add(200*time.Millisecond))
 }
@@ -630,8 +633,7 @@ func TestGC_TrackDeletedLayers_PostponeReviewOnConflict(t *testing.T) {
 	// can do is to assert that the "review after" has changed and that it's at least defaultReviewAfterDelay plus
 	// [minReviewAfterJitter, maxReviewAfterJitter] ahead of the manifest creation time.
 	require.NotEqual(t, rr2[0].ReviewAfter, rr[0].ReviewAfter)
-	require.Greater(t, rr2[0].ReviewAfter, m.CreatedAt.Add(defaultReviewAfterDelay+minReviewAfterJitter))
-	require.Less(t, rr2[0].ReviewAfter, m.CreatedAt.Add(defaultReviewAfterDelay+maxReviewAfterJitter))
+	assertGCReviewDelayInMinMaxRange(t, rr2[0].ReviewAfter, m.CreatedAt)
 }
 
 func TestGC_TrackDeletedLayers_DoesNothingIfTriggerDisabled(t *testing.T) {
@@ -729,8 +731,7 @@ func TestGC_TrackDeletedManifestLists(t *testing.T) {
 	require.Equal(t, m.ID, rr[0].ManifestID)
 	require.Equal(t, 0, rr[0].ReviewCount)
 	require.Equal(t, "manifest_list_delete", rr[0].Event)
-	require.Greater(t, rr[0].ReviewAfter, deletedAt.Add(defaultReviewAfterDelay+minReviewAfterJitter))
-	require.Less(t, rr[0].ReviewAfter, deletedAt.Add(defaultReviewAfterDelay+maxReviewAfterJitter))
+	assertGCReviewDelayInMinMaxRange(t, rr[0].ReviewAfter, deletedAt)
 	// ignore the few milliseconds between deleting the manifest list and queueing task in response to it
 	require.Less(t, rr[0].CreatedAt, deletedAt.Add(200*time.Millisecond))
 }
@@ -788,8 +789,7 @@ func TestGC_TrackDeletedManifestLists_PostponeReviewOnConflict(t *testing.T) {
 	// after" has changed and that it's at least defaultReviewAfterDelay plus
 	// [minReviewAfterJitter, maxReviewAfterJitter] ahead of the manifest list delete time.
 	require.NotEqual(t, rr2[0].ReviewAfter, rr[0].ReviewAfter)
-	require.Greater(t, rr2[0].ReviewAfter, deletedAt.Add(defaultReviewAfterDelay+minReviewAfterJitter))
-	require.Less(t, rr2[0].ReviewAfter, deletedAt.Add(defaultReviewAfterDelay+maxReviewAfterJitter))
+	assertGCReviewDelayInMinMaxRange(t, rr2[0].ReviewAfter, deletedAt)
 
 }
 
@@ -895,8 +895,7 @@ func TestGC_TrackSwitchedTags(t *testing.T) {
 	require.Equal(t, m.ID, rr[0].ManifestID)
 	require.Equal(t, 0, rr[0].ReviewCount)
 	require.Equal(t, "tag_switch", rr[0].Event)
-	require.Greater(t, rr[0].ReviewAfter, switchedAt.Add(defaultReviewAfterDelay+minReviewAfterJitter))
-	require.Less(t, rr[0].ReviewAfter, switchedAt.Add(defaultReviewAfterDelay+maxReviewAfterJitter))
+	assertGCReviewDelayInMinMaxRange(t, rr[0].ReviewAfter, switchedAt)
 }
 
 func TestGC_TrackSwitchedTags_PostponeReviewOnConflict(t *testing.T) {
@@ -966,8 +965,7 @@ func TestGC_TrackSwitchedTags_PostponeReviewOnConflict(t *testing.T) {
 	// after" has changed and that it's at least defaultReviewAfterDelay plus
 	// [minReviewAfterJitter, maxReviewAfterJitter] ahead of the tag switch time.
 	require.NotEqual(t, rr2[0].ReviewAfter, rr[0].ReviewAfter)
-	require.Greater(t, rr2[0].ReviewAfter, switchedAt.Add(defaultReviewAfterDelay+minReviewAfterJitter))
-	require.Less(t, rr2[0].ReviewAfter, switchedAt.Add(defaultReviewAfterDelay+maxReviewAfterJitter))
+	assertGCReviewDelayInMinMaxRange(t, rr2[0].ReviewAfter, switchedAt)
 }
 
 func TestGC_TrackSwitchedTags_DoesNothingIfTriggerDisabled(t *testing.T) {
@@ -1076,8 +1074,7 @@ func TestGC_TrackDeletedTags(t *testing.T) {
 	require.Equal(t, m.ID, rr[0].ManifestID)
 	require.Equal(t, 0, rr[0].ReviewCount)
 	require.Equal(t, "tag_delete", rr[0].Event)
-	require.Greater(t, rr[0].ReviewAfter, deletedAt.Add(defaultReviewAfterDelay+minReviewAfterJitter))
-	require.Less(t, rr[0].ReviewAfter, deletedAt.Add(defaultReviewAfterDelay+maxReviewAfterJitter))
+	assertGCReviewDelayInMinMaxRange(t, rr[0].ReviewAfter, deletedAt)
 }
 
 func TestGC_TrackDeletedTags_MultipleTags(t *testing.T) {
@@ -1136,8 +1133,7 @@ func TestGC_TrackDeletedTags_MultipleTags(t *testing.T) {
 	require.Equal(t, m.ID, rr[0].ManifestID)
 	require.Equal(t, 0, rr[0].ReviewCount)
 	require.Equal(t, "tag_delete", rr[0].Event)
-	require.Greater(t, rr[0].ReviewAfter, deletedAt.Add(defaultReviewAfterDelay+minReviewAfterJitter))
-	require.Less(t, rr[0].ReviewAfter, deletedAt.Add(defaultReviewAfterDelay+maxReviewAfterJitter))
+	assertGCReviewDelayInMinMaxRange(t, rr[0].ReviewAfter, deletedAt)
 }
 
 func TestGC_TrackDeletedTags_ManifestDeleteCascade(t *testing.T) {
@@ -1234,8 +1230,7 @@ func TestGC_TrackDeletedTags_PostponeReviewOnConflict(t *testing.T) {
 	// after" has changed and that it's at least defaultReviewAfterDelay plus
 	// [minReviewAfterJitter, maxReviewAfterJitter] ahead of the tag deletion time.
 	require.NotEqual(t, rr2[0].ReviewAfter, rr[0].ReviewAfter)
-	require.Greater(t, rr2[0].ReviewAfter, deletedAt.Add(defaultReviewAfterDelay+minReviewAfterJitter))
-	require.Less(t, rr2[0].ReviewAfter, deletedAt.Add(defaultReviewAfterDelay+maxReviewAfterJitter))
+	assertGCReviewDelayInMinMaxRange(t, rr2[0].ReviewAfter, deletedAt)
 }
 
 func TestGC_TrackDeletedTags_DoesNothingIfTriggerDisabled(t *testing.T) {
@@ -1281,4 +1276,20 @@ func TestGC_TrackDeletedTags_DoesNothingIfTriggerDisabled(t *testing.T) {
 	count, err := mrs.Count(suite.ctx)
 	require.NoError(t, err)
 	require.Zero(t, count)
+}
+
+// assertGCReviewDelayInMinMaxRange makes sure that a GC task that is qeued for review has the expected
+// delay for the operation (e.g object delete, object create, object switch) that triggered the review.
+// The expected delay is described as:
+// trigerOperationTime + x, defaultReviewAfterWithMinJitterDelay  < x < defaultReviewAfterWithMaxJitterDelay
+// where trigerOperationTime is the time the operation that triggered the review task to be qeued was executed
+// and actualReviewAfterTime is the actual time the review is set to be carried out.
+func assertGCReviewDelayInMinMaxRange(t *testing.T, actualReviewAfterTime time.Time, trigerOperationTime time.Time) {
+	t.Helper()
+
+	lowerBound := trigerOperationTime.Add(defaultReviewAfterWithMinJitterDelay)
+	upperBound := trigerOperationTime.Add(defaultReviewAfterWithMaxJitterDelay)
+	require.WithinRange(t, actualReviewAfterTime, lowerBound, upperBound,
+		"GC review delay of %s should be between %s and %s",
+		actualReviewAfterTime.String(), lowerBound.String(), upperBound.String())
 }
