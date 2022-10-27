@@ -447,7 +447,7 @@ version-bump:k8s:
   needs: [ "version-bump:cng"]
   variables:
     TRIGGER_TOKEN: $BUMP_VERSION_TRIGGER_TOKEN_K8S
-    PROJECT_ID:  "5293557"
+    PROJECT_ID:  "12547113"
   script:
    - go run cmd/internal/release/main.go --target-project-id $PROJECT_ID --source-project-id $CI_PROJECT_ID --source-version $CI_COMMIT_TAG --gitlab-auth-token $TRIGGER_TOKEN
   rules:
