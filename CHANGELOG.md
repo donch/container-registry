@@ -1,3 +1,10 @@
+## [3.60.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.60.0-gitlab...v3.60.1-gitlab) (2022-10-28)
+
+
+### Bug Fixes
+
+* **handlers:** return 404 on v1 compliance check when metadata database is disabled ([eb44acf](https://gitlab.com/gitlab-org/container-registry/commit/eb44acfa0540d3010fd218c3675675bc3839ea54))
+
 # [3.60.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.59.0-gitlab...v3.60.0-gitlab) (2022-10-25)
 
 
