@@ -2298,9 +2298,9 @@ func manifest_Get_ManifestList_FallbackToSchema2(t *testing.T, opts ...configOpt
 
 	deserializedManifest := seedRandomSchema2Manifest(t, env, repoPath, putByDigest)
 
-	_, payload, err := deserializedManifest.Payload()
+	_, manifestPayload, err := deserializedManifest.Payload()
 	require.NoError(t, err)
-	dgst := digest.FromBytes(payload)
+	manifestDigest := digest.FromBytes(manifestPayload)
 
 	manifestList := &manifestlist.ManifestList{
 		Versioned: manifest.Versioned{
@@ -2312,7 +2312,7 @@ func manifest_Get_ManifestList_FallbackToSchema2(t *testing.T, opts ...configOpt
 		Manifests: []manifestlist.ManifestDescriptor{
 			{
 				Descriptor: distribution.Descriptor{
-					Digest:    dgst,
+					Digest:    manifestDigest,
 					MediaType: schema2.MediaTypeManifest,
 				},
 				Platform: manifestlist.PlatformSpec{
@@ -2336,11 +2336,18 @@ func manifest_Get_ManifestList_FallbackToSchema2(t *testing.T, opts ...configOpt
 	require.Equal(t, "nosniff", resp.Header.Get("X-Content-Type-Options"))
 	require.Equal(t, manifestDigestURL, resp.Header.Get("Location"))
 
-	_, payload, err = deserializedManifestList.Payload()
+	_, payload, err := deserializedManifestList.Payload()
 	require.NoError(t, err)
 
-	dgst = digest.FromBytes(payload)
+	dgst := digest.FromBytes(payload)
 	require.Equal(t, dgst.String(), resp.Header.Get("Docker-Content-Digest"))
+
+	if env.ns != nil {
+		manifestEvent := buildEventManifestPush(schema2.MediaTypeManifest, repoPath, "", manifestDigest, int64(len(manifestPayload)))
+		env.ns.AssertEventNotification(t, manifestEvent)
+		manifestListEvent := buildEventManifestPush(manifestlist.MediaTypeManifestList, repoPath, tagName, dgst, int64(len(payload)))
+		env.ns.AssertEventNotification(t, manifestListEvent)
+	}
 
 	// Get manifest list with without avertising support for manifest lists.
 	req, err := http.NewRequest("GET", manifestTagURL, nil)
@@ -2361,7 +2368,9 @@ func manifest_Get_ManifestList_FallbackToSchema2(t *testing.T, opts ...configOpt
 	require.EqualValues(t, deserializedManifest, fetchedManifest)
 
 	if env.ns != nil {
-		expectedEvent := buildEventManifestPull(manifestlist.MediaTypeManifestList, repoPath, dgst, int64(len(payload)))
+		// we need to assert that the fetched manifest is the one that was sent in the event
+		// however, the manifest list pull is not sent at all
+		expectedEvent := buildEventManifestPull(schema2.MediaTypeManifest, repoPath, manifestDigest, int64(len(manifestPayload)))
 		env.ns.AssertEventNotification(t, expectedEvent)
 	}
 }
