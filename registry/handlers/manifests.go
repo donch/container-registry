@@ -195,9 +195,13 @@ func (imh *manifestHandler) GetManifest(w http.ResponseWriter, r *http.Request) 
 
 	ct, p, err := manifest.Payload()
 	if err != nil {
+		imh.Errors = append(imh.Errors, errcode.FromUnknownError(err))
 		return
 	}
 
+	if err := imh.queueBridge.ManifestPulled(imh.Repository.Named(), manifest, distribution.WithTagOption{Tag: imh.Tag}); err != nil {
+		l.WithError(err).Error("dispatching manifest pull to queue")
+	}
 	w.Header().Set("Content-Type", ct)
 	w.Header().Set("Content-Length", fmt.Sprint(len(p)))
 	w.Header().Set("Docker-Content-Digest", imh.Digest.String())
