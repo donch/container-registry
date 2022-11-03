@@ -118,6 +118,7 @@ func makeTestToken(issuer, audience string, access []*ResourceActions, rootKey l
 	claimSet := &ClaimSet{
 		Issuer:     issuer,
 		Subject:    "foo",
+		AuthType:   "bar",
 		Audience:   audience,
 		Expiration: exp.Unix(),
 		NotBefore:  now.Unix(),
@@ -455,6 +456,10 @@ func TestAccessController(t *testing.T) {
 
 	if userInfo.Name != "foo" {
 		t.Fatalf("expected user name %q, got %q", "foo", userInfo.Name)
+	}
+
+	if userInfo.Type != "bar" {
+		t.Fatalf("expected user type %q, got %q", "bar", userInfo.Type)
 	}
 
 	// 5. Supply a token with full admin rights, which is represented as "*".

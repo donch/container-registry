@@ -66,8 +66,8 @@ func (ac *accessController) Authorized(ctx context.Context, accessRecords ...aut
 		return nil, &challenge
 	}
 
-	ctx = auth.WithUser(ctx, auth.UserInfo{Name: "silly"})
-	ctx = dcontext.WithLogger(ctx, dcontext.GetLogger(ctx, auth.UserNameKey, auth.UserKey))
+	ctx = auth.WithUser(ctx, auth.UserInfo{Name: "silly", Type: "silly-type"})
+	ctx = dcontext.WithLogger(ctx, dcontext.GetLogger(ctx, auth.UserNameKey, auth.UserTypeKey, auth.UserKey))
 
 	return ctx, nil
 }

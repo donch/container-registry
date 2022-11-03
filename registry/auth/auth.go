@@ -47,6 +47,9 @@ const (
 	// UserNameKey is used to get the user name from
 	// a user context
 	UserNameKey = "auth.user.name"
+	// UserTypeKey is used to get the user type from
+	// a user context
+	UserTypeKey = "auth.user.type"
 )
 
 var (
@@ -61,6 +64,7 @@ var (
 // an autenticated/authorized client.
 type UserInfo struct {
 	Name string
+	Type string
 }
 
 // Resource describes a resource by type and name.
@@ -130,6 +134,8 @@ func (uic userInfoContext) Value(key interface{}) interface{} {
 		return uic.user
 	case UserNameKey:
 		return uic.user.Name
+	case UserTypeKey:
+		return uic.user.Type
 	}
 
 	return uic.Context.Value(key)

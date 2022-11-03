@@ -37,6 +37,9 @@ func TestSillyAccessController(t *testing.T) {
 		if userInfo.Name != "silly" {
 			t.Fatalf("expected user name %q, got %q", "silly", userInfo.Name)
 		}
+		if userInfo.Type != "silly-type" {
+			t.Fatalf("expected user type %q, got %q", "silly-type", userInfo.Type)
+		}
 
 		w.WriteHeader(http.StatusNoContent)
 	}))
