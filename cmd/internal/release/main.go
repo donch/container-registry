@@ -12,21 +12,24 @@ import (
 )
 
 var (
-	targetProjectID = flag.String("target-project-id", "", "The project ID of the target project where MR will be created against")
-	targetBranch    = flag.String("target-branch", "master", "The branch name to target the MR against")
-	targetFilename  = flag.String("target-filename", "bases/environments.yaml", "The name of the file to modify in the target MR")
-	sourceProjectID = flag.String("source-project-id", "", "Project ID of the source project to get details from")
-	sourceVersion   = flag.String("source-version", "", "The version that will be used in the update MR (e.g. $CI_COMMIT_TAG)")
-	gitlabAuthToken = flag.String("gitlab-auth-token", "", "PAT or $CI_JOB_TOKEN to use to authenticate against the GitLab API")
+	targetProjectID       = flag.String("target-project-id", "", "The project ID of the target project where MR will be created against")
+	targetBranch          = flag.String("target-branch", "master", "The branch name to target the MR against")
+	targetFilename        = flag.String("target-filename", "bases/environments.yaml", "The name of the file to modify in the target MR")
+	sourceProjectID       = flag.String("source-project-id", "", "Project ID of the source project to get details from")
+	sourceVersion         = flag.String("source-version", "", "The version that will be used in the update MR (e.g. $CI_COMMIT_TAG)")
+	gitlabAuthToken       = flag.String("gitlab-auth-token", "", "PAT or $CI_JOB_TOKEN to use to authenticate against the GitLab API")
+	issueTemplateFilename = flag.String("template-filename", ".gitlab/issue_templates/Release Plan.md", "The path to the issue template to apply")
+	newIssue              = flag.Bool("new-issue", false, "specify whether to create an issue using the template-filename")
 )
 
 type releaser struct {
-	targetProjectID string
-	targetBranch    string
-	targetFilename  string
-	sourceProjectID string
-	sourceVersion   string
-	gitlabClient    *gitlab.Client
+	targetProjectID       string
+	targetBranch          string
+	targetFilename        string
+	sourceProjectID       string
+	sourceVersion         string
+	issueTemplateFilename string
+	gitlabClient          *gitlab.Client
 }
 
 func main() {
@@ -46,17 +49,25 @@ func main() {
 		gitlabClient:    gitlab,
 	}
 
-	b1, err := release.CreateReleaseBranch("bump-registry-version-pre-gstg")
+	if *newIssue {
+		release.createReleaseIssue()
+	} else {
+		release.createReleaseMRs()
+	}
+}
+
+func (r *releaser) createReleaseMRs() {
+	b1, err := r.CreateReleaseBranch("bump-registry-version-pre-gstg")
 	if err != nil {
 		log.Fatalf("Failed to create pre/gstg branch: %v", err)
 	}
 
-	b2, err := release.CreateReleaseBranch("bump-registry-version-prod")
+	b2, err := r.CreateReleaseBranch("bump-registry-version-prod")
 	if err != nil {
 		log.Fatalf("Failed to create grpd branch: %v", err)
 	}
 
-	file, err := release.GetDecodedTargetFile()
+	file, err := r.GetDecodedTargetFile(r.targetFilename)
 	if err != nil {
 		log.Fatalf("Failed to decode target file: %v", err)
 	}
@@ -69,30 +80,30 @@ func main() {
 		log.Fatalf("Failed to create tmp2 file: %v", err)
 	}
 
-	changePreStg, err := release.UpdateRegistryVersion("tmp1", "pre/gstg")
+	changePreStg, err := r.UpdateRegistryVersion("tmp1", "pre/gstg")
 	if err != nil {
 		log.Fatalf("Failed to update registry version for pre/gstg: %v", err)
 	}
 
-	changeProd, err := release.UpdateRegistryVersion("tmp2", "gprd")
+	changeProd, err := r.UpdateRegistryVersion("tmp2", "gprd")
 	if err != nil {
 		log.Fatalf("Failed to update registry version for gprd: %v", err)
 	}
 
-	if err := release.CreateReleaseCommit(changePreStg, "pre/gstg", b1); err != nil {
+	if err := r.CreateReleaseCommit(changePreStg, "pre/gstg", b1); err != nil {
 		log.Fatalf("Failed to create release commit for pre/gstg: %v", err)
 	}
 
-	if err := release.CreateReleaseCommit(changeProd, "gprd" ,b2); err != nil {
+	if err := r.CreateReleaseCommit(changeProd, "gprd", b2); err != nil {
 		log.Fatalf("Failed to create release commit for gprd: %v", err)
 	}
 
-	d1, err := release.GetChangelog()
+	d1, err := r.GetChangelog()
 	if err != nil {
 		log.Fatalf("Failed to get changelog: %v", err)
 	}
 
-	m1, err := release.CreateReleaseMergeRequest("pre/gstg", d1, b1)
+	m1, err := r.CreateReleaseMergeRequest("pre/gstg", d1, b1)
 	if err != nil {
 		log.Fatalf("Failed to create MR for pre/gstg: %v", err)
 	}
@@ -100,12 +111,93 @@ func main() {
 	fmt.Printf("Created MR for pre/gstg: %s\n", m1.WebURL)
 
 	d2 := fmt.Sprintf("%s but for gprd", m1.WebURL)
-	m2, err := release.CreateReleaseMergeRequest("gprd", d2, b2)
+	m2, err := r.CreateReleaseMergeRequest("gprd", d2, b2)
 	if err != nil {
 		log.Fatalf("Failed to create MR for gprd: %v", err)
 	}
 
 	fmt.Printf("Created MR for gprd: %s\n", m2.WebURL)
+}
+
+func (r *releaser) createReleaseIssue() {
+	changelog, err := r.GetChangelog()
+	if err != nil {
+		log.Fatalf("Failed to get changelog: %v", err)
+	}
+
+	file, err := r.GetDecodedTargetFile(r.issueTemplateFilename)
+	if err != nil {
+		log.Fatalf("Failed to decode Issue Template file: %v", err)
+	}
+
+	if err := CreateAndCopyRepositoryFile("tmp1", file); err != nil {
+		log.Fatalf("Failed to create tmp1 file: %v", err)
+	}
+
+	updatedDescription, err := r.UpdateIssueDescription("tmp1", changelog)
+	if err != nil {
+		log.Fatalf("Failed to copy the changelog to the issue template: %v", err)
+	}
+
+	issue, err := r.CreateReleasePlan(string(updatedDescription))
+	if err != nil {
+		log.Fatalf("Failed to create the Release Plan issue: %v", err)
+	}
+
+	fmt.Printf("Created Release Plan at: %s\n", issue.WebURL)
+}
+
+func (r *releaser) CreateReleasePlan(changelog string) (*gitlab.Issue, error) {
+	ico := &gitlab.CreateIssueOptions{
+		Title:       gitlab.String(fmt.Sprintf("Release %s", strings.TrimSuffix(r.sourceVersion, "-gitlab"))),
+		Description: gitlab.String(fmt.Sprintf("%s", changelog)),
+		Labels: &gitlab.Labels{
+			"devops::package",
+			"group::container registry",
+			"section::ops",
+			"type::maintenance",
+			"maintenance::dependency",
+			"Category:Container Registry",
+			"backend",
+			"golang",
+			"workflow::in dev",
+		},
+	}
+
+	issue, _, err := r.gitlabClient.Issues.CreateIssue(r.targetProjectID, ico)
+	if err != nil {
+		return nil, err
+	}
+
+	return issue, nil
+}
+
+func (r *releaser) UpdateIssueDescription(fileName string, changelog string) ([]byte, error) {
+	f, err := os.ReadFile(fileName)
+	if err != nil {
+		return nil, err
+	}
+
+	lines := strings.Split(string(f), "\n")
+	for i, line := range lines {
+		if strings.Contains(line, "[copy changelog here]") {
+			lines[i] = fmt.Sprintf(changelog)
+			break
+		}
+	}
+
+	out := strings.Join(lines, "\n")
+	err = os.WriteFile(fileName, []byte(out), 0644)
+	if err != nil {
+		return nil, err
+	}
+
+	cng, err := os.ReadFile(fileName)
+	if err != nil {
+		return nil, err
+	}
+
+	return cng, nil
 }
 
 func (r *releaser) UpdateRegistryVersion(fileName string, env string) ([]byte, error) {
@@ -158,11 +250,11 @@ func (r *releaser) UpdateRegistryVersion(fileName string, env string) ([]byte, e
 	return cng, nil
 }
 
-func (r *releaser) GetDecodedTargetFile() ([]byte, error) {
+func (r *releaser) GetDecodedTargetFile(filename string) ([]byte, error) {
 	rfo := &gitlab.GetFileOptions{
 		Ref: gitlab.String(r.targetBranch),
 	}
-	file, _, err := r.gitlabClient.RepositoryFiles.GetFile(r.targetProjectID, r.targetFilename, rfo)
+	file, _, err := r.gitlabClient.RepositoryFiles.GetFile(r.targetProjectID, filename, rfo)
 	if err != nil {
 		return nil, err
 	}
