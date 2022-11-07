@@ -579,3 +579,11 @@ func TestGarbageCollectNotConformantBuildxCacheReferences(t *testing.T) {
 		require.True(t, errors.Is(err, distribution.ErrBlobUnknown))
 	}
 }
+
+func TestGarbageCollectRepositoryRootNonExistence(t *testing.T) {
+	// Setup test without a root path.
+	inmemoryDriver := inmemory.New()
+	registry := createRegistry(t, inmemoryDriver)
+	// Assert requirements.
+	require.NoError(t, MarkAndSweep(context.Background(), inmemoryDriver, registry, GCOpts{}))
+}

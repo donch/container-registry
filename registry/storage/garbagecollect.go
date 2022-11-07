@@ -102,6 +102,18 @@ func MarkAndSweep(ctx context.Context, storageDriver driver.StorageDriver, regis
 	})
 	l.Info("starting mark stage")
 
+	// check registry root repository path exists, if path is non existent log warning
+	// message indicating gc does not need to be run and exit early without errors.
+	repositoriesRoot, _ := pathFor(repositoriesRootPathSpec{})
+	if _, err := storageDriver.Stat(ctx, repositoriesRoot); err != nil {
+		if errors.As(err, &driver.PathNotFoundError{}) {
+			l.WithError(err).Warn("skipping garbage collection")
+			return nil
+		} else {
+			return fmt.Errorf("checking root path: %w", err)
+		}
+	}
+
 	markSet := newSyncDigestSet()
 	manifestArr := syncManifestDelContainer{sync.Mutex{}, make([]ManifestDel, 0)}
 
