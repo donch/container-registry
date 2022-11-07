@@ -1388,6 +1388,11 @@ func (imh *manifestHandler) DeleteManifest(w http.ResponseWriter, r *http.Reques
 				imh.Errors = append(imh.Errors, err)
 				return
 			}
+
+			// we also need to send the event here since we decoupled the events from the storage drivers
+			if err := imh.queueBridge.TagDeleted(imh.Repository.Named(), tag); err != nil {
+				l.WithError(err).Error("queuing tag delete inside manifest delete handler")
+			}
 		}
 	}
 

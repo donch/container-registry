@@ -250,15 +250,10 @@ func (th *tagHandler) DeleteTag(w http.ResponseWriter, r *http.Request) {
 			th.appendDeleteTagError(err)
 			return
 		}
-		// This is a partial temporary mitigation for https://gitlab.com/gitlab-org/container-registry/-/issues/682.
-		// It restores the tag delete notifications for repositories on the new code path. Restoring this particular
-		// event is a top priority as it is needed to trigger usage calculations on the Rails side. We will need to
-		// rework the notification mechanism as a whole and restore all event notifications later on.
-		if !th.writeFSMetadata {
-			if err := th.eventBridge.TagDeleted(th.Repository.Named(), th.Tag); err != nil {
-				l.WithError(err).Error("dispatching tag delete to listener")
-			}
-		}
+	}
+
+	if err := th.queueBridge.TagDeleted(th.Repository.Named(), th.Tag); err != nil {
+		l.WithError(err).Error("dispatching tag delete to queue")
 	}
 
 	w.WriteHeader(http.StatusAccepted)
