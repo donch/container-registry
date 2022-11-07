@@ -90,11 +90,7 @@ func (b *bridge) BlobDeleted(repo reference.Named, dgst digest.Digest) error {
 }
 
 func (b *bridge) TagDeleted(repo reference.Named, tag string) error {
-	event := b.createEvent(EventActionDelete)
-	event.Target.Repository = repo.Name()
-	event.Target.Tag = tag
-
-	return b.sink.Write(*event)
+	return nil
 }
 
 func (b *bridge) RepoDeleted(repo reference.Named) error {
