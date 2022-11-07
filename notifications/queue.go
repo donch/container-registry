@@ -84,6 +84,15 @@ func (qb *QueueBridge) ManifestDeleted(repo reference.Named, dgst digest.Digest)
 	return qb.sink.Write(*event)
 }
 
+// TagDeleted creates and queues the related event with the repository tag details.
+func (qb *QueueBridge) TagDeleted(repo reference.Named, tag string) error {
+	event := qb.createEvent(EventActionDelete)
+	event.Target.Repository = repo.Name()
+	event.Target.Tag = tag
+
+	return qb.sink.Write(*event)
+}
+
 func (qb *QueueBridge) createManifestEvent(action string, repo reference.Named, sm distribution.Manifest) (*Event, error) {
 	event := qb.createEvent(action)
 	event.Target.Repository = repo.Name()
