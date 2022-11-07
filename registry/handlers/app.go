@@ -1194,17 +1194,13 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 				ctx.Errors = append(ctx.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
 			}
 
-			// This is required as part of a partial/temporary mitigation for
-			// https://gitlab.com/gitlab-org/container-registry/-/issues/682.
-			ctx.eventBridge = app.eventBridge(ctx, r)
-
 			ctx.queueBridge = app.queueBridge(ctx, r)
 
 			// assign and decorate the authorized repository with an event bridge.
 			ctx.Repository, ctx.RepositoryRemover = notifications.Listen(
 				repository,
 				ctx.App.repoRemover,
-				ctx.eventBridge,
+				app.eventBridge(ctx, r),
 				app.Config.Migration.DisableMirrorFS)
 
 			ctx.Repository, err = applyRepoMiddleware(app, ctx.Repository, app.Config.Middleware["repository"])

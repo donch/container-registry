@@ -48,11 +48,6 @@ type Context struct {
 	// dispatching out of the web application. Ideally, we should lean on
 	// context.Context for injection of these resources.
 
-	// This is required as part of a partial/temporary mitigation for
-	// https://gitlab.com/gitlab-org/container-registry/-/issues/682.
-	// TODO: remove this eventBridge and only use the queueBridge below
-	eventBridge notifications.Listener
-
 	// queueBridge is used to connect the handler with the notifications.Queue
 	queueBridge *notifications.QueueBridge
 }
