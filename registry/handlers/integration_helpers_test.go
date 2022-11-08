@@ -63,6 +63,9 @@ func init() {
 	// horrible hack for faster test execution
 	// TODO: this should be configurable https://gitlab.com/gitlab-org/container-registry/-/issues/626
 	registryhandlers.OngoingImportCheckIntervalSeconds = 100 * time.Millisecond
+
+	// http.DefaultClient does not have a timeout, so we need to configure it here
+	http.DefaultClient.Timeout = time.Second * 10
 }
 
 type configOpt func(*configuration.Configuration)
