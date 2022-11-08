@@ -57,7 +57,8 @@ type ClaimSet struct {
 	JWTID      string `json:"jti"`
 
 	// Private claims
-	Access []*ResourceActions `json:"access"`
+	Access   []*ResourceActions `json:"access"`
+	AuthType string             `json:"auth_type"`
 }
 
 // Header describes the header section of a JSON Web Token.
