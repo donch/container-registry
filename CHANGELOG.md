@@ -1,3 +1,10 @@
+## [3.60.2](https://gitlab.com/gitlab-org/container-registry/compare/v3.60.1-gitlab...v3.60.2-gitlab) (2022-11-08)
+
+
+### Bug Fixes
+
+* **gc:** graceful stop to offline gc if root repositories path non-exist ([41c8a5e](https://gitlab.com/gitlab-org/container-registry/commit/41c8a5e4a5f1cff7d7a379a5e7225d8fb4784084))
+
 ## [3.60.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.60.0-gitlab...v3.60.1-gitlab) (2022-10-28)
 
 
