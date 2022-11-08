@@ -547,7 +547,10 @@ func manifest_Get_Schema2_MatchingEtag(t *testing.T, opts ...configOpt) {
 
 			require.Equal(t, http.StatusNotModified, resp.StatusCode)
 			require.Equal(t, "nosniff", resp.Header.Get("X-Content-Type-Options"))
-			require.Equal(t, http.NoBody, resp.Body)
+
+			body, err := io.ReadAll(resp.Body)
+			require.NoError(t, err)
+			require.Empty(t, body)
 		})
 	}
 }
@@ -1996,7 +1999,10 @@ func manifest_Get_OCI_MatchingEtag(t *testing.T, opts ...configOpt) {
 
 			require.Equal(t, http.StatusNotModified, resp.StatusCode)
 			require.Equal(t, "nosniff", resp.Header.Get("X-Content-Type-Options"))
-			require.Equal(t, http.NoBody, resp.Body)
+
+			body, err := io.ReadAll(resp.Body)
+			require.NoError(t, err)
+			require.Empty(t, body)
 		})
 	}
 }
@@ -2284,7 +2290,10 @@ func manifest_Get_OCIIndex_MatchingEtag(t *testing.T, opts ...configOpt) {
 
 			require.Equal(t, http.StatusNotModified, resp.StatusCode)
 			require.Equal(t, "nosniff", resp.Header.Get("X-Content-Type-Options"))
-			require.Equal(t, http.NoBody, resp.Body)
+
+			body, err := io.ReadAll(resp.Body)
+			require.NoError(t, err)
+			require.Empty(t, body)
 		})
 	}
 }
@@ -2480,7 +2489,9 @@ func blob_Head(t *testing.T, opts ...configOpt) {
 	require.Equal(t, res.Header.Get("Cache-Control"), "max-age=31536000")
 
 	// verify body
-	require.Equal(t, http.NoBody, res.Body)
+	body, err := io.ReadAll(res.Body)
+	require.NoError(t, err)
+	require.Empty(t, body)
 }
 
 func blob_Head_RepositoryNotFound(t *testing.T, opts ...configOpt) {
@@ -2497,7 +2508,10 @@ func blob_Head_RepositoryNotFound(t *testing.T, opts ...configOpt) {
 	res, err := http.Head(blobURL)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusNotFound, res.StatusCode)
-	require.Equal(t, http.NoBody, res.Body)
+
+	body, err := io.ReadAll(res.Body)
+	require.NoError(t, err)
+	require.Empty(t, body)
 }
 
 func blob_Head_BlobNotFound(t *testing.T, opts ...configOpt) {
@@ -2521,7 +2535,10 @@ func blob_Head_BlobNotFound(t *testing.T, opts ...configOpt) {
 	require.NoError(t, err)
 	defer res.Body.Close()
 	require.Equal(t, http.StatusNotFound, res.StatusCode)
-	require.Equal(t, http.NoBody, res.Body)
+
+	body, err := io.ReadAll(res.Body)
+	require.NoError(t, err)
+	require.Empty(t, body)
 }
 
 func blob_Delete_Disabled(t *testing.T, opts ...configOpt) {
@@ -2561,7 +2578,10 @@ func blob_Delete_AlreadyDeleted(t *testing.T, opts ...configOpt) {
 	require.NoError(t, err)
 	defer res.Body.Close()
 	require.Equal(t, http.StatusNotFound, res.StatusCode)
-	require.Equal(t, http.NoBody, res.Body)
+
+	body, err := io.ReadAll(res.Body)
+	require.NoError(t, err)
+	require.Empty(t, body)
 
 	// Attempt to delete blob link from repository again.
 	res, err = httpDelete(location)
@@ -2901,9 +2921,9 @@ func tags_Delete(t *testing.T, opts ...configOpt) {
 
 	checkResponse(t, msg, resp, http.StatusAccepted)
 
-	if resp.Body != http.NoBody {
-		t.Fatalf("unexpected response body")
-	}
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Empty(t, body)
 
 	if env.ns != nil {
 		expectedEvent := buildEventManifestDeleteByTag(schema2.MediaTypeManifest, "foo/bar", tag)
