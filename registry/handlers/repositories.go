@@ -161,12 +161,20 @@ func (h *repositoryHandler) GetRepository(w http.ResponseWriter, r *http.Request
 
 	var size int64
 	if withSize {
+		t := time.Now()
 		switch sizeVal {
 		case sizeQueryParamSelfValue:
 			size, err = store.Size(h.Context.Context, repo)
 		case sizeQueryParamSelfWithDescendantsValue:
 			size, err = store.SizeWithDescendants(h.Context.Context, repo)
 		}
+		l.WithError(err).WithFields(log.Fields{
+			"size_bytes":   size,
+			"size_type":    sizeVal,
+			"duration_ms":  time.Since(t).Milliseconds(),
+			"is_top_level": repo.IsTopLevel(),
+			"root_repo":    repo.TopLevelPathSegment(),
+		}).Info("repository size measurement")
 		if err != nil {
 			h.Errors = append(h.Errors, errcode.FromUnknownError(err))
 			return
