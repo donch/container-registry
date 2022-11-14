@@ -682,7 +682,7 @@ func testDeleteFilesError(t *testing.T, mock s3iface.S3API, numFiles int) (int, 
 
 // TestDeleteFilesError checks that DeleteFiles handles network/service errors correctly.
 func TestDeleteFilesError(t *testing.T) {
-	// simulate deleting 2*deleteMax files (should spawn 2 goroutines)
+	// Simulate deleting 2*deleteMax files, should run two iterations even if the first errors out.
 	count, err := testDeleteFilesError(t, &mockDeleteObjectsError{}, 2*deleteMax)
 	if err == nil {
 		t.Error("expected error, got nil")
@@ -696,7 +696,7 @@ func TestDeleteFilesError(t *testing.T) {
 		t.Errorf("expected error to be of type multierror.Error, got %T", err)
 	}
 	if errs.Len() != 2 {
-		t.Errorf("expected the number of spawned goroutines to be 2, got %d", errs.Len())
+		t.Errorf("expected the number of errors to be 2, got %d", errs.Len())
 	}
 
 	expected := awserr.New(request.ErrCodeInvalidPresignExpire, "failed reading response body", nil).Error()
@@ -738,7 +738,8 @@ func (m *mockDeleteObjectsPartialError) DeleteObjectsWithContext(ctx aws.Context
 
 // TestDeleteFilesPartialError checks that DeleteFiles handles partial deletion errors correctly.
 func TestDeleteFilesPartialError(t *testing.T) {
-	// simulate deleting 2*deleteMax files (should spawn 2 goroutines)
+	// Simulate deleting 2*deleteMax files, should run two iterations even if
+	// the first response contains inner errors.
 	n := 2 * deleteMax
 	half := n / 2
 	count, err := testDeleteFilesError(t, &mockDeleteObjectsPartialError{}, n)
