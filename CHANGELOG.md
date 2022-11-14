@@ -1,3 +1,12 @@
+# [3.61.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.60.2-gitlab...v3.61.0-gitlab) (2022-11-14)
+
+
+### Features
+
+* add log entry for repository size calculations ([f641948](https://gitlab.com/gitlab-org/container-registry/commit/f6419488c3b8cf3a2df58d105eef06ead8585d68))
+* **auth:** parse auth_type value from jwt and expose in request logs ([39b15cf](https://gitlab.com/gitlab-org/container-registry/commit/39b15cf842bb0c3af815e526dad89dcfa105c503))
+* **storage/driver/s3:** run DeleteFile batches in a loop instead of spawning goroutines ([39d999a](https://gitlab.com/gitlab-org/container-registry/commit/39d999a251742e5d210f119903daa78d0c3020be))
+
 ## [3.60.2](https://gitlab.com/gitlab-org/container-registry/compare/v3.60.1-gitlab...v3.60.2-gitlab) (2022-11-08)
 
 
