@@ -985,8 +985,8 @@ ListLoop:
 }
 
 // DeleteFiles deletes a set of files using the S3 bulk delete feature, with up to deleteMax files per request. If
-// deleting more than deleteMax files, DeleteFiles will split files in deleteMax requests automatically. A separate
-// goroutine is created for each request. Contrary to Delete, which is a generic method to delete any kind of object,
+// deleting more than deleteMax files, DeleteFiles will split files in deleteMax requests automatically.
+// Contrary to Delete, which is a generic method to delete any kind of object,
 // DeleteFiles does not send a ListObjects request before DeleteObjects. Returns the number of successfully deleted
 // files and any errors. This method is idempotent, no error is returned if a file does not exist.
 func (d *driver) DeleteFiles(ctx context.Context, paths []string) (int, error) {
@@ -996,74 +996,48 @@ func (d *driver) DeleteFiles(ctx context.Context, paths []string) (int, error) {
 		s3Objects = append(s3Objects, &s3.ObjectIdentifier{Key: &p})
 	}
 
-	// collect errors from concurrent DeleteObjects requests
-	var errs error
-	errCh := make(chan error)
-	errDone := make(chan struct{})
-	go func() {
-		for err := range errCh {
-			errs = multierror.Append(errs, err)
-		}
-		errDone <- struct{}{}
-	}()
+	var (
+		result       *multierror.Error
+		deletedCount int
+	)
 
-	// count the number of successfully deleted files across concurrent DeleteObjects requests
-	count := 0
-	countCh := make(chan int)
-	countDone := make(chan struct{})
-	go func() {
-		for n := range countCh {
-			count += n
-		}
-		countDone <- struct{}{}
-	}()
-
-	// chunk files into batches of deleteMax (as per S3 restrictions), creating a goroutine per batch
-	var wg sync.WaitGroup
+	// chunk files into batches of deleteMax (as per S3 restrictions).
 	total := len(s3Objects)
 	for i := 0; i < total; i += deleteMax {
-		wg.Add(1)
-		go func(i int) {
-			defer wg.Done()
+		resp, err := d.S3.DeleteObjectsWithContext(
+			ctx,
+			&s3.DeleteObjectsInput{
+				Bucket: aws.String(d.Bucket),
+				Delete: &s3.Delete{
+					Objects: s3Objects[i:min(i+deleteMax, total)],
+					Quiet:   aws.Bool(false),
+				},
+			})
+		// If one batch fails, append the error and continue to give a best-effort
+		// attempt at deleting the most files possible.
+		if err != nil {
+			result = multierror.Append(result, err)
+		}
+		// Guard against nil response values, which can occur during testing and
+		// S3 has proven to be unpredictable in practice as well.
+		if resp == nil {
+			continue
+		}
 
-			resp, err := d.S3.DeleteObjectsWithContext(
-				ctx,
-				&s3.DeleteObjectsInput{
-					Bucket: aws.String(d.Bucket),
-					Delete: &s3.Delete{
-						Objects: s3Objects[i:min(i+deleteMax, total)],
-						Quiet:   aws.Bool(false),
-					},
-				})
-			if err != nil {
-				errCh <- err
-				return
+		deletedCount += len(resp.Deleted)
+
+		// even if err is nil (200 OK response) it's not guaranteed that all files have been successfully deleted,
+		// we need to check the []*s3.Error slice within the S3 response and make sure it's empty
+		if len(resp.Errors) > 0 {
+			// parse s3.Error errors and append them to the multierror.
+			for _, s3e := range resp.Errors {
+				err := fmt.Errorf("deleting file '%s': '%s'", *s3e.Key, *s3e.Message)
+				result = multierror.Append(result, err)
 			}
-
-			// count successfully deleted files
-			countCh <- len(resp.Deleted)
-
-			// even if err is nil (200 OK response) it's not guaranteed that all files have been successfully deleted,
-			// we need to check the []*s3.Error slice within the S3 response and make sure it's empty
-			if len(resp.Errors) > 0 {
-				// parse s3.Error errors and return a single storagedriver.MultiError
-				var errs error
-				for _, s3e := range resp.Errors {
-					err := fmt.Errorf("deleting file '%s': '%s'", *s3e.Key, *s3e.Message)
-					errs = multierror.Append(errs, err)
-				}
-				errCh <- errs
-			}
-		}(i)
+		}
 	}
 
-	wg.Wait()
-	close(errCh)
-	<-errDone
-	close(countCh)
-	<-countDone
-
-	return count, errs
+	return deletedCount, result.ErrorOrNil()
 }
 
 // for testing purposes
