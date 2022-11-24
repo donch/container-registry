@@ -56,11 +56,8 @@ Generate a new release ([documentation](https://gitlab.com/gitlab-org/container-
    - [ ] Version bump in [Omnibus](https://gitlab.com/gitlab-org/omnibus-gitlab) is automatically done using the dependency bot. An MR should be found open on the [Omnibus MR page](https://gitlab.com/gitlab-org/omnibus-gitlab/-/merge_requests) after manually triggering the `version-bump:omnibus` job (which requires `version-bump:cng` to be triggered first). If opening this MR manually please give it the title "Update gitlab-org/container-registry [version]".
    - [ ] Version bump in [Charts](https://gitlab.com/gitlab-org/charts) is automatically done using the dependency bot. An MR should be found open on the [Charts MR page](https://gitlab.com/groups/gitlab-org/charts/-/merge_requests) after manually triggering the `version-bump:charts` job (which requires `version-bump:cng` to be triggered first). If opening this MR manually please give it the title "Update gitlab-org/container-registry [version]".
    - [ ] Version bump in [K8s Workloads](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com) is done automatically using the internal release tool. There should be two separate MRs, one for Pre-production and staging and another for Production, on the [K8s Workloads MR page](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/merge_requests) after manually triggering the `version-bump:k8s` job (which requires `version-bump:cng` to be triggered first). If opening this MR manually please give it the title "Bump Container Registry to [version]".
-1. [ ] Version bump for [GDK](https://gitlab.com/gitlab-org/gitlab-development-kit):
-   - [ ] Update `"${registry_image:-registry.gitlab.com/gitlab-org/build/cng/gitlab-container-registry:vX.Y.Z-gitlab}"`, which is passed to the `docker run` command in [support/docker-registry](https://gitlab.com/gitlab-org/gitlab-development-kit/-/blob/main/support/docker-registry)
-   - [ ] Label with: `/label ~"workflow::ready for review" ~"group::container registry" ~"devops::package"`
-   - [ ] Copy the changelog description from https://gitlab.com/gitlab-org/container-registry/-/blob/master/CHANGELOG.md since the last upgrade to the MR description.
-   - [ ] Assign to the reviewer suggested by reviewer roulette
+1. [ ] Version bump for [GDK](https://gitlab.com/gitlab-org/gitlab-development-kit) is done automatically using the internal release tool. If opening this MR manually please give it the title "Bump Container Registry to [version]".
+
 
 <details>
 <summary><b>Instructions</b></summary>
