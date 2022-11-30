@@ -164,11 +164,11 @@ const (
 	tagDeleteGCLockTimeout  = 5 * time.Second
 )
 
-func dbDeleteTag(ctx context.Context, db datastore.Handler, repoPath string, tagName string) error {
+func dbDeleteTag(ctx context.Context, db datastore.Handler, cache datastore.RepositoryCache, repoPath string, tagName string) error {
 	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": repoPath, "tag_name": tagName})
 	l.Debug("deleting tag from repository in database")
 
-	rStore := datastore.NewRepositoryStore(db)
+	rStore := datastore.NewRepositoryStore(db, datastore.WithRepositoryCache(cache))
 	r, err := rStore.FindByPath(ctx, repoPath)
 	if err != nil {
 		return err
@@ -211,7 +211,7 @@ func dbDeleteTag(ctx context.Context, db datastore.Handler, repoPath string, tag
 	// transaction. The tag delete will trigger `gc_track_deleted_tags`, which will attempt to acquire the same row
 	// lock on the review queue in case of conflict. Not using the same transaction for both operations (i.e., using
 	// `tx` for `FindAndLockBefore` and `db` for `DeleteTagByName`) would therefore result in a deadlock.
-	rStore = datastore.NewRepositoryStore(tx)
+	rStore = datastore.NewRepositoryStore(tx, datastore.WithRepositoryCache(cache))
 	found, err := rStore.DeleteTagByName(txCtx, r, tagName)
 	if err != nil {
 		return err
@@ -246,7 +246,15 @@ func (th *tagHandler) DeleteTag(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if th.useDatabase {
-		if err := dbDeleteTag(th.Context, th.db, th.Repository.Named().Name(), th.Tag); err != nil {
+		// To be removed on completion of: https://gitlab.com/groups/gitlab-org/-/epics/9050
+		var repoCache datastore.RepositoryCache
+		if th.App.redisCache != nil {
+			repoCache = datastore.NewCentralRepositoryCache(th.App.redisCache)
+		} else {
+			repoCache = th.repoCache
+		}
+
+		if err := dbDeleteTag(th.Context, th.db, repoCache, th.Repository.Named().Name(), th.Tag); err != nil {
 			th.appendDeleteTagError(err)
 			return
 		}

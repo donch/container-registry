@@ -14,6 +14,7 @@ import (
 	"github.com/docker/distribution/registry/datastore/metrics"
 	"github.com/docker/distribution/registry/datastore/models"
 	"github.com/docker/distribution/registry/internal/migration"
+	"gitlab.com/gitlab-org/labkit/errortracking"
 
 	gocache "github.com/eko/gocache/v2/cache"
 	"github.com/eko/gocache/v2/marshaler"
@@ -59,7 +60,6 @@ type RepositoryWriter interface {
 	CreateOrFind(ctx context.Context, r *models.Repository) error
 	CreateOrFindByPath(ctx context.Context, path string, opts ...repositoryOption) (*models.Repository, error)
 	Update(ctx context.Context, r *models.Repository) error
-	UntagManifest(ctx context.Context, r *models.Repository, m *models.Manifest) error
 	LinkBlob(ctx context.Context, r *models.Repository, d digest.Digest) error
 	UnlinkBlob(ctx context.Context, r *models.Repository, d digest.Digest) (bool, error)
 	DeleteTagByName(ctx context.Context, r *models.Repository, name string) (bool, error)
@@ -173,14 +173,22 @@ func (rbs *RepositoryBlobService) Stat(ctx context.Context, dgst digest.Digest) 
 type RepositoryCache interface {
 	Get(ctx context.Context, path string) *models.Repository
 	Set(ctx context.Context, repo *models.Repository)
+	InvalidateSize(ctx context.Context, repo *models.Repository)
 }
 
 // noOpRepositoryCache satisfies the RepositoryCache, but does not cache anything.
 // Useful as a default and for testing.
 type noOpRepositoryCache struct{}
 
-func (n *noOpRepositoryCache) Get(context.Context, string) *models.Repository { return nil }
-func (n *noOpRepositoryCache) Set(context.Context, *models.Repository)        {}
+// NewNoOpRepositoryCache creates a new non-operational cache for a repository object.
+// This implementation does nothing and returns nothing for all its methods.
+func NewNoOpRepositoryCache() *noOpRepositoryCache {
+	return &noOpRepositoryCache{}
+}
+
+func (n *noOpRepositoryCache) Get(context.Context, string) *models.Repository     { return nil }
+func (n *noOpRepositoryCache) Set(context.Context, *models.Repository)            {}
+func (n *noOpRepositoryCache) InvalidateSize(context.Context, *models.Repository) {}
 
 // singleRepositoryCache caches a single repository in-memory. This implementation is not thread-safe. Deprecated in
 // favor of centralRepositoryCache.
@@ -205,6 +213,12 @@ func (c *singleRepositoryCache) Get(_ context.Context, path string) *models.Repo
 func (c *singleRepositoryCache) Set(_ context.Context, r *models.Repository) {
 	if r != nil {
 		c.r = r
+	}
+}
+
+func (c *singleRepositoryCache) InvalidateSize(_ context.Context, r *models.Repository) {
+	if r != nil {
+		c.r.Size = nil
 	}
 }
 
@@ -268,6 +282,20 @@ func (c *centralRepositoryCache) Set(ctx context.Context, r *models.Repository) 
 
 	if err := c.cache.Set(setCtx, c.key(r.Path), r, nil); err != nil {
 		log.GetLogger(log.WithContext(ctx)).WithError(err).Warn("failed to write repository to cache")
+	}
+}
+
+// InvalidateSize implements RepositoryCache.
+func (c *centralRepositoryCache) InvalidateSize(ctx context.Context, r *models.Repository) {
+	inValCtx, cancel := context.WithTimeout(ctx, cacheOpTimeout)
+	defer cancel()
+
+	r.Size = nil
+	if err := c.cache.Set(inValCtx, c.key(r.Path), r, nil); err != nil {
+		detail := "failed to invalidate repository size in cache for repo: " + r.Path
+		log.GetLogger(log.WithContext(ctx)).WithError(err).Warn(detail)
+		err := fmt.Errorf("%q: %q", detail, err)
+		errortracking.Capture(err, errortracking.WithContext(ctx))
 	}
 }
 
@@ -942,6 +970,10 @@ func (s *repositoryStore) FindTagByName(ctx context.Context, r *models.Repositor
 // at least one tagged (directly or indirectly) manifest. No error is returned if the repository does not exist. It is
 // the caller's responsibility to ensure it exists before calling this method and proceed accordingly if that matters.
 func (s *repositoryStore) Size(ctx context.Context, r *models.Repository) (int64, error) {
+	// Check the cached repository object for the size attribute first
+	if r.Size != nil {
+		return *r.Size, nil
+	}
 	defer metrics.InstrumentQuery("repository_size")()
 
 	q := `SELECT
@@ -983,6 +1015,10 @@ func (s *repositoryStore) Size(ctx context.Context, r *models.Repository) (int64
 	if err := s.db.QueryRowContext(ctx, q, r.NamespaceID, r.ID).Scan(&size); err != nil {
 		return 0, fmt.Errorf("calculating repository size: %w", err)
 	}
+
+	// Update the size attribute for the cached repository object
+	r.Size = &size
+	s.cache.Set(ctx, r)
 
 	return size, nil
 }
@@ -1289,19 +1325,6 @@ func (s *repositoryStore) Update(ctx context.Context, r *models.Repository) erro
 	return nil
 }
 
-// UntagManifest deletes all tags of a manifest in a repository.
-func (s *repositoryStore) UntagManifest(ctx context.Context, r *models.Repository, m *models.Manifest) error {
-	defer metrics.InstrumentQuery("repository_untag_manifest")()
-	q := "DELETE FROM tags WHERE top_level_namespace_id = $1 AND repository_id = $2 AND manifest_id = $3"
-
-	_, err := s.db.ExecContext(ctx, q, r.NamespaceID, r.ID, m.ID)
-	if err != nil {
-		return fmt.Errorf("untagging manifest: %w", err)
-	}
-
-	return nil
-}
-
 // LinkBlob links a blob to a repository. It does nothing if already linked.
 func (s *repositoryStore) LinkBlob(ctx context.Context, r *models.Repository, d digest.Digest) error {
 	defer metrics.InstrumentQuery("repository_link_blob")()
@@ -1360,6 +1383,8 @@ func (s *repositoryStore) DeleteTagByName(ctx context.Context, r *models.Reposit
 		return false, fmt.Errorf("deleting tag: %w", err)
 	}
 
+	s.cache.InvalidateSize(ctx, r)
+
 	return count == 1, nil
 }
 
@@ -1388,6 +1413,8 @@ func (s *repositoryStore) DeleteManifest(ctx context.Context, r *models.Reposito
 	if err != nil {
 		return false, fmt.Errorf("deleting manifest: %w", err)
 	}
+
+	s.cache.InvalidateSize(ctx, r)
 
 	return count == 1, nil
 }

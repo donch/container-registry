@@ -1471,6 +1471,75 @@ func TestRepositoryStore_Size_NotFound(t *testing.T) {
 	require.Zero(t, size)
 }
 
+func TestRepositoryStore_Size_SingleRepositoryCache(t *testing.T) {
+	reloadRepositoryFixtures(t)
+
+	path := "a-test-group/foo"
+	c := datastore.NewSingleRepositoryCache()
+
+	ctx := context.Background()
+	require.Nil(t, c.Get(ctx, path))
+
+	s := datastore.NewRepositoryStore(suite.db, datastore.WithRepositoryCache(c))
+	_, err := s.FindByPath(suite.ctx, path)
+	require.NoError(t, err)
+	require.NotNil(t, c.Get(ctx, path)) // see testdata/fixtures/repositories.sql
+
+	// the size of an existing repo is initially nil in the cache
+	// if no preceeding calls to `Size` have been made to populate
+	// the calculated size attribute from the db into the cache.
+	require.Nil(t, c.Get(ctx, path).Size)
+
+	expectedSize, err := s.Size(suite.ctx,
+		&models.Repository{Path: path, NamespaceID: 2, ID: 6}) // see testdata/fixtures/repositories.sql
+	require.NotNil(t, c.Get(ctx, path))
+	// the size attribute of an existing repo is calculated from the db
+	// on the very first call to `Size`,  once calculated the size
+	// attribute is pegged to the cache as well for future calls to utilize
+	require.Equal(t, expectedSize, *c.Get(ctx, path).Size)
+}
+
+func TestRepositoryStore_Size_WithCentralRepositoryCache(t *testing.T) {
+	reloadRepositoryFixtures(t)
+
+	// First grab a valid repo present in a store (that only utilizes db and no cache)
+	// see testdata/fixtures/repositories.sql for definitions of valid repos set up in the test's db.
+	path := "a-test-group/foo"
+	s := datastore.NewRepositoryStore(suite.db)
+	expectedRepoFromDB, err := s.FindByPath(suite.ctx, path)
+	require.NoError(t, err)
+	require.NotNil(t, expectedRepoFromDB)
+	// The size attribute of an existing repo is always set to  nil in the returned repo object
+	// whenever the repo object is extracted directly from the db. Validation:
+	require.Nil(t, expectedRepoFromDB.Size)
+
+	// The size of an existing repo can be found by calling the `Size` function.
+	// For a store (that only utilizes db and no cache). The calculation of the size is done directly on the db.
+	expectedRepoSizeFromDB, err := s.Size(suite.ctx, expectedRepoFromDB)
+	require.NoError(t, err)
+
+	// Add a cache to the store and try fetching the repo again
+	cache := datastore.NewCentralRepositoryCache(itestutil.RedisCache(t, 0))
+	s = datastore.NewRepositoryStore(suite.db, datastore.WithRepositoryCache(cache))
+	expectedRepoFromDB, err = s.FindByPath(suite.ctx, path)
+	require.NoError(t, err)
+	// Verify the repo object in the cache is identical to the one in the db:
+	require.Equal(t, expectedRepoFromDB, cache.Get(suite.ctx, path))
+
+	// The size of an existing repo is initially nil in the cache if no preceeding calls to `Size`
+	// have been made to populate the calculated size attribute from the db into the cache
+	// (after the cache was attatched to the store). Verify that the size attribute was not cached:
+	require.Equal(t, expectedRepoFromDB.Size, cache.Get(suite.ctx, path).Size)
+
+	// The size of an existing repo can be found by calling the `Size` function.
+	// For a store (that utilizes both db and cache), the size attribute of an existing repo is calculated from the
+	// db on the very first call to `Size` (after a cache was attatched). Once calculated from the db, the size attribute is
+	// pegged to the repo object in the cache, which can respond to subsequent `Size` calls without accessing the db.
+	_, err = s.Size(suite.ctx, expectedRepoFromDB)
+	require.NoError(t, err)
+	require.Equal(t, expectedRepoSizeFromDB, *cache.Get(suite.ctx, path).Size)
+}
+
 // This comment describes the repository size calculation in detail, explaining the results of the
 // following calls to RepositoryStore.SizeWithDescendants.
 //
@@ -1837,27 +1906,6 @@ func TestRepositoryStore_Update_NotFound(t *testing.T) {
 	}
 	err := s.Update(suite.ctx, update)
 	require.EqualError(t, err, "repository not found")
-}
-
-func TestRepositoryStore_UntagManifest(t *testing.T) {
-	reloadTagFixtures(t)
-
-	s := datastore.NewRepositoryStore(suite.db)
-
-	// see testdata/fixtures/tags.sql
-	r := &models.Repository{NamespaceID: 1, ID: 3}
-	m := &models.Manifest{NamespaceID: 1, ID: 1}
-
-	tt, err := s.ManifestTags(suite.ctx, r, m)
-	require.NoError(t, err)
-	require.NotEmpty(t, tt)
-
-	err = s.UntagManifest(suite.ctx, r, m)
-	require.NoError(t, err)
-
-	tt, err = s.ManifestTags(suite.ctx, r, m)
-	require.NoError(t, err)
-	require.Empty(t, tt)
 }
 
 func isBlobLinked(t *testing.T, r *models.Repository, d digest.Digest) bool {

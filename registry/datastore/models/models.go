@@ -42,6 +42,11 @@ type Repository struct {
 	// This is a temporary attribute for the duration of https://gitlab.com/gitlab-org/container-registry/-/issues/570,
 	// and is only here to allow us to test selects and inserts for soft-deleted repositories:
 	DeletedAt sql.NullTime
+	// The Size of the repository in bytes. The Size of a repository can be 0, so we use a pointer
+	// to differentiate between a "0 byte" size repository and a repository that has nil size attribute
+	// (i.e the attribute was not cached or was invalidated).
+	// This value is not saved in the DB so we don't need to use a sql.NullInt64 type.
+	Size *int64
 }
 
 // IsTopLevel identifies whether a repository is a top-level repository or not.

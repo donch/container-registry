@@ -16,6 +16,7 @@ import (
 )
 
 func TestCentralRepositoryCache(t *testing.T) {
+	var size int64 = 1
 	repo := &models.Repository{
 		ID:              1,
 		NamespaceID:     1,
@@ -24,6 +25,7 @@ func TestCentralRepositoryCache(t *testing.T) {
 		MigrationStatus: migration.RepositoryStatusImportComplete,
 		CreatedAt:       time.Now().Local(),
 		UpdatedAt:       sql.NullTime{Time: time.Now().Local(), Valid: true},
+		Size:            &size,
 	}
 
 	ttl := 30 * time.Minute
@@ -44,6 +46,13 @@ func TestCentralRepositoryCache(t *testing.T) {
 	redisMock.ExpectGet(key).SetVal(string(bytes))
 	r = cache.Get(ctx, repo.Path)
 	require.Equal(t, repo, r)
+
+	nilSizeRepo := repo
+	nilSizeRepo.Size = nil
+	bytes, err = msgpack.Marshal(nilSizeRepo)
+	redisMock.ExpectSet(key, bytes, ttl).SetVal("OK")
+	require.NoError(t, err)
+	cache.InvalidateSize(ctx, repo)
 
 	require.NoError(t, redisMock.ExpectationsWereMet())
 }
