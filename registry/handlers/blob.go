@@ -66,7 +66,6 @@ func dbBlobLinkExists(ctx context.Context, db datastore.Queryer, repoPath string
 		return err
 	}
 	if r == nil {
-		l.Warn("repository not found in database")
 		return v2.ErrorCodeBlobUnknown.WithDetail(dgst)
 	}
 
@@ -76,7 +75,6 @@ func dbBlobLinkExists(ctx context.Context, db datastore.Queryer, repoPath string
 	}
 
 	if !found {
-		l.Warn("blob link not found in database")
 		return v2.ErrorCodeBlobUnknown.WithDetail(dgst)
 	}
 

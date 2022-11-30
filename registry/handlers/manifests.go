@@ -352,7 +352,6 @@ func (g *dbManifestGetter) GetByTag(ctx context.Context, tagName string) (distri
 	}
 
 	if dbRepo == nil {
-		l.Warn("repository not found in database")
 		return nil, "", distribution.ErrTagUnknown{Tag: tagName}
 	}
 
@@ -364,7 +363,6 @@ func (g *dbManifestGetter) GetByTag(ctx context.Context, tagName string) (distri
 
 	// at the DB level a tag has a FK to manifests, so a tag cannot exist unless it points to an existing manifest
 	if dbManifest == nil {
-		l.Warn("tag not found in database")
 		return nil, "", distribution.ErrTagUnknown{Tag: tagName}
 	}
 
@@ -394,7 +392,6 @@ func (g *dbManifestGetter) GetByDigest(ctx context.Context, dgst digest.Digest) 
 	}
 
 	if dbRepo == nil {
-		l.Warn("repository not found in database")
 		return nil, distribution.ErrManifestUnknownRevision{
 			Name:     g.repoPath,
 			Revision: dgst,
