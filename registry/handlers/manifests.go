@@ -519,7 +519,16 @@ func (p *dbManifestWriter) Put(imh *manifestHandler, mfst distribution.Manifest)
 
 func (p *dbManifestWriter) Tag(imh *manifestHandler, mfst distribution.Manifest, tag string, _ distribution.Descriptor) error {
 	repoName := imh.Repository.Named().Name()
-	if err := dbTagManifest(imh, imh.db, imh.repoCache, imh.Digest, imh.Tag, repoName); err != nil {
+
+	// To be removed on completion of: https://gitlab.com/groups/gitlab-org/-/epics/9050
+	var repoCache datastore.RepositoryCache
+	if imh.App.redisCache != nil {
+		repoCache = datastore.NewCentralRepositoryCache(imh.App.redisCache)
+	} else {
+		repoCache = imh.repoCache
+	}
+
+	if err := dbTagManifest(imh, imh.db, repoCache, imh.Digest, imh.Tag, repoName); err != nil {
 		if errors.Is(err, datastore.ErrManifestNotFound) {
 			// If online GC was already reviewing the manifest that we want to tag, and that manifest had no
 			// tags before the review start, the API is unable to stop the GC from deleting the manifest (as
@@ -871,6 +880,7 @@ func dbTagManifest(ctx context.Context, db datastore.Handler, cache datastore.Re
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("committing database transaction: %w", err)
 	}
+	cache.InvalidateSize(ctx, dbRepo)
 	return nil
 }
 
@@ -1402,7 +1412,15 @@ func (imh *manifestHandler) DeleteManifest(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
-		if err := dbDeleteManifest(imh.Context, imh.db, imh.repoCache, imh.Repository.Named().String(), imh.Digest); err != nil {
+		// To be removed on completion of: https://gitlab.com/groups/gitlab-org/-/epics/9050
+		var repoCache datastore.RepositoryCache
+		if imh.App.redisCache != nil {
+			repoCache = datastore.NewCentralRepositoryCache(imh.App.redisCache)
+		} else {
+			repoCache = imh.repoCache
+		}
+
+		if err := dbDeleteManifest(imh.Context, imh.db, repoCache, imh.Repository.Named().String(), imh.Digest); err != nil {
 			imh.appendManifestDeleteError(err)
 			return
 		}
