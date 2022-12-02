@@ -48,7 +48,6 @@ func dbGetTags(ctx context.Context, db datastore.Queryer, repoPath string, n int
 		return nil, false, err
 	}
 	if r == nil {
-		l.Warn("repository not found in database")
 		return nil, false, v2.ErrorCodeNameUnknown.WithDetail(map[string]string{"name": repoPath})
 	}
 
