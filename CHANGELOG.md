@@ -1,3 +1,16 @@
+# [3.62.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.61.0-gitlab...v3.62.0-gitlab) (2022-12-05)
+
+
+### Bug Fixes
+
+* **handlers:** remove redundant database warn logs ([e3ae84a](https://gitlab.com/gitlab-org/container-registry/commit/e3ae84a105b65eb7de64a152c23ba8a11787f11a))
+
+
+### Features
+
+* **cache:** cache repository self size ([89e8400](https://gitlab.com/gitlab-org/container-registry/commit/89e84001395f8ece94f4c8d2f7db51d8fb58c9d7))
+* **reference:** remove support for deprecated "shortid" refs ([b87363c](https://gitlab.com/gitlab-org/container-registry/commit/b87363c4b4e48ca2b78cf8770295286f793bb364))
+
 # [3.61.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.60.2-gitlab...v3.61.0-gitlab) (2022-11-14)
 
 
