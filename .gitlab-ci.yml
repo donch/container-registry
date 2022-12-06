@@ -446,13 +446,20 @@ version-bump:omnibus:
   script:
    - go run cmd/internal/release-cli/main.go release omnibus --token $TRIGGER_TOKEN --tag $CI_COMMIT_TAG
 
-version-bump:k8s:
+version-bump:k8s:gstgpre:
   <<: *version-bump
   needs: [ "version-bump:cng"]
   variables:
    TRIGGER_TOKEN: $BUMP_VERSION_TRIGGER_TOKEN_K8S
   script:
    - go run cmd/internal/release-cli/main.go release k8s --stage gstg/pre --token $TRIGGER_TOKEN --tag $CI_COMMIT_TAG
+
+version-bump:k8s:gprd:
+  <<: *version-bump
+  needs: [ "version-bump:cng"]
+  variables:
+   TRIGGER_TOKEN: $BUMP_VERSION_TRIGGER_TOKEN_K8S
+  script:
    - go run cmd/internal/release-cli/main.go release k8s --stage gprd --token $TRIGGER_TOKEN --tag $CI_COMMIT_TAG
 
 version-bump:gdk:
