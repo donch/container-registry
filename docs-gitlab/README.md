@@ -155,18 +155,6 @@ and which extra features it supports.
 
 ## Releases
 
-Release planning is done by using the `Release Plan` issue template during the
-planning phase of a new milestone.
-
-The template will include a list of container registry issues which
-are planned for the milestone that should be merged into and included in
-the release.
-
-Since multiple projects need to be updated to ensure a version of the Container
-Registry is released, this issue should have a due date set to one week before
-the milestone. This should allow enough time for the related merge requests to
-go through, especially if feedback is received.
-
 We use [semantic-release](https://semantic-release.gitbook.io/semantic-release/)
 to generate changelog entries, release commits and new git tags. A new release
 is created by the project maintainers, using the `make release` command,
@@ -177,6 +165,13 @@ is available to anyone and allows previewing the next release.
 release, you must invoke the `make dev-tools` command to install the required
 dependencies. This requires having [Node.js](https://nodejs.org/en/) and
 [npm](https://docs.npmjs.com/cli/) installed locally.
+
+Once a new tag is pushed to this repository, a CI pipeline is created 
+([sample](https://gitlab.com/gitlab-org/container-registry/-/pipelines/713632199)).
+Within the `release` stage, there are several ordered jobs that Maintainers
+are responsible for triggering. These jobs are responsible for releasing in several GitLab
+projects and their sequence is described in the [Release Plan](https://gitlab.com/gitlab-org/container-registry/-/blob/master/.gitlab/issue_templates/Release%20Plan.md) issue template. A new issue based on the the same 
+template is automatically created as part of the CI pipeline with title `Release Version vX.Y.Z-gitlab`.
 
 ## Contributing
 
