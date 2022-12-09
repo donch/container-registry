@@ -39,7 +39,7 @@ environments:
       - filename: spec/lib/gdk/config_spec.rb
       - filename: gdk.example.yml
 issue:
-  - title: 'Release Plan'
-    template: .gitlab/issue_templates/Release Plan.md
-    id: '13831684'
-    ref: 'master'
+  title: 'Release Plan'
+  template: .gitlab/issue_templates/Release Plan.md
+  id: '13831684'
+  ref: 'master'
