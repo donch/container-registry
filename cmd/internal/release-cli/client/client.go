@@ -199,12 +199,12 @@ func UpdateAllPaths(branch *gitlab.Branch) error {
 		}
 
 		if release.name == "k8s" {
-			changes, err = updateK8sVersion(release.paths[i].Filename, fileName)
+			changes, err = updateK8sVersion(fileName)
 			if err != nil {
 				log.Fatalf("Failed to update registry version: %v", err)
 			}
 		} else if release.name == "gdk" {
-			changes, err = updateGDKVersion(release.paths[i].Filename, fileName)
+			changes, err = updateGDKVersion(fileName)
 			if err != nil {
 				log.Fatalf("Failed to update registry version: %v", err)
 			}

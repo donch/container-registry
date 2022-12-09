@@ -5,85 +5,60 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"regexp"
 	"strings"
 )
 
-func updateK8sVersion(path string, tmpFileName string) ([]byte, error) {
-	lines, err := readFromTempFile(tmpFileName)
+func updateK8sVersion(tmp string) ([]byte, error) {
+	f, err := os.ReadFile(tmp)
 	if err != nil {
 		return nil, err
 	}
 
-	switch path {
-	case "bases/pre.yaml", "bases/gstg.yaml", "bases/gprd.yaml":
-		for i, line := range lines {
-			if strings.Contains(line, "registry_version") {
-				lines[i] = fmt.Sprintf("        registry_version: %s", release.version)
-				break
-			}
-		}
-	default:
-		return nil, fmt.Errorf("unexpected file path %q", path)
-	}
+	m := regexp.MustCompile("registry_version: (.*)")
+	output := m.ReplaceAllString(string(f), fmt.Sprintf("registry_version: %s", release.version))
 
-	out := strings.Join(lines, "\n")
-	updatedFile, err := loadFileChange(tmpFileName, out)
+	err = os.WriteFile(tmp, []byte(output), 0644)
+	if err != nil {
+		return nil, err
+	}
+	updatedFile, err := os.ReadFile(tmp)
 	if err != nil {
 		return nil, err
 	}
 
-	return updatedFile, nil
+	err = os.Remove(tmp)
+	if err != nil {
+		return nil, err
+	}
+
+	return updatedFile, err
 }
 
-func updateGDKVersion(path string, tmpFileName string) ([]byte, error) {
-	lines, err := readFromTempFile(tmpFileName)
+func updateGDKVersion(tmp string) ([]byte, error) {
+	f, err := os.ReadFile(tmp)
 	if err != nil {
 		return nil, err
 	}
 
-	if path == "support/docker-registry" {
-		for i, line := range lines {
-			if strings.Contains(line, "registry_image:-registry.gitlab.com/gitlab-org/build/cng") {
-				lines[i] = fmt.Sprintf("      \"${registry_image:-registry.gitlab.com/gitlab-org/build/cng/gitlab-container-registry:%s}\"", release.version)
-				break
-			}
-		}
-	}
+	m := regexp.MustCompile(`gitlab-container-registry:(.[^"'" "\n)}]+)`)
+	output := m.ReplaceAllString(string(f), fmt.Sprintf("gitlab-container-registry:%s", release.version))
 
-	if path == "lib/gdk/config.rb" {
-		for i, line := range lines {
-			if strings.Contains(line, "registry.gitlab.com/gitlab-org/build/cng/gitlab-container-registry:") {
-				lines[i+1] = fmt.Sprintf("        '%s'", release.version)
-				break
-			}
-		}
+	err = os.WriteFile(tmp, []byte(output), 0644)
+	if err != nil {
+		return nil, err
 	}
-
-	if path == "spec/lib/gdk/config_spec.rb" {
-		for i, line := range lines {
-			if strings.Contains(line, "registry.gitlab.com/gitlab-org/build/cng/gitlab-container-registry:") {
-				lines[i] = fmt.Sprintf("         expect(config.registry.image).to eq('registry.gitlab.com/gitlab-org/build/cng/gitlab-container-registry:%s')", release.version)
-				break
-			}
-		}
-	}
-
-	if path == "gdk.example.yml" {
-		for i, line := range lines {
-			if strings.Contains(line, "registry.gitlab.com/gitlab-org/build/cng/gitlab-container-registry:") {
-				lines[i] = fmt.Sprintf("  image: registry.gitlab.com/gitlab-org/build/cng/gitlab-container-registry:%s", release.version)
-				break
-			}
-		}
-	}
-
-	out := strings.Join(lines, "\n")
-	updatedFile, err := loadFileChange(tmpFileName, out)
+	updatedFile, err := os.ReadFile(tmp)
 	if err != nil {
 		return nil, err
 	}
 
-	return updatedFile, nil
+	err = os.Remove(tmp)
+	if err != nil {
+		return nil, err
+	}
+
+	return updatedFile, err
 }
 
 func loadFileChange(tempFilename string, output string) ([]byte, error) {
