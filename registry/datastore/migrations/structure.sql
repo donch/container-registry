@@ -10831,6 +10831,10 @@ CREATE INDEX gc_blobs_layers_p_8_top_level_namespace_id_repository_id_la_idx ON 
 
 CREATE INDEX gc_blobs_layers_p_9_top_level_namespace_id_repository_id_la_idx ON partitions.gc_blobs_layers_p_9 USING btree (top_level_namespace_id, repository_id, layer_id, digest);
 
+CREATE INDEX index_layers_p_0_on_top_level_namespace_id_and_digest_and_size ON partitions.layers_p_0 USING btree (top_level_namespace_id, digest, size);
+
+CREATE INDEX index_layers_p_1_on_top_level_namespace_id_and_digest_and_size ON partitions.layers_p_1 USING btree (top_level_namespace_id, digest, size);
+
 CREATE INDEX index_layers_on_digest ON ONLY public.layers USING btree (digest);
 
 CREATE INDEX layers_p_0_digest_idx ON partitions.layers_p_0 USING btree (digest);
