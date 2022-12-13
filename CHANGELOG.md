@@ -1,3 +1,10 @@
+# [3.63.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.62.0-gitlab...v3.63.0-gitlab) (2022-12-13)
+
+
+### Features
+
+* add index on layers for alternative namespace usage query (batch 1/3) ([9e8a30a](https://gitlab.com/gitlab-org/container-registry/commit/9e8a30ac6afbf94fe754929dedd52b0c3681e99b))
+
 # [3.62.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.61.0-gitlab...v3.62.0-gitlab) (2022-12-05)
 
 
