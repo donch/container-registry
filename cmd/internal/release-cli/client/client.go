@@ -267,12 +267,12 @@ func GetChangelog() (string, error) {
 	pid := os.Getenv("CI_PROJECT_ID")
 	version := os.Getenv("CI_COMMIT_TAG")
 
-	tag, _, err := gtlb.Tags.GetTag(pid, version)
+	release, _, err := gtlb.Releases.GetRelease(pid, version)
 	if err != nil {
 		return "", err
 	}
 
-	return tag.Commit.Message, nil
+	return release.Description, nil
 }
 
 func SendRequestToDeps() {
