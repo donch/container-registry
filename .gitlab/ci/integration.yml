@@ -1,0 +1,198 @@
+.middleware:storage: &middleware-storage
+  extends: .go-version-matrix
+  stage: integration
+  needs: []
+
+middleware:storage-googlecdn:
+  <<: *middleware-storage
+  variables:
+    REGISTRY_STORAGE_GCS_BUCKET: $CDN_GCS_BUCKET
+    REGISTRY_MIDDLEWARE_STORAGE_GOOGLECDN_BASEURL: $CDN_BASEURL
+    REGISTRY_MIDDLEWARE_STORAGE_GOOGLECDN_KEYNAME: $CDN_KEYNAME
+  script:
+    - export GOOGLE_APPLICATION_CREDENTIALS="$CDN_CREDENTIALS"
+    - export REGISTRY_MIDDLEWARE_STORAGE_GOOGLECDN_PRIVATEKEY="$CDN_PRIVATEKEY"
+    - $GO_TEST -v -coverprofile=coverage.out -tags=include_gcs,integration github.com/docker/distribution/registry/storage/driver/middleware/googlecdn
+
+.storage-driver-test: &storage-driver-test
+  extends: .go-version-matrix
+  stage: integration
+  needs: []
+  variables:
+    TEST_SHORT_FLAG: "-test.short"
+  rules:
+    - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
+      variables:
+        TEST_SHORT_FLAG: ""
+    - when: always
+  script: $GO_TEST -timeout=30m -v -coverprofile=coverage.out -tags=$BUILDTAGS $PACKAGE -args -check.v $TEST_SHORT_FLAG
+
+filesystem:
+  <<: *storage-driver-test
+  before_script:
+    - export PACKAGE=github.com/docker/distribution/registry/storage/driver/filesystem
+
+inmemory:
+  <<: *storage-driver-test
+  before_script:
+    - export PACKAGE=github.com/docker/distribution/registry/storage/driver/inmemory
+
+swift:
+  <<: *storage-driver-test
+  before_script:
+    - export PACKAGE=github.com/docker/distribution/registry/storage/driver/swift
+
+s3-aws:
+  <<: *storage-driver-test
+  variables:
+    AWS_ACCESS_KEY: "AKIAIOSFODNN7EXAMPLE"
+    AWS_SECRET_KEY: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+    MINIO_ACCESS_KEY: $AWS_ACCESS_KEY
+    MINIO_SECRET_KEY: $AWS_SECRET_KEY
+    REGION_ENDPOINT: "http://minio:9000"
+    AWS_REGION: "us-east-2"
+    S3_BUCKET: "test-bucket"
+    S3_ENCRYPT: "false"
+  services:
+    - name: minio/minio:latest
+      alias: "minio"
+      command: ["server", "/data"]
+  before_script:
+    - export PACKAGE=github.com/docker/distribution/registry/storage/driver/s3-aws
+    # Download the minio client
+    - wget --no-verbose https://dl.min.io/client/mc/release/linux-amd64/mc
+    - chmod u+x ./mc
+    # Configure the minio client to use the local minio service rather than play.minio.io
+    - ./mc config host add s3v4 $REGION_ENDPOINT $AWS_ACCESS_KEY $AWS_SECRET_KEY --api S3v4
+    - ./mc mb s3v4/$S3_BUCKET
+
+gcs:
+  <<: *storage-driver-test
+  variables:
+    REGISTRY_STORAGE_GCS_BUCKET: $GCS_BUCKET
+    REGISTRY_STORAGE_GCS_TARGET_BUCKET: $GCS_BUCKET
+  before_script:
+    - export TEST_SHORT_FLAG="-test.short"
+    - export GOOGLE_APPLICATION_CREDENTIALS="$CDN_CREDENTIALS"
+    - export PACKAGE=github.com/docker/distribution/registry/storage/driver/gcs
+
+api:
+  extends: .go-version-matrix
+  stage: integration
+  needs: []
+  variables:
+    TAGS: 'integration,handlers_test'
+  script: $GO_TEST -v -coverprofile=coverage.out -tags=$TAGS github.com/docker/distribution/registry/handlers
+
+api:conformance:
+  extends: .go-version-matrix
+  stage: integration
+  needs: []
+  variables:
+    TAGS: 'integration,api_conformance_test'
+  script: $GO_TEST -v -coverprofile=coverage.out -tags=$TAGS github.com/docker/distribution/registry/handlers
+
+api:online-gc:
+  extends: .go-version-matrix
+  stage: integration
+  needs: []
+  variables:
+    TAGS: 'integration,online_gc_test'
+  script: $GO_TEST -v -coverprofile=coverage.out -tags=$TAGS github.com/docker/distribution/registry/handlers
+
+.database: &database
+  extends: .go-version-matrix
+  stage: integration
+  needs: []
+  variables:
+    FF_NETWORK_PER_BUILD: 1
+    POSTGRES_PASSWORD: "secret"
+    POSTGRES_DB: "registry_test"
+    REGISTRY_DATABASE_ENABLED: "true"
+    REGISTRY_DATABASE_HOST: "db"
+    REGISTRY_DATABASE_PORT: "5432"
+    REGISTRY_DATABASE_USER: "postgres"
+    REGISTRY_DATABASE_PASSWORD: "secret"
+    REGISTRY_DATABASE_DBNAME: "registry_test"
+    REGISTRY_DATABASE_SSLMODE: "disable"
+    TAGS: 'integration'
+  services:
+    - name: postgres:12-alpine
+      alias: "db"
+  script: $GO_TEST -v -timeout=25m -coverprofile=coverage.out -tags=$TAGS $PACKAGE
+
+database:migrations:
+  <<: *database
+  before_script:
+    - export PACKAGE=github.com/docker/distribution/registry/datastore/migrations
+
+database:datastore:
+  <<: *database
+  before_script:
+    - export PACKAGE=github.com/docker/distribution/registry/datastore
+
+database:api:
+  <<: *database
+  before_script:
+    - export PACKAGE=github.com/docker/distribution/registry/handlers
+    - export TAGS=integration,handlers_test
+
+database:api-conformance:
+  <<: *database
+  before_script:
+    - export PACKAGE=github.com/docker/distribution/registry/handlers
+    - export TAGS=integration,api_conformance_test
+  script: $GO_TEST -v -timeout=25m -tags=$TAGS $PACKAGE
+
+database:api-gitlab:
+  <<: *database
+  before_script:
+    - export PACKAGE=github.com/docker/distribution/registry/handlers
+    - export TAGS=integration,api_gitlab_test
+  script: $GO_TEST -v -timeout=25m -tags=$TAGS $PACKAGE
+
+# Tests that simulate adverse network conditions/errors between the registry and its database.
+database:api-fault-tolerance:
+  <<: *database
+  before_script:
+    - export PACKAGE=github.com/docker/distribution/registry/handlers
+    - export TOXIPROXY_HOST=toxiproxy
+    - export TOXIPROXY_PORT=8474
+  services:
+    # `services` are not extended, so we have to redeclare `postgres:12-alpine` here.
+    - name: postgres:12-alpine
+      alias: "db"
+    - name: shopify/toxiproxy
+      alias: "toxiproxy"
+  script: $GO_TEST -v -coverprofile=coverage.out -tags=integration,toxiproxy $PACKAGE -run ^TestDBFaultTolerance
+
+.cache:redis: &cache-redis
+  extends: .go-version-matrix
+  stage: integration
+  needs: []
+  variables:
+    REDIS_ADDR: "redis:6379"
+  services:
+    - name: redis:alpine
+      alias: "redis"
+  script: $GO_TEST -v -coverprofile=coverage.out -tags=integration github.com/docker/distribution/registry/storage/cache/redis
+
+cache:redis:
+  extends: .cache:redis
+
+cache:redis-sentinel:
+  <<: *cache-redis
+  variables:
+    # create a Docker network per build so that services can talk with each other
+    FF_NETWORK_PER_BUILD: 1
+    # config for redis-sentinel
+    REDIS_MASTER_HOST: "redis"
+    REDIS_MASTER_SET: "main-redis"
+    # config for app
+    REDIS_ADDR: "redis-sentinel:26379"
+    REDIS_MAIN_NAME: "main-redis"
+  services:
+    - name: redis:alpine
+      alias: "redis"
+    - name: bitnami/redis-sentinel
+      alias: "redis-sentinel"
