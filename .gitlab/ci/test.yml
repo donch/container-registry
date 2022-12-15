@@ -1,0 +1,18 @@
+.go-version-matrix:
+  image: golang:${GO_VERSION}-buster
+  parallel:
+    matrix:
+      - GO_VERSION: [ "1.17", "1.18", "1.19" ]
+  variables:
+    GOTESTSUM_VERSION: v1.8.1
+    GO_TEST: 'go run gotest.tools/gotestsum@$GOTESTSUM_VERSION --junitfile junit.xml --format testname --'
+  artifacts:
+    reports:
+      junit: junit.xml
+
+coverage:
+  extends: .go-version-matrix
+  stage: test
+  needs: [mocks]
+  script:
+    - make coverage
