@@ -10,12 +10,11 @@ The `release-cli` runs on a release CI pipeline when a new tag is pushed to
 this project. The following commands are available from the root of this project:
 
 ```bash
-go run ./cmd/internal/release-cli/main.go release --help
 Release a new version of Container Registry on the specified project
 
 Usage:
-  release [flags]
-  release [command]
+  release  [flags]
+  release  [command]
 
 Available Commands:
   charts      Release to Cloud Native GitLab Helm Chart
@@ -29,13 +28,20 @@ Flags:
   -h, --help   help for release
 
 Global Flags:
-      --config string   Config file (default is $HOME/.config.yaml)
-      --tag string      Release version
-      --token string    Trigger token or an auth token of the project to release to
+      --auth-token string   Auth token with permissions to open MRs on the project to release to
+      --config string       Config file (default is $HOME/.config.yaml)
+      --tag string          Release version
 
 Use "release [command] --help" for more information about a command.
 ```
 
+Releasing to CNG, Charts and Omnibus require an additional flag
+
+```bash
+ --trigger-token string   Trigger token for pipeline trigering
+```
+
+with a [trigger token](https://docs.gitlab.com/ee/ci/triggers/#create-a-trigger-token) from the project to release to.
 
 **Note:** The `release-cli` is meant to be run in a CI context and not locally
 as its implementation depends on 
@@ -47,8 +53,9 @@ The configuration file used by the `release-cli` can be found at [`.config.yaml`
 describes not only which projects to release to and files to change, but also allows customisations such as commit messages, MR title and branch name.
 
 It also leverages CI Variables available in `.gitlab-ci.yml` such as the `$CI_COMMIT_TAG` 
-to get the tag used in the release context. The `$TRIGGER_TOKEN` used is an auth token with sufficient permissions to 
-post a merge request on the project that we are releasing to. 
+to get the tag used in the release context. The `$AUTH_TOKEN` used is an auth token with sufficient permissions to 
+post a merge request on the project that we are releasing to and `$TRIGGER_TOKEN` is required to trigger pipelines on projects
+where the GitLab Dependency Bot is responsible to update the versions.
 
 ## Maintenance
 
@@ -59,4 +66,4 @@ the `filenames` key.
 The CNG, Charts and Omnibus release commands make use of the the GitLab Dependency Bot, the bot user that the GitLab Distribution team uses for automatically submitting MRs with dependency updates using https://www.dependencies.io/.
 The file changes are stated on the `deps.yml` file of the release project, like [this](https://gitlab.com/gitlab-org/build/CNG/-/blob/master/deps.yml#L87).
 
-We also require a few secrets to be set as CI Variables that are necessary for triggering a specific release following the `$BUMP_VERSION_TRIGGER_TOKEN_<PROJECT>` pattern.
+We also require a few secrets to be set as CI Variables that are necessary for triggering a specific release following the `$BUMP_VERSION_TRIGGER_TOKEN_<PROJECT>` pattern if it is a [trigger token](https://docs.gitlab.com/ee/ci/triggers/#create-a-trigger-token) or `$BUMP_VERSION_AUTH_TOKEN_<PROJECT>` if it is an auth token.

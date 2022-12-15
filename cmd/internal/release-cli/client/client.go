@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"log"
 
-	"net/http"
-	"net/url"
 	"os"
 	"strings"
 
@@ -275,17 +273,16 @@ func GetChangelog() (string, error) {
 	return tag.Commit.Message, nil
 }
 
-func SendRequestToDeps() {
-	params := url.Values{}
-	params.Add("token", release.token)
-	params.Add("ref", release.ref)
-	params.Add("variables[DEPS_PIPELINE]", "true")
-
-	url := fmt.Sprintf("https://gitlab.com/api/v4/projects/%s/trigger/pipeline", release.projectID)
-	resp, err := http.PostForm(url, params)
-	if err != nil {
-		log.Printf("Request to update %s release failed: %s", release.name, err)
-		return
+func SendRequestToDeps(triggerToken string) error {
+	rpto := &gitlab.RunPipelineTriggerOptions{
+		Ref:       gitlab.String(release.ref),
+		Token:     gitlab.String(triggerToken),
+		Variables: map[string]string{"DEPS_PIPELINE": "true"},
 	}
-	defer resp.Body.Close()
+
+	_, _, err := gtlb.PipelineTriggers.RunPipelineTrigger(release.projectID, rpto)
+	if err != nil {
+		return err
+	}
+	return nil
 }
