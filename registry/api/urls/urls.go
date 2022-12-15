@@ -12,6 +12,13 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// Instantiating a router is a costly operation and NewBuilder is called once
+// per request, so we can save a lot of CPU time by reusing the same router.
+var (
+	defaultDistributionRouter = v2.Router()
+	defaultGitLabRouter       = v1.Router()
+)
+
 // Builder creates registry API urls from a single base endpoint. It can be
 // used to create urls for use in a registry client or server.
 //
@@ -30,8 +37,8 @@ type Builder struct {
 func NewBuilder(root *url.URL, relative bool) *Builder {
 	return &Builder{
 		root:               root,
-		distributionRouter: v2.Router(),
-		gitLabRouter:       v1.Router(),
+		distributionRouter: defaultDistributionRouter,
+		gitLabRouter:       defaultGitLabRouter,
 		relative:           relative,
 	}
 }
