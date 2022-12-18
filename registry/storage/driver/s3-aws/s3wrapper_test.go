@@ -22,6 +22,13 @@ var (
 
 	anAWSInvalidPresignExpireError = awserr.New(request.ErrCodeInvalidPresignExpire, "test-error-message", errors.New("test-original error"))
 
+	aRequestAWSSerializationError = awserr.NewRequestFailure(
+		awserr.New(request.ErrCodeSerialization,
+			"failed to decode REST XML response", errors.New("test-original error")),
+		http.StatusAccepted,
+		"1234",
+	)
+
 	anAWSSerializationError = awserr.New(request.ErrCodeSerialization, "test-error-message", errors.New("test-original error"))
 )
 
@@ -55,6 +62,11 @@ func TestWrapAWSerr(t *testing.T) {
 			name:          "aws SerializationError error (not-request-specific)",
 			inputError:    anAWSSerializationError,
 			expectedError: anAWSSerializationError,
+		},
+		{
+			name:          "aws SerializationError error (request-specific)",
+			inputError:    aRequestAWSSerializationError,
+			expectedError: aRequestAWSSerializationError,
 		},
 	}
 	t.Logf("Running %s test", t.Name())
