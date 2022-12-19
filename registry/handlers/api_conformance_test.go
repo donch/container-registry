@@ -42,6 +42,7 @@ import (
 func TestAPIConformance(t *testing.T) {
 	var testFuncs = []func(*testing.T, ...configOpt){
 		baseURLAuth,
+		baseURLPrefix,
 
 		manifest_Put_Schema1_ByTag,
 		manifest_Put_Schema2_ByDigest,
@@ -633,6 +634,30 @@ func baseURLAuth(t *testing.T, opts ...configOpt) {
 			require.Equal(t, "{}", string(p))
 		})
 	}
+}
+
+func baseURLPrefix(t *testing.T, opts ...configOpt) {
+	prefix := "/test/"
+	opts = append(opts, withHTTPPrefix("/test/"))
+	env := newTestEnv(t, opts...)
+
+	defer env.Shutdown()
+
+	baseURL, err := env.builder.BuildBaseURL()
+	require.NoError(t, err)
+
+	parsed, err := url.Parse(baseURL)
+	require.NoError(t, err)
+	require.Truef(t, strings.HasPrefix(parsed.Path, prefix),
+		"prefix %q not included in test url %q", prefix, baseURL)
+
+	resp, err := http.Get(baseURL)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
+	require.Equal(t, "2", resp.Header.Get("Content-Length"))
 }
 
 func manifest_Put_Schema1_ByTag(t *testing.T, opts ...configOpt) {
