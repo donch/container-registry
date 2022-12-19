@@ -30,8 +30,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&tag, "tag", "", "Release version")
 	rootCmd.MarkPersistentFlagRequired("tag")
 
-	rootCmd.PersistentFlags().StringVar(&authToken, "token", "", "Trigger token or an auth token of the project to release to")
-	rootCmd.MarkPersistentFlagRequired("token")
+	rootCmd.PersistentFlags().StringVar(&authToken, "auth-token", "", "Auth token with permissions to open MRs on the project to release to")
+	rootCmd.MarkPersistentFlagRequired("auth-token")
 }
 
 func initConfig() {

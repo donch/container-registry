@@ -24,7 +24,7 @@ release:
 version-bump:release-issue:
   <<: *version-bump
   script:
-    -  go run cmd/internal/release-cli/main.go release issue --tag $CI_COMMIT_TAG --token $CI_JOB_TOKEN
+   -  go run cmd/internal/release-cli/main.go release issue --tag $CI_COMMIT_TAG --auth-token $CI_JOB_TOKEN   
 
 version-bump:cng:
   <<: *version-bump
@@ -32,15 +32,15 @@ version-bump:cng:
   variables:
     TRIGGER_TOKEN: $BUMP_VERSION_TRIGGER_TOKEN_CNG
   script:
-    - go run cmd/internal/release-cli/main.go release cng --token $TRIGGER_TOKEN --tag $CI_COMMIT_TAG
-
+   - go run cmd/internal/release-cli/main.go release cng --trigger-token $TRIGGER_TOKEN --tag $CI_COMMIT_TAG --auth-token $CI_JOB_TOKEN
+      
 version-bump:charts:
   <<: *version-bump
   needs: ["version-bump:cng"]
   variables:
     TRIGGER_TOKEN: $BUMP_VERSION_TRIGGER_TOKEN_CHARTS
   script:
-    - go run cmd/internal/release-cli/main.go release charts --token $TRIGGER_TOKEN --tag $CI_COMMIT_TAG
+   - go run cmd/internal/release-cli/main.go release charts --trigger-token $TRIGGER_TOKEN --tag $CI_COMMIT_TAG --auth-token $CI_JOB_TOKEN
 
 version-bump:omnibus:
   <<: *version-bump
@@ -48,36 +48,36 @@ version-bump:omnibus:
   variables:
     TRIGGER_TOKEN: $BUMP_VERSION_TRIGGER_TOKEN_OMNIBUS
   script:
-    - go run cmd/internal/release-cli/main.go release omnibus --token $TRIGGER_TOKEN --tag $CI_COMMIT_TAG
+   - go run cmd/internal/release-cli/main.go release omnibus --trigger-token $TRIGGER_TOKEN --tag $CI_COMMIT_TAG --auth-token $CI_JOB_TOKEN
 
 version-bump:k8s:gstgpre:
   <<: *version-bump
   needs: [ "version-bump:cng"]
   variables:
-    TRIGGER_TOKEN: $BUMP_VERSION_TRIGGER_TOKEN_K8S
+   AUTH_TOKEN: $BUMP_VERSION_AUTH_TOKEN_K8S
   script:
-    - go run cmd/internal/release-cli/main.go release k8s --stage gstg/pre --token $TRIGGER_TOKEN --tag $CI_COMMIT_TAG
+   - go run cmd/internal/release-cli/main.go release k8s --stage gstg/pre --auth-token $AUTH_TOKEN --tag $CI_COMMIT_TAG
 
 version-bump:k8s:gprd:
   <<: *version-bump
   needs: [ "version-bump:cng"]
   variables:
-    TRIGGER_TOKEN: $BUMP_VERSION_TRIGGER_TOKEN_K8S
+   AUTH_TOKEN: $BUMP_VERSION_AUTH_TOKEN_K8S
   script:
-    - go run cmd/internal/release-cli/main.go release k8s --stage gprd --token $TRIGGER_TOKEN --tag $CI_COMMIT_TAG
+   - go run cmd/internal/release-cli/main.go release k8s --stage gprd --auth-token $AUTH_TOKEN --tag $CI_COMMIT_TAG
 
 version-bump:gdk:
   <<: *version-bump
   needs: [ "version-bump:cng"]
   variables:
-    TRIGGER_TOKEN: $BUMP_VERSION_TRIGGER_TOKEN_GDK
+    AUTH_TOKEN: $BUMP_VERSION_AUTH_TOKEN_GDK
   script:
-    - go run cmd/internal/release-cli/main.go release gdk --token $TRIGGER_TOKEN --tag $CI_COMMIT_TAG
+   - go run cmd/internal/release-cli/main.go release gdk --auth-token $AUTH_TOKEN --tag $CI_COMMIT_TAG
 
 release-cop:
   stage: .post
   image: golang:1.19-buster
   script:
-    - go run cmd/internal/releasecop/main.go --target-project-id $PROJECT_ID --gitlab-auth-token $CI_JOB_TOKEN --slack-webhook $SLACK_WEBHOOK_URL
+   - go run cmd/internal/releasecop/main.go --target-project-id $PROJECT_ID --gitlab-auth-token $CI_JOB_TOKEN --slack-webhook $SLACK_WEBHOOK_URL
   only:
     - schedules
