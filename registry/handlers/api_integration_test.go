@@ -41,36 +41,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestURLPrefix(t *testing.T) {
-	config := newConfig()
-	config.HTTP.Prefix = "/test/"
-
-	env := newTestEnvWithConfig(t, &config)
-	defer env.Shutdown()
-
-	baseURL, err := env.builder.BuildBaseURL()
-	if err != nil {
-		t.Fatalf("unexpected error building base url: %v", err)
-	}
-
-	parsed, _ := url.Parse(baseURL)
-	if !strings.HasPrefix(parsed.Path, config.HTTP.Prefix) {
-		t.Fatalf("Prefix %v not included in test url %v", config.HTTP.Prefix, baseURL)
-	}
-
-	resp, err := http.Get(baseURL)
-	if err != nil {
-		t.Fatalf("unexpected error issuing request: %v", err)
-	}
-	defer resp.Body.Close()
-
-	checkResponse(t, "issuing api base check", resp, http.StatusOK)
-	checkHeaders(t, resp, http.Header{
-		"Content-Type":   []string{"application/json"},
-		"Content-Length": []string{"2"},
-	})
-}
-
 // TestBlobAPI conducts a full test of the of the blob api.
 func TestBlobAPI(t *testing.T) {
 	env1 := newTestEnv(t)

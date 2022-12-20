@@ -212,6 +212,12 @@ func withNotifications(notifCfg configuration.Notifications) configOpt {
 	}
 }
 
+func withHTTPPrefix(s string) configOpt {
+	return func(config *configuration.Configuration) {
+		config.HTTP.Prefix = s
+	}
+}
+
 var headerConfig = http.Header{
 	"X-Content-Type-Options": []string{"nosniff"},
 }
