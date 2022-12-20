@@ -136,6 +136,9 @@ func NewApp(ctx context.Context, config *configuration.Configuration) (*App, err
 		isCache:            config.Proxy.RemoteURL != "",
 	}
 
+	app.distributionRouter.Use(app.gorillaLogMiddleware)
+	app.gitlabRouter.Use(app.gorillaLogMiddleware)
+
 	// Register the handler dispatchers.
 	app.registerDistribution(v2.RouteNameBase, func(ctx *Context, r *http.Request) http.Handler {
 		return http.HandlerFunc(distributionAPIBase)
@@ -1075,6 +1078,30 @@ func (app *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Docker-Distribution-API-Version", "registry/2.0")
 
 	app.distributionRouter.ServeHTTP(w, r)
+}
+
+// Temporary middleware to add router and http configuration information
+// while we switch over to a new router away from gorilla/mux. See:
+// https://gitlab.com/groups/gitlab-org/-/epics/9467
+func (app *App) gorillaLogMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := app.context(w, r)
+
+		c := app.Config.HTTP
+
+		dlog.GetLogger(dlog.WithContext(ctx)).WithFields(dlog.Fields{
+			"router":                    "gorilla/mux",
+			"method":                    r.Method,
+			"path":                      r.URL.Path,
+			"config_http_host":          c.Host,
+			"config_http_addr":          c.Addr,
+			"config_http_net":           c.Net,
+			"config_http_prefix":        c.Prefix,
+			"config_http_relative_urls": c.RelativeURLs,
+		}).Info("router info")
+
+		next.ServeHTTP(w, r)
+	})
 }
 
 // dispatchFunc takes a context and request and returns a constructed handler
