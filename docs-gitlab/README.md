@@ -73,7 +73,7 @@ stored. Defaults to the empty string (bucket root).
 
 `trimlegacyrootprefix`
 
-Orginally, the Azure driver would write to `//` as the root directory, also
+Originally, the Azure driver would write to `//` as the root directory, also
 appearing in some places as `/<no-name>/` within the Azure UI. This legacy
 behavior must be preserved to support older deployments using this driver.
 Set to `true` to build root paths without an extra leading slash.
