@@ -217,7 +217,7 @@ service is active by running the `up` subcommand again without the
 ```text
 $ registry database migrate up -n 1 config.yml
 20200713143615_create_users_table
-OK: applied 1 migrations
+OK: applied 1 migrations in 0.412s
 ```
 
 ### Apply Down Migrations
@@ -262,7 +262,7 @@ $ registry database migrate down config.yml
 20200319130108_create_manifests_table
 20200319122755_create_repositories_table
 Preparing to apply down migrations. Are you sure? [y/N] y
-OK: applied 12 migrations
+OK: applied 12 migrations in 121.334s
 ```
 
 ### Status
