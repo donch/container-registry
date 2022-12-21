@@ -73,11 +73,3 @@ version-bump:gdk:
     AUTH_TOKEN: $BUMP_VERSION_AUTH_TOKEN_GDK
   script:
    - go run cmd/internal/release-cli/main.go release gdk --auth-token $AUTH_TOKEN --tag $CI_COMMIT_TAG
-
-release-cop:
-  stage: .post
-  image: golang:1.19-buster
-  script:
-   - go run cmd/internal/releasecop/main.go --target-project-id $PROJECT_ID --gitlab-auth-token $CI_JOB_TOKEN --slack-webhook $SLACK_WEBHOOK_URL
-  only:
-    - schedules
