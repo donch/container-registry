@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jszwec/csvutil"
 
@@ -259,12 +260,13 @@ var MigrateUpCmd = &cobra.Command{
 		}
 
 		if !dryRun {
+			start := time.Now()
 			n, err := m.UpN(*maxNumMigrations)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "failed to run database migrations: %v", err)
 				os.Exit(1)
 			}
-			fmt.Printf("OK: applied %d migrations\n", n)
+			fmt.Printf("OK: applied %d migrations in %.3fs\n", n, time.Since(start).Seconds())
 		}
 	},
 }
@@ -315,12 +317,13 @@ var MigrateDownCmd = &cobra.Command{
 				}
 			}
 
+			start := time.Now()
 			n, err := m.DownN(*maxNumMigrations)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "failed to run database migrations: %v", err)
 				os.Exit(1)
 			}
-			fmt.Printf("OK: applied %d migrations\n", n)
+			fmt.Printf("OK: applied %d migrations in %.3fs\n", n, time.Since(start).Seconds())
 		}
 	},
 }
