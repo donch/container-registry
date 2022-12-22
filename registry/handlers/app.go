@@ -83,16 +83,15 @@ type App struct {
 
 	Config *configuration.Configuration
 
-	distributionRouter *mux.Router                 // main application router, configured with dispatchers
-	gitlabRouter       *mux.Router                 // gitlab specific router
-	driver             storagedriver.StorageDriver // driver maintains the app global storage driver instance.
-	db                 *datastore.DB               // db is the global database handle used across the app.
-	registry           distribution.Namespace      // registry is the primary registry backend for the app instance.
-	migrationRegistry  distribution.Namespace      // migrationRegistry is the secondary registry backend for migration
-	migrationDriver    storagedriver.StorageDriver // migrationDriver is the secondary storage driver for migration
-	importNotifier     *migration.Notifier         // importNotifier used to send notifications when an import or pre-import is done
-	importSemaphore    chan struct{}               //importSemaphore is used to limit the maximum number of concurrent imports
-	ongoingImports     *ongoingImports             // ongoingImports is used to keep track of in progress imports for graceful shutdowns
+	router            *metaRouter                 // router dispatcher while we consolidate into the new router
+	driver            storagedriver.StorageDriver // driver maintains the app global storage driver instance.
+	db                *datastore.DB               // db is the global database handle used across the app.
+	registry          distribution.Namespace      // registry is the primary registry backend for the app instance.
+	migrationRegistry distribution.Namespace      // migrationRegistry is the secondary registry backend for migration
+	migrationDriver   storagedriver.StorageDriver // migrationDriver is the secondary storage driver for migration
+	importNotifier    *migration.Notifier         // importNotifier used to send notifications when an import or pre-import is done
+	importSemaphore   chan struct{}               // importSemaphore is used to limit the maximum number of concurrent imports
+	ongoingImports    *ongoingImports             // ongoingImports is used to keep track of in progress imports for graceful shutdowns
 
 	repoRemover      distribution.RepositoryRemover // repoRemover provides ability to delete repos
 	accessController auth.AccessController          // main access controller for application
@@ -129,38 +128,12 @@ type App struct {
 // handlers accordingly.
 func NewApp(ctx context.Context, config *configuration.Configuration) (*App, error) {
 	app := &App{
-		Config:             config,
-		Context:            ctx,
-		distributionRouter: v2.RouterWithPrefix(config.HTTP.Prefix),
-		gitlabRouter:       v1.Router(),
-		isCache:            config.Proxy.RemoteURL != "",
+		Config:  config,
+		Context: ctx,
+		isCache: config.Proxy.RemoteURL != "",
 	}
 
-	app.distributionRouter.Use(app.gorillaLogMiddleware)
-	app.gitlabRouter.Use(app.gorillaLogMiddleware)
-
-	// Register the handler dispatchers.
-	app.registerDistribution(v2.RouteNameBase, func(ctx *Context, r *http.Request) http.Handler {
-		return http.HandlerFunc(distributionAPIBase)
-	})
-	app.registerDistribution(v2.RouteNameManifest, manifestDispatcher)
-	app.registerDistribution(v2.RouteNameCatalog, catalogDispatcher)
-	app.registerDistribution(v2.RouteNameTags, tagsDispatcher)
-	app.registerDistribution(v2.RouteNameTag, tagDispatcher)
-	app.registerDistribution(v2.RouteNameBlob, blobDispatcher)
-	app.registerDistribution(v2.RouteNameBlobUpload, blobUploadDispatcher)
-	app.registerDistribution(v2.RouteNameBlobUploadChunk, blobUploadDispatcher)
-
-	// Register Gitlab handlers dispatchers.
-	app.registerGitlab(v1.Base, func(ctx *Context, r *http.Request) http.Handler {
-		if !app.Config.Database.Enabled {
-			return http.HandlerFunc(gitlabAPIBaseDisabled)
-		}
-		return http.HandlerFunc(gitlabAPIBase)
-	})
-	app.registerGitlab(v1.RepositoryImport, importDispatcher)
-	app.registerGitlab(v1.RepositoryTags, repositoryTagsDispatcher)
-	app.registerGitlab(v1.Repositories, repositoryDispatcher)
+	app.initMetaRouter()
 
 	storageParams := config.Storage.Parameters()
 	if storageParams == nil {
@@ -867,7 +840,7 @@ func (app *App) registerDistribution(routeName string, dispatch dispatchFunc) {
 	// replace it with manual routing and structure-based dispatch for better
 	// control over the request execution.
 
-	app.distributionRouter.GetRoute(routeName).Handler(handler)
+	app.router.distribution.GetRoute(routeName).Handler(handler)
 }
 
 func (app *App) registerGitlab(route v1.Route, dispatch dispatchFunc) {
@@ -887,7 +860,7 @@ func (app *App) registerGitlab(route v1.Route, dispatch dispatchFunc) {
 	// replace it with manual routing and structure-based dispatch for better
 	// control over the request execution.
 
-	app.gitlabRouter.GetRoute(route.Name).Handler(handler)
+	app.router.gitlab.GetRoute(route.Name).Handler(handler)
 }
 
 // configureEvents prepares the event sink for action.
@@ -1069,15 +1042,62 @@ func (app *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}()
 	}
 
+	app.router.ServeHTTP(w, r)
+}
+
+// metaRouter determines which router is appropreate for a given route. This
+// is a temporary measure while we consolidate all routes into a single chi router.
+// See: https://gitlab.com/groups/gitlab-org/-/epics/9467
+type metaRouter struct {
+	distribution *mux.Router // main application router, configured with dispatchers
+	gitlab       *mux.Router // gitlab specific router
+}
+
+// initMetaRouter constructs a new metaRouter and attaches it to the app.
+func (app *App) initMetaRouter() {
+	app.router = &metaRouter{
+		distribution: v2.RouterWithPrefix(app.Config.HTTP.Prefix),
+		gitlab:       v1.Router(),
+	}
+
+	app.router.distribution.Use(app.gorillaLogMiddleware)
+	app.router.distribution.Use(distributionAPIVersionMiddleware)
+
+	app.router.gitlab.Use(app.gorillaLogMiddleware)
+
+	// Register the handler dispatchers.
+	app.registerDistribution(v2.RouteNameBase, func(ctx *Context, r *http.Request) http.Handler {
+		return http.HandlerFunc(distributionAPIBase)
+	})
+	app.registerDistribution(v2.RouteNameManifest, manifestDispatcher)
+	app.registerDistribution(v2.RouteNameCatalog, catalogDispatcher)
+	app.registerDistribution(v2.RouteNameTags, tagsDispatcher)
+	app.registerDistribution(v2.RouteNameTag, tagDispatcher)
+	app.registerDistribution(v2.RouteNameBlob, blobDispatcher)
+	app.registerDistribution(v2.RouteNameBlobUpload, blobUploadDispatcher)
+	app.registerDistribution(v2.RouteNameBlobUploadChunk, blobUploadDispatcher)
+
+	// Register Gitlab handlers dispatchers.
+	app.registerGitlab(v1.Base, func(ctx *Context, r *http.Request) http.Handler {
+		if !app.Config.Database.Enabled {
+			return http.HandlerFunc(gitlabAPIBaseDisabled)
+		}
+		return http.HandlerFunc(gitlabAPIBase)
+	})
+	app.registerGitlab(v1.RepositoryImport, importDispatcher)
+	app.registerGitlab(v1.RepositoryTags, repositoryTagsDispatcher)
+	app.registerGitlab(v1.Repositories, repositoryDispatcher)
+
+}
+
+// ServeHTTP delegates urls to the appropriate router.
+func (m *metaRouter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if v1.RouteRegex.MatchString(r.URL.Path) {
-		app.gitlabRouter.ServeHTTP(w, r)
+		m.gitlab.ServeHTTP(w, r)
 		return
 	}
 
-	// Set a header with the Docker Distribution API Version for distribution API responses.
-	w.Header().Add("Docker-Distribution-API-Version", "registry/2.0")
-
-	app.distributionRouter.ServeHTTP(w, r)
+	m.distribution.ServeHTTP(w, r)
 }
 
 // Temporary middleware to add router and http configuration information
@@ -1099,6 +1119,16 @@ func (app *App) gorillaLogMiddleware(next http.Handler) http.Handler {
 			"config_http_prefix":        c.Prefix,
 			"config_http_relative_urls": c.RelativeURLs,
 		}).Info("router info")
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// distributionAPIVersionMiddleware sets a header with the Docker Distribution
+// API Version for distribution API responses.
+func distributionAPIVersionMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Docker-Distribution-API-Version", "registry/2.0")
 
 		next.ServeHTTP(w, r)
 	})
