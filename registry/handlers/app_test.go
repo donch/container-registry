@@ -47,12 +47,13 @@ func TestAppDistribtionDispatcher(t *testing.T) {
 		t.Fatalf("error creating registry: %v", err)
 	}
 	app := &App{
-		Config:             &configuration.Configuration{},
-		Context:            ctx,
-		distributionRouter: v2.Router(),
-		driver:             driver,
-		registry:           registry,
+		Config:   &configuration.Configuration{},
+		Context:  ctx,
+		router:   &metaRouter{distribution: v2.Router()},
+		driver:   driver,
+		registry: registry,
 	}
+
 	server := httptest.NewServer(app)
 	defer server.Close()
 	distributionRouter := v2.Router()
