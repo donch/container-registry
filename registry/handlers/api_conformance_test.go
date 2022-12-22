@@ -638,11 +638,12 @@ func baseURLAuth(t *testing.T, opts ...configOpt) {
 
 func baseURLPrefix(t *testing.T, opts ...configOpt) {
 	prefix := "/test/"
-	opts = append(opts, withHTTPPrefix("/test/"))
+	opts = append(opts, withHTTPPrefix(prefix))
 	env := newTestEnv(t, opts...)
 
 	defer env.Shutdown()
 
+	// Test V2 base URL.
 	baseURL, err := env.builder.BuildBaseURL()
 	require.NoError(t, err)
 
@@ -658,6 +659,30 @@ func baseURLPrefix(t *testing.T, opts ...configOpt) {
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
 	require.Equal(t, "2", resp.Header.Get("Content-Length"))
+
+	// Test GitLabV1 base URL.
+	baseURL, err = env.builder.BuildGitlabV1BaseURL()
+	require.NoError(t, err)
+
+	parsed, err = url.Parse(baseURL)
+	require.NoError(t, err)
+	require.Truef(t, strings.HasPrefix(parsed.Path, prefix),
+		"prefix %q not included in test url %q", prefix, baseURL)
+
+	resp, err = http.Get(baseURL)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// The V1 API base route returns 404s if the database is not enabled.
+	if env.config.Database.Enabled {
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+		require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
+		require.Equal(t, "2", resp.Header.Get("Content-Length"))
+	} else {
+		require.Equal(t, http.StatusNotFound, resp.StatusCode)
+		require.Equal(t, "", resp.Header.Get("Content-Type"))
+		require.Equal(t, "0", resp.Header.Get("Content-Length"))
+	}
 }
 
 func manifest_Put_Schema1_ByTag(t *testing.T, opts ...configOpt) {

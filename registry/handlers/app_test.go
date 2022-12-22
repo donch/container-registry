@@ -54,6 +54,8 @@ func TestAppDistribtionDispatcher(t *testing.T) {
 		registry: registry,
 	}
 
+	require.NoError(t, app.initMetaRouter())
+
 	server := httptest.NewServer(app)
 	defer server.Close()
 	distributionRouter := v2.Router()
