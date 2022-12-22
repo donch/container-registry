@@ -1079,10 +1079,8 @@ func (app *App) initMetaRouter() {
 
 	// Register Gitlab handlers dispatchers.
 	app.registerGitlab(v1.Base, func(ctx *Context, r *http.Request) http.Handler {
-		if !app.Config.Database.Enabled {
-			return http.HandlerFunc(gitlabAPIBaseDisabled)
-		}
-		return http.HandlerFunc(gitlabAPIBase)
+		h := &gitlabBaseHandler{app.Config.Database.Enabled}
+		return http.HandlerFunc(h.GetBase)
 	})
 	app.registerGitlab(v1.RepositoryImport, importDispatcher)
 	app.registerGitlab(v1.RepositoryTags, repositoryTagsDispatcher)
@@ -1122,6 +1120,20 @@ func (app *App) gorillaLogMiddleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+type gitlabBaseHandler struct{ dbEnabled bool }
+
+func (h *gitlabBaseHandler) GetBase(w http.ResponseWriter, r *http.Request) {
+	// Return a 404, signaling that the database is disabled and GitLab v1 API features are not available.
+	if !h.dbEnabled {
+		w.Header().Set("Gitlab-Container-Registry-Version", strings.TrimPrefix(version.Version, "v"))
+		w.WriteHeader(http.StatusNotFound)
+
+		return
+	}
+
+	apiBase(w, r)
 }
 
 // distributionAPIVersionMiddleware sets a header with the Docker Distribution
@@ -1571,15 +1583,6 @@ func distributionAPIBase(w http.ResponseWriter, r *http.Request) {
 	// Provide clients with information about extended distribu
 	w.Header().Set("Gitlab-Container-Registry-Features", version.ExtFeatures)
 	apiBase(w, r)
-}
-
-func gitlabAPIBase(w http.ResponseWriter, r *http.Request) { apiBase(w, r) }
-
-// gitlabAPIBaseDisabled always returns a 404, signaling that the database
-// is disabled and GitLab v1 API features are not available.
-func gitlabAPIBaseDisabled(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Gitlab-Container-Registry-Version", strings.TrimPrefix(version.Version, "v"))
-	w.WriteHeader(http.StatusNotFound)
 }
 
 // apiBase implements a simple yes-man for doing overall checks against the
