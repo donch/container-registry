@@ -133,7 +133,9 @@ func NewApp(ctx context.Context, config *configuration.Configuration) (*App, err
 		isCache: config.Proxy.RemoteURL != "",
 	}
 
-	app.initMetaRouter()
+	if err := app.initMetaRouter(); err != nil {
+		return nil, fmt.Errorf("initing metaRouter: %w", err)
+	}
 
 	storageParams := config.Storage.Parameters()
 	if storageParams == nil {
@@ -1051,15 +1053,17 @@ func (app *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 type metaRouter struct {
 	distribution *mux.Router // main application router, configured with dispatchers
 	gitlab       *mux.Router // gitlab specific router
+	v1RouteRegex *regexp.Regexp
 }
 
 // initMetaRouter constructs a new metaRouter and attaches it to the app.
-func (app *App) initMetaRouter() {
+func (app *App) initMetaRouter() error {
 	app.router = &metaRouter{
 		distribution: v2.RouterWithPrefix(app.Config.HTTP.Prefix),
-		gitlab:       v1.Router(),
+		gitlab:       v1.RouterWithPrefix(app.Config.HTTP.Prefix),
 	}
 
+	// Register middleware.
 	app.router.distribution.Use(app.gorillaLogMiddleware)
 	app.router.distribution.Use(distributionAPIVersionMiddleware)
 
@@ -1086,11 +1090,19 @@ func (app *App) initMetaRouter() {
 	app.registerGitlab(v1.RepositoryTags, repositoryTagsDispatcher)
 	app.registerGitlab(v1.Repositories, repositoryDispatcher)
 
+	var err error
+	v1PathWithPrefix := fmt.Sprintf("^%s%s.*", strings.TrimSuffix(app.Config.HTTP.Prefix, "/"), v1.Base.Path)
+	app.router.v1RouteRegex, err = regexp.Compile(v1PathWithPrefix)
+	if err != nil {
+		return fmt.Errorf("compiling v1 route prefix: %w", err)
+	}
+
+	return nil
 }
 
 // ServeHTTP delegates urls to the appropriate router.
 func (m *metaRouter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if v1.RouteRegex.MatchString(r.URL.Path) {
+	if m.v1RouteRegex.MatchString(r.URL.Path) {
 		m.gitlab.ServeHTTP(w, r)
 		return
 	}
