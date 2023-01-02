@@ -18,6 +18,7 @@ import (
 
 	gocache "github.com/eko/gocache/v2/cache"
 	"github.com/eko/gocache/v2/marshaler"
+	"github.com/eko/gocache/v2/store"
 	"github.com/go-redis/redis/v8"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
@@ -50,6 +51,7 @@ type RepositoryReader interface {
 	ExistsBlob(ctx context.Context, r *models.Repository, d digest.Digest) (bool, error)
 	Size(ctx context.Context, r *models.Repository) (int64, error)
 	SizeWithDescendants(ctx context.Context, r *models.Repository) (int64, error)
+	EstimatedSizeWithDescendants(ctx context.Context, r *models.Repository) (int64, error)
 	TagsDetailPaginated(ctx context.Context, r *models.Repository, limit int, lastName string) ([]*models.TagDetail, error)
 }
 
@@ -174,6 +176,9 @@ type RepositoryCache interface {
 	Get(ctx context.Context, path string) *models.Repository
 	Set(ctx context.Context, repo *models.Repository)
 	InvalidateSize(ctx context.Context, repo *models.Repository)
+
+	SizeWithDescendantsTimedOut(ctx context.Context, r *models.Repository)
+	HasSizeWithDescendantsTimedOut(ctx context.Context, r *models.Repository) bool
 }
 
 // noOpRepositoryCache satisfies the RepositoryCache, but does not cache anything.
@@ -186,9 +191,13 @@ func NewNoOpRepositoryCache() *noOpRepositoryCache {
 	return &noOpRepositoryCache{}
 }
 
-func (n *noOpRepositoryCache) Get(context.Context, string) *models.Repository     { return nil }
-func (n *noOpRepositoryCache) Set(context.Context, *models.Repository)            {}
-func (n *noOpRepositoryCache) InvalidateSize(context.Context, *models.Repository) {}
+func (n *noOpRepositoryCache) Get(context.Context, string) *models.Repository                  { return nil }
+func (n *noOpRepositoryCache) Set(context.Context, *models.Repository)                         {}
+func (n *noOpRepositoryCache) InvalidateSize(context.Context, *models.Repository)              {}
+func (n *noOpRepositoryCache) SizeWithDescendantsTimedOut(context.Context, *models.Repository) {}
+func (n *noOpRepositoryCache) HasSizeWithDescendantsTimedOut(context.Context, *models.Repository) bool {
+	return false
+}
 
 // singleRepositoryCache caches a single repository in-memory. This implementation is not thread-safe. Deprecated in
 // favor of centralRepositoryCache.
@@ -222,14 +231,29 @@ func (c *singleRepositoryCache) InvalidateSize(_ context.Context, r *models.Repo
 	}
 }
 
+// SizeWithDescendantsTimedOut is a noop. We're phasing out the singleRepositoryCache cache implementation in favor of
+// the centralRepositoryCache one, and the only place where we'll be making use of the related functionality (estimated
+// size), the GitLab V1 API repositories handler, is explicitly making use of the latter.
+func (c *singleRepositoryCache) SizeWithDescendantsTimedOut(context.Context, *models.Repository) {}
+
+// HasSizeWithDescendantsTimedOut is a noop. We're phasing out the singleRepositoryCache cache implementation in favor
+// of the centralRepositoryCache one, and the only place where we'll be making use of the related functionality
+// (estimated size), the GitLab V1 API repositories handler, is explicitly making use of the latter.
+func (c *singleRepositoryCache) HasSizeWithDescendantsTimedOut(context.Context, *models.Repository) bool {
+	return false
+}
+
 // centralRepositoryCache is the interface for the centralized repository object cache backed by Redis.
 type centralRepositoryCache struct {
-	cache *marshaler.Marshaler
+	// cache provides access to the raw gocache interface
+	cache *gocache.Cache
+	// marshaler provides access to a MessagePack backed marshaling interface
+	marshaler *marshaler.Marshaler
 }
 
 // NewCentralRepositoryCache creates an interface for the centralized repository object cache backed by Redis.
 func NewCentralRepositoryCache(cache *gocache.Cache) *centralRepositoryCache {
-	return &centralRepositoryCache{marshaler.New(cache)}
+	return &centralRepositoryCache{cache, marshaler.New(cache)}
 }
 
 // key generates a valid Redis key string for a given repository object. The used key format is described in
@@ -240,6 +264,15 @@ func (c *centralRepositoryCache) key(path string) string {
 	return fmt.Sprintf("registry:db:{repository:%s:%s}", nsPrefix, hex)
 }
 
+// sizeWithDescendantsTimedOutKey generates a valid Redis key string for a flag used to indicate whether the last "size
+// with descendants" query has timed out for a given repository object.
+// This flag needs to be stored as a separate key instead of being embedded in the repository struct because we need it
+// to expire after a specific TTL, independently of the repository object key TTL.
+func (c *centralRepositoryCache) sizeWithDescendantsTimedOutKey(path string) string {
+	// "swd" stands for "size with descendants" for the sake of compactness (the name of these keys can get really long)
+	return fmt.Sprintf("%s:swd-timeout", c.key(path))
+}
+
 // Get implements RepositoryCache.
 func (c *centralRepositoryCache) Get(ctx context.Context, path string) *models.Repository {
 	l := log.GetLogger(log.WithContext(ctx))
@@ -247,7 +280,7 @@ func (c *centralRepositoryCache) Get(ctx context.Context, path string) *models.R
 	getCtx, cancel := context.WithTimeout(ctx, cacheOpTimeout)
 	defer cancel()
 
-	tmp, err := c.cache.Get(getCtx, c.key(path), new(models.Repository))
+	tmp, err := c.marshaler.Get(getCtx, c.key(path), new(models.Repository))
 	if err != nil {
 		// redis.Nil is returned when the key is not found in Redis
 		if err != redis.Nil {
@@ -280,9 +313,45 @@ func (c *centralRepositoryCache) Set(ctx context.Context, r *models.Repository) 
 	setCtx, cancel := context.WithTimeout(ctx, cacheOpTimeout)
 	defer cancel()
 
-	if err := c.cache.Set(setCtx, c.key(r.Path), r, nil); err != nil {
+	if err := c.marshaler.Set(setCtx, c.key(r.Path), r, nil); err != nil {
 		log.GetLogger(log.WithContext(ctx)).WithError(err).Warn("failed to write repository to cache")
 	}
+}
+
+const sizeTimedOutKeyTTL = 24 * time.Hour
+
+// SizeWithDescendantsTimedOut creates a key in Redis for repository r whenever the SizeWithDescendants query has timed
+// out. This key has a TTL of sizeTimedOutKeyTTL to avoid consecutive failures.
+func (c *centralRepositoryCache) SizeWithDescendantsTimedOut(ctx context.Context, r *models.Repository) {
+	if r == nil {
+		return
+	}
+	setCtx, cancel := context.WithTimeout(ctx, cacheOpTimeout)
+	defer cancel()
+
+	opts := &store.Options{Expiration: sizeTimedOutKeyTTL}
+	if err := c.cache.Set(setCtx, c.sizeWithDescendantsTimedOutKey(r.Path), "true", opts); err != nil {
+		log.GetLogger(log.WithContext(ctx)).WithError(err).Warn("failed to create size with descendants timeout key in cache")
+	}
+}
+
+// HasSizeWithDescendantsTimedOut checks if a size with descendants timeout key exists in Redis for repository r. This
+// is then used to avoid consecutive failures during the TTL of this key (sizeTimedOutKeyTTL).
+func (c *centralRepositoryCache) HasSizeWithDescendantsTimedOut(ctx context.Context, r *models.Repository) bool {
+	setCtx, cancel := context.WithTimeout(ctx, cacheOpTimeout)
+	defer cancel()
+
+	if _, err := c.cache.Get(setCtx, c.sizeWithDescendantsTimedOutKey(r.Path)); err != nil {
+		// redis.Nil is returned when the key is not found in Redis
+		if err != redis.Nil {
+			msg := "failed to read size with descendants timeout key from cache"
+			log.GetLogger(log.WithContext(ctx)).WithError(err).Error(msg)
+			errortracking.Capture(fmt.Errorf("%s: %w", msg, err), errortracking.WithContext(ctx))
+		}
+		return false
+	}
+	// we don't care about the value of the key, only if it exists
+	return true
 }
 
 // InvalidateSize implements RepositoryCache.
@@ -291,7 +360,7 @@ func (c *centralRepositoryCache) InvalidateSize(ctx context.Context, r *models.R
 	defer cancel()
 
 	r.Size = nil
-	if err := c.cache.Set(inValCtx, c.key(r.Path), r, nil); err != nil {
+	if err := c.marshaler.Set(inValCtx, c.key(r.Path), r, nil); err != nil {
 		detail := "failed to invalidate repository size in cache for repo: " + r.Path
 		log.GetLogger(log.WithContext(ctx)).WithError(err).Warn(detail)
 		err := fmt.Errorf("%q: %q", detail, err)
@@ -1154,15 +1223,70 @@ func (s *repositoryStore) nonTopLevelSizeWithDescendants(ctx context.Context, r 
 	return size, nil
 }
 
+var ErrSizeHasTimedOut = errors.New("size query timed out previously")
+
 // SizeWithDescendants returns the deduplicated size of a repository, including all descendants (if any). This is the
 // sum of the size of all unique layers referenced by at least one tagged (directly or indirectly) manifest. No error is
 // returned if the repository does not exist. It is the caller's responsibility to ensure it exists before calling this
 // method and proceed accordingly if that matters.
+// If this method, for this repository, failed with a statement timeout in the last 24h, then ErrSizeHasTimedOut is
+// returned to prevent consecutive failures. The caller can then fall back to EstimatedSizeWithDescendants. This is a
+// mitigation strategy for https://gitlab.com/gitlab-org/container-registry/-/issues/779.
 func (s *repositoryStore) SizeWithDescendants(ctx context.Context, r *models.Repository) (int64, error) {
 	if r.IsTopLevel() {
-		return s.topLevelSizeWithDescendants(ctx, r)
+		if s.cache.HasSizeWithDescendantsTimedOut(ctx, r) {
+			return 0, ErrSizeHasTimedOut
+		}
+
+		size, err := s.topLevelSizeWithDescendants(ctx, r)
+		if err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.QueryCanceled {
+				// flag query failure for target repository to avoid consecutive failures
+				s.cache.SizeWithDescendantsTimedOut(ctx, r)
+			}
+			return size, err
+		}
 	}
+
 	return s.nonTopLevelSizeWithDescendants(ctx, r)
+}
+
+// estimateTopLevelSizeWithDescendants is a simplified alternative to topLevelSizeWithDescendants which does not exclude
+// estimateTopLevelSizeWithDescendants is a significantly faster alternative to topLevelSizeWithDescendants which does
+// not exclude unreferenced layers. Therefore, the measured size should be considered an estimate.
+func (s *repositoryStore) estimateTopLevelSizeWithDescendants(ctx context.Context, r *models.Repository) (int64, error) {
+	defer metrics.InstrumentQuery("repository_size_with_descendants_top_level_estimate")()
+
+	q := `SELECT
+			coalesce(sum(q.size), 0)
+		FROM ( SELECT DISTINCT ON (digest)
+				size
+			FROM
+				layers
+			WHERE
+				top_level_namespace_id = $1) q`
+
+	var size int64
+	if err := s.db.QueryRowContext(ctx, q, r.NamespaceID).Scan(&size); err != nil {
+		return 0, fmt.Errorf("estimating top-level repository size with descendants: %w", err)
+	}
+
+	return size, nil
+}
+
+var ErrOnlyRootEstimates = errors.New("only the size of root repositories can be estimated")
+
+// EstimatedSizeWithDescendants is an alternative to SizeWithDescendants that relies on a simpler query that does not
+// exclude unreferenced layers. Therefore, the measured size should be considered an estimate. This is a partial
+// mitigation for https://gitlab.com/gitlab-org/container-registry/-/issues/779. For now, only top-level namespaces are
+// supported. ErrOnlyRootEstimates is returned if attempting to estimate the size of a non-root repository.
+func (s *repositoryStore) EstimatedSizeWithDescendants(ctx context.Context, r *models.Repository) (size int64, err error) {
+	if !r.IsTopLevel() {
+		return 0, ErrOnlyRootEstimates
+	}
+
+	return s.estimateTopLevelSizeWithDescendants(ctx, r)
 }
 
 // CreateOrFind attempts to create a repository. If the repository already exists (same path) that record is loaded from

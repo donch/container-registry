@@ -18,6 +18,9 @@ import (
 	"github.com/docker/distribution/registry/datastore/testutil"
 	"github.com/docker/distribution/registry/internal/migration"
 	itestutil "github.com/docker/distribution/registry/internal/testutil"
+
+	"github.com/jackc/pgconn"
+	"github.com/jackc/pgerrcode"
 	"github.com/opencontainers/go-digest"
 	"github.com/stretchr/testify/require"
 )
@@ -1689,6 +1692,145 @@ func TestRepositoryStore_SizeWithDescendants_NonTopLevelNotFound(t *testing.T) {
 
 	size, err := s.SizeWithDescendants(suite.ctx, &models.Repository{NamespaceID: 100, ID: 1001, Path: "foo/bar"})
 	require.NoError(t, err)
+	require.Zero(t, size)
+}
+
+func TestRepositoryStore_SizeWithDescendants_TopLevel_ChecksCacheForPreviousTimeout(t *testing.T) {
+	reloadManifestFixtures(t)
+
+	redisCache, redisMock := itestutil.RedisCacheMock(t, 0)
+	cache := datastore.NewCentralRepositoryCache(redisCache)
+
+	s := datastore.NewRepositoryStore(suite.db, datastore.WithRepositoryCache(cache))
+
+	repo := &models.Repository{NamespaceID: 3, ID: 8, Path: "usage-group"}
+	redisKey := fmt.Sprintf("registry:db:{repository:%s:%s}:swd-timeout", repo.Path, digest.FromString(repo.Path).Hex())
+
+	// Checks Redis to see if the latest invocation has failed. Proceeds with query execution if not.
+	redisMock.ExpectGet(redisKey).RedisNil()
+
+	size, err := s.SizeWithDescendants(suite.ctx, repo)
+	require.NoError(t, err)
+	require.Equal(t, int64(7543014), size)
+
+	// Checks Redis to see if the latest invocation has failed. Halts if so.
+	redisMock.ExpectGet(redisKey).SetVal("value does not matter")
+
+	size, err = s.SizeWithDescendants(suite.ctx, repo)
+	require.ErrorIs(t, err, datastore.ErrSizeHasTimedOut)
+	require.Zero(t, size)
+}
+
+func TestRepositoryStore_SizeWithDescendants_TopLevel_SetsCacheOnTimeout(t *testing.T) {
+	reloadManifestFixtures(t)
+
+	redisCache, redisMock := itestutil.RedisCacheMock(t, 0)
+	cache := datastore.NewCentralRepositoryCache(redisCache)
+
+	// use transaction with a statement timeout of 1ms, so that all queries within time out
+	tx, err := suite.db.BeginTx(suite.ctx, nil)
+	require.NoError(t, err)
+	defer tx.Rollback()
+
+	_, err = tx.ExecContext(suite.ctx, "SET statement_timeout TO 1")
+	require.NoError(t, err)
+	// wait a bit so that PG has time to flush the update
+	time.Sleep(250 * time.Millisecond)
+
+	s := datastore.NewRepositoryStore(tx, datastore.WithRepositoryCache(cache))
+
+	repo := &models.Repository{NamespaceID: 3, ID: 8, Path: "usage-group"}
+	redisKey := fmt.Sprintf("registry:db:{repository:%s:%s}:swd-timeout", repo.Path, digest.FromString(repo.Path).Hex())
+
+	redisMock.ExpectGet(redisKey).RedisNil()
+	redisMock.ExpectSet(redisKey, "true", 24*time.Hour).SetVal("true")
+
+	size, err := s.SizeWithDescendants(suite.ctx, repo)
+	require.NotNil(t, err)
+
+	// make sure the error is not masked
+	var pgErr *pgconn.PgError
+	require.ErrorAs(t, err, &pgErr)
+	require.Equal(t, pgErr.Code, pgerrcode.QueryCanceled)
+	require.Zero(t, size)
+}
+
+func TestRepositoryStore_SizeWithDescendants_NonTopLevel_DoesNotTouchCacheTimeout(t *testing.T) {
+	reloadManifestFixtures(t)
+
+	redisCache, _ := itestutil.RedisCacheMock(t, 0)
+	cache := datastore.NewCentralRepositoryCache(redisCache)
+
+	repo := &models.Repository{NamespaceID: 3, ID: 9, Path: "usage-group/sub-group-1"}
+
+	// Test that the cache is not read before a successful query. There are no expectations set on the redis mock, so
+	// this would fail if it got called.
+	s := datastore.NewRepositoryStore(suite.db, datastore.WithRepositoryCache(cache))
+	size, err := s.SizeWithDescendants(suite.ctx, repo)
+	require.NoError(t, err)
+	require.Equal(t, int64(1659463), size)
+
+	// Test that the cache is not set after a failed query. Use transaction with a statement timeout of 1ms, so that all
+	// queries within time out.
+	tx, err := suite.db.BeginTx(suite.ctx, nil)
+	require.NoError(t, err)
+	defer tx.Rollback()
+
+	_, err = tx.ExecContext(suite.ctx, "SET statement_timeout TO 1")
+	require.NoError(t, err)
+	// wait a bit so that PG has time to flush the update
+	time.Sleep(250 * time.Millisecond)
+
+	s = datastore.NewRepositoryStore(tx, datastore.WithRepositoryCache(cache))
+	size, err = s.SizeWithDescendants(suite.ctx, repo)
+	// make sure the error is not masked
+	var pgErr *pgconn.PgError
+	require.ErrorAs(t, err, &pgErr)
+	require.Equal(t, pgErr.Code, pgerrcode.QueryCanceled)
+	require.Zero(t, size)
+}
+
+// TestRepositoryStore_EstimatedSizeWithDescendants_TopLevel is similar to
+// TestRepositoryStore_SizeWithDescendants_TopLevel (see its description for details), but here we expect the returned
+// size to be the sum of all layers, including the unreferenced ones. The expected repository size is therefore
+// `1*La + 1*Lb + 1*Lc + 1*Ld + 1*Le+ 1*Lf+ 1*Lg + 1*Lh + 1*Li + 1*Lj`, which equals to 8467925.
+func TestRepositoryStore_EstimatedSizeWithDescendants_TopLevel(t *testing.T) {
+	reloadManifestFixtures(t)
+
+	s := datastore.NewRepositoryStore(suite.db)
+
+	size, err := s.EstimatedSizeWithDescendants(suite.ctx, &models.Repository{NamespaceID: 3, ID: 8, Path: "usage-group"})
+	require.NoError(t, err)
+	require.Equal(t, int64(8467925), size)
+}
+
+func TestRepositoryStore_EstimatedSizeWithDescendants_TopLevelNotFound(t *testing.T) {
+	reloadManifestFixtures(t)
+
+	s := datastore.NewRepositoryStore(suite.db)
+
+	size, err := s.EstimatedSizeWithDescendants(suite.ctx, &models.Repository{NamespaceID: 100, ID: 1000, Path: "foo"})
+	require.NoError(t, err)
+	require.Zero(t, size)
+}
+
+func TestRepositoryStore_EstimatedSizeWithDescendants_TopLevelEmpty(t *testing.T) {
+	reloadManifestFixtures(t)
+
+	s := datastore.NewRepositoryStore(suite.db)
+
+	size, err := s.EstimatedSizeWithDescendants(suite.ctx, &models.Repository{NamespaceID: 4, ID: 15, Path: "usage-group-2"})
+	require.NoError(t, err)
+	require.Zero(t, size)
+}
+
+func TestRepositoryStore_EstimatedSizeWithDescendants_NonTopLevel(t *testing.T) {
+	reloadManifestFixtures(t)
+
+	s := datastore.NewRepositoryStore(suite.db)
+
+	size, err := s.EstimatedSizeWithDescendants(suite.ctx, &models.Repository{NamespaceID: 3, ID: 9, Path: "usage-group/sub-group-1"})
+	require.ErrorIs(t, err, datastore.ErrOnlyRootEstimates)
 	require.Zero(t, size)
 }
 
