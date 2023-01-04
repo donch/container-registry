@@ -53,6 +53,7 @@ type RepositoryReader interface {
 	SizeWithDescendants(ctx context.Context, r *models.Repository) (int64, error)
 	EstimatedSizeWithDescendants(ctx context.Context, r *models.Repository) (int64, error)
 	TagsDetailPaginated(ctx context.Context, r *models.Repository, limit int, lastName string) ([]*models.TagDetail, error)
+	FindPagingatedRepositoriesForPath(ctx context.Context, path string, lastPath string, limit int) (models.Repositories, error)
 }
 
 // RepositoryWriter is the interface that defines write operations for a repository store.
@@ -1541,4 +1542,63 @@ func (s *repositoryStore) DeleteManifest(ctx context.Context, r *models.Reposito
 	s.cache.InvalidateSize(ctx, r)
 
 	return count == 1, nil
+}
+
+// FindPagingatedRepositoriesForPath finds all repositories (up to `limit` repositories) that have a base path `path`.
+// The results are ordered lexicographically by repository path and only begin from `lastPath`.
+// Empty repositories (which do not have at least a tag) are ignored.
+// Also, even if there are no repository with a `path` of `lastPath`, the returned
+// repositories will still be those with a base path `path` and lexicographically after lastPath.
+func (s *repositoryStore) FindPagingatedRepositoriesForPath(ctx context.Context, path string, lastPath string, limit int) (models.Repositories, error) {
+	defer metrics.InstrumentQuery("repository_find_descendants_of")()
+	q := `SELECT  
+			id,
+			top_level_namespace_id,
+			name,
+			path,
+			parent_id,
+			migration_status,
+			migration_error,
+			created_at,
+			updated_at  
+		FROM
+			repositories AS r
+		WHERE
+			(r.path = $1 OR r.path LIKE $2)
+			AND EXISTS ( SELECT FROM tags AS t WHERE t.top_level_namespace_id = r.top_level_namespace_id AND t.repository_id = r.id )
+			AND (r.path > $3 AND r.path < $4)
+		ORDER BY r.path
+		LIMIT $5`
+
+	rows, err := s.db.QueryContext(ctx, q, path, path+"/%", lastPath, lexicographicallyNextPath(path), limit)
+	if err != nil {
+		return nil, fmt.Errorf("finding pagingated list of repository for path: %w", err)
+	}
+
+	return scanFullRepositories(rows)
+}
+
+// lexicographicallyNextPath takes a path string and returns the next lexicographical path string.
+// Empty paths (i.e a path of the form "") will result in an "a", paths with only "z" characters will append an a.
+// All other paths will result in their next logical lexicographical variation (e.g gitlab-com => gitlab-con , gitlab-com.  => gitlab-com/)
+// This function serves primarily as a helper for optimizing paginated db queries used in `FindPagingatedRepositoriesForPath.
+func lexicographicallyNextPath(path string) string {
+	// Find first character from right
+	// which is not z.
+	i := strings.LastIndexFunc(path, func(r rune) bool {
+		return r != 'z'
+	})
+
+	var nexLexPath string
+	// If all characters are 'z' or empty string, append
+	// an 'a' at the end.
+	if i == -1 {
+		nexLexPath = path + "a"
+	} else {
+		// If there are some non-z characters
+		rPath := []rune(path)
+		rPath[i]++
+		nexLexPath = string(rPath)
+	}
+	return nexLexPath
 }

@@ -2438,3 +2438,213 @@ func TestRepositoryStore_TagsDetailPaginated_None(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, tt)
 }
+
+func TestRepositoryStore_FindPagingatedRepositoriesForPath(t *testing.T) {
+	reloadTagFixtures(t)
+
+	tt := []struct {
+		name     string
+		limit    int
+		path     string
+		lastPath string
+
+		// see testdata/fixtures/[repositories|tags].sql:
+		//
+		// 		gitlab-org 												(0 tag(s))
+		// 		gitlab-org/gitlab-test 									(0 tag(s))
+		// 		gitlab-org/gitlab-test/backend 							(4 tag(s))
+		// 		gitlab-org/gitlab-test/frontend 						(4 tag(s))
+		// 		a-test-group 											(0 tag(s))
+		// 		a-test-group/foo  										(0 tag(s))
+		// 		a-test-group/bar 										(0 tag(s))
+		// 		usage-group 											(0 tag(s))
+		// 		usage-group/sub-group-1 								(1 tag(s))
+		// 		usage-group/sub-group-1/repository-1					(4 tag(s))
+		// 		usage-group/sub-group-1/repository-2 					(1 tag(s))
+		// 		usage-group/sub-group-2 								(0 tag(s))
+		// 		usage-group/sub-group-2/repository-1 					(1 tag(s))
+		// 		usage-group/sub-group-2/repository-1/sub-repository-1 	(1 tag(s))
+		// 		usage-group-2 											(0 tag(s))
+		// 		usage-group-2/sub-group-1/project-1 					(0 tag(s))
+		expectedRepos models.Repositories
+	}{
+		{
+			name:     "no limit and no last path",
+			limit:    100, // there are only 16 repositories in the DB, so this is equivalent to no limit
+			lastPath: "",  // this is the equivalent to no last path, as all repository paths are non-empty
+			path:     "usage-group",
+			expectedRepos: models.Repositories{
+				{
+					ID:              9,
+					NamespaceID:     3,
+					Name:            "sub-group-1",
+					Path:            "usage-group/sub-group-1",
+					ParentID:        sql.NullInt64{Int64: 8, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
+				},
+				{
+					ID:              10,
+					NamespaceID:     3,
+					Name:            "repository-1",
+					Path:            "usage-group/sub-group-1/repository-1",
+					ParentID:        sql.NullInt64{Int64: 9, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
+				},
+				{
+					ID:              11,
+					NamespaceID:     3,
+					Name:            "repository-2",
+					Path:            "usage-group/sub-group-1/repository-2",
+					ParentID:        sql.NullInt64{Int64: 9, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
+				},
+				{
+					ID:              13,
+					NamespaceID:     3,
+					Name:            "repository-1",
+					Path:            "usage-group/sub-group-2/repository-1",
+					ParentID:        sql.NullInt64{Int64: 12, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
+				},
+				{
+					ID:              14,
+					NamespaceID:     3,
+					Name:            "sub-repository-1",
+					Path:            "usage-group/sub-group-2/repository-1/sub-repository-1",
+					ParentID:        sql.NullInt64{Int64: 13, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
+				},
+			},
+		},
+		{
+			name:     "1st part",
+			limit:    2,
+			lastPath: "",
+			path:     "usage-group",
+			expectedRepos: models.Repositories{
+				{
+					ID:              9,
+					NamespaceID:     3,
+					Name:            "sub-group-1",
+					Path:            "usage-group/sub-group-1",
+					ParentID:        sql.NullInt64{Int64: 8, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
+				},
+				{
+					ID:              10,
+					NamespaceID:     3,
+					Name:            "repository-1",
+					Path:            "usage-group/sub-group-1/repository-1",
+					ParentID:        sql.NullInt64{Int64: 9, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
+				},
+			},
+		},
+		{
+			name:     "last part",
+			limit:    100,
+			path:     "usage-group",
+			lastPath: "usage-group/sub-group-1/repository-1",
+			expectedRepos: models.Repositories{
+				{
+					ID:              11,
+					NamespaceID:     3,
+					Name:            "repository-2",
+					Path:            "usage-group/sub-group-1/repository-2",
+					ParentID:        sql.NullInt64{Int64: 9, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
+				},
+				{
+					ID:              13,
+					NamespaceID:     3,
+					Name:            "repository-1",
+					Path:            "usage-group/sub-group-2/repository-1",
+					ParentID:        sql.NullInt64{Int64: 12, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
+				},
+				{
+					ID:              14,
+					NamespaceID:     3,
+					Name:            "sub-repository-1",
+					Path:            "usage-group/sub-group-2/repository-1/sub-repository-1",
+					ParentID:        sql.NullInt64{Int64: 13, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
+				},
+			},
+		},
+		{
+			name:     "nth part",
+			limit:    1,
+			path:     "usage-group",
+			lastPath: "usage-group/sub-group-1/repository-2",
+			expectedRepos: models.Repositories{
+				{
+					ID:              13,
+					NamespaceID:     3,
+					Name:            "repository-1",
+					Path:            "usage-group/sub-group-2/repository-1",
+					ParentID:        sql.NullInt64{Int64: 12, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
+				},
+			},
+		},
+		{
+			name:     "non existent last path starting with d",
+			limit:    100,
+			path:     "gitlab-org",
+			lastPath: "does-not-exist",
+			expectedRepos: models.Repositories{
+				{
+					ID:              3,
+					NamespaceID:     1,
+					Name:            "backend",
+					Path:            "gitlab-org/gitlab-test/backend",
+					ParentID:        sql.NullInt64{Int64: 2, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
+				},
+				{
+					ID:              4,
+					NamespaceID:     1,
+					Name:            "frontend",
+					Path:            "gitlab-org/gitlab-test/frontend",
+					ParentID:        sql.NullInt64{Int64: 2, Valid: true},
+					MigrationStatus: migration.RepositoryStatusNative,
+				},
+			},
+		},
+		{
+			name:          "non existent last path starting with z",
+			limit:         100,
+			path:          "gitlab-org",
+			lastPath:      "z-does-not-exist",
+			expectedRepos: models.Repositories{},
+		},
+	}
+
+	s := datastore.NewRepositoryStore(suite.db)
+
+	for _, test := range tt {
+		t.Run(test.name, func(t *testing.T) {
+			rr, err := s.FindPagingatedRepositoriesForPath(suite.ctx, test.path, test.lastPath, test.limit)
+
+			// reset created_at attributes for reproducible comparisons
+			for _, r := range rr {
+				require.NotEmpty(t, r.CreatedAt)
+				r.CreatedAt = time.Time{}
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, test.expectedRepos, rr)
+		})
+	}
+}
+
+func TestRepositoryStore_FindPagingatedRepositoriesForPath_None(t *testing.T) {
+	reloadTagFixtures(t)
+
+	s := datastore.NewRepositoryStore(suite.db)
+
+	rr, err := s.FindPagingatedRepositoriesForPath(suite.ctx, "a-test-group", "", 100)
+	require.NoError(t, err)
+	require.Empty(t, rr)
+}

@@ -62,3 +62,43 @@ func TestApplyOptions(t *testing.T) {
 		})
 	}
 }
+
+func TestLexicographicallyNextPath(t *testing.T) {
+	var tests = []struct {
+		path             string
+		expectedNextPath string
+	}{
+		{
+			path:             "gitlab.com",
+			expectedNextPath: "gitlab.con",
+		},
+		{
+			path:             "gitlab.com.",
+			expectedNextPath: "gitlab.com/",
+		},
+		{
+			path:             "",
+			expectedNextPath: "a",
+		},
+		{
+			path:             "zzzz/zzzz",
+			expectedNextPath: "zzzz0zzzz",
+		},
+		{
+			path:             "zzz",
+			expectedNextPath: "zzza",
+		},
+		{
+			path:             "zzzZ",
+			expectedNextPath: "zzz[",
+		},
+		{
+			path:             "gitlab-com/gl-infra/k8s-workloads",
+			expectedNextPath: "gitlab-com/gl-infra/k8s-workloadt",
+		},
+	}
+
+	for _, test := range tests {
+		require.Equal(t, test.expectedNextPath, lexicographicallyNextPath(test.path))
+	}
+}
