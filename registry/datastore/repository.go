@@ -1234,23 +1234,24 @@ var ErrSizeHasTimedOut = errors.New("size query timed out previously")
 // returned to prevent consecutive failures. The caller can then fall back to EstimatedSizeWithDescendants. This is a
 // mitigation strategy for https://gitlab.com/gitlab-org/container-registry/-/issues/779.
 func (s *repositoryStore) SizeWithDescendants(ctx context.Context, r *models.Repository) (int64, error) {
-	if r.IsTopLevel() {
-		if s.cache.HasSizeWithDescendantsTimedOut(ctx, r) {
-			return 0, ErrSizeHasTimedOut
-		}
+	if !r.IsTopLevel() {
+		return s.nonTopLevelSizeWithDescendants(ctx, r)
+	}
 
-		size, err := s.topLevelSizeWithDescendants(ctx, r)
-		if err != nil {
-			var pgErr *pgconn.PgError
-			if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.QueryCanceled {
-				// flag query failure for target repository to avoid consecutive failures
-				s.cache.SizeWithDescendantsTimedOut(ctx, r)
-			}
-			return size, err
+	if s.cache.HasSizeWithDescendantsTimedOut(ctx, r) {
+		return 0, ErrSizeHasTimedOut
+	}
+
+	size, err := s.topLevelSizeWithDescendants(ctx, r)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.QueryCanceled {
+			// flag query failure for target repository to avoid consecutive failures
+			s.cache.SizeWithDescendantsTimedOut(ctx, r)
 		}
 	}
 
-	return s.nonTopLevelSizeWithDescendants(ctx, r)
+	return size, err
 }
 
 // estimateTopLevelSizeWithDescendants is a simplified alternative to topLevelSizeWithDescendants which does not exclude

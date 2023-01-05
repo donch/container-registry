@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"reflect"
 	"regexp"
@@ -16,7 +17,10 @@ import (
 	v2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/docker/distribution/registry/datastore"
 	"github.com/docker/distribution/registry/datastore/models"
+
 	"github.com/gorilla/handlers"
+	"github.com/jackc/pgconn"
+	"github.com/jackc/pgerrcode"
 )
 
 type repositoryHandler struct {
@@ -34,11 +38,12 @@ func repositoryDispatcher(ctx *Context, _ *http.Request) http.Handler {
 }
 
 type RepositoryAPIResponse struct {
-	Name      string `json:"name"`
-	Path      string `json:"path"`
-	Size      *int64 `json:"size_bytes,omitempty"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at,omitempty"`
+	Name          string `json:"name"`
+	Path          string `json:"path"`
+	Size          *int64 `json:"size_bytes,omitempty"`
+	SizePrecision string `json:"size_precision,omitempty"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at,omitempty"`
 }
 
 const (
@@ -93,6 +98,15 @@ func sizeQueryParamValue(r *http.Request) string {
 func timeToString(t time.Time) string {
 	return t.UTC().Format("2006-01-02T15:04:05.000Z07:00")
 }
+
+const (
+	// sizePrecisionDefault is used for repository size measurements with default precision, i.e., only tagged (directly
+	// or indirectly) layers are taken into account.
+	sizePrecisionDefault = "default"
+	// sizePrecisionUntagged is used for repository size measurements where full precision is not possible, and instead
+	// we fall back to an estimate that also accounts for untagged layers (if any).
+	sizePrecisionUntagged = "untagged"
+)
 
 func (h *repositoryHandler) GetRepository(w http.ResponseWriter, r *http.Request) {
 	l := log.GetLogger(log.WithContext(h)).WithFields(log.Fields{"path": h.Repository.Named().Name()})
@@ -159,14 +173,26 @@ func (h *repositoryHandler) GetRepository(w http.ResponseWriter, r *http.Request
 		resp.UpdatedAt = timeToString(repo.UpdatedAt.Time)
 	}
 
-	var size int64
 	if withSize {
+		var size int64
+		precision := sizePrecisionDefault
+
 		t := time.Now()
+		ctx := h.Context.Context
+
 		switch sizeVal {
 		case sizeQueryParamSelfValue:
-			size, err = store.Size(h.Context.Context, repo)
+			size, err = store.Size(ctx, repo)
 		case sizeQueryParamSelfWithDescendantsValue:
-			size, err = store.SizeWithDescendants(h.Context.Context, repo)
+			size, err = store.SizeWithDescendants(ctx, repo)
+			if err != nil {
+				var pgErr *pgconn.PgError
+				// if this same query has timed out in the last 24h OR times out now, fallback to estimation
+				if errors.Is(err, datastore.ErrSizeHasTimedOut) || (errors.As(err, &pgErr) && pgErr.Code == pgerrcode.QueryCanceled) {
+					size, err = store.EstimatedSizeWithDescendants(ctx, repo)
+					precision = sizePrecisionUntagged
+				}
+			}
 		}
 		l.WithError(err).WithFields(log.Fields{
 			"size_bytes":   size,
@@ -174,12 +200,14 @@ func (h *repositoryHandler) GetRepository(w http.ResponseWriter, r *http.Request
 			"duration_ms":  time.Since(t).Milliseconds(),
 			"is_top_level": repo.IsTopLevel(),
 			"root_repo":    repo.TopLevelPathSegment(),
+			"precision":    precision,
 		}).Info("repository size measurement")
 		if err != nil {
 			h.Errors = append(h.Errors, errcode.FromUnknownError(err))
 			return
 		}
 		resp.Size = &size
+		resp.SizePrecision = precision
 	}
 
 	w.Header().Set("Content-Type", "application/json")
