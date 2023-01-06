@@ -521,6 +521,8 @@ func NewApp(ctx context.Context, config *configuration.Configuration) (*App, err
 
 	// configure as a pull through cache
 	if config.Proxy.RemoteURL != "" {
+		log.Warn("DEPRECATION NOTICE: The proxy pull-through cache mode is deprecated and will be removed in " +
+			"2023-05-22. See https://gitlab.com/gitlab-org/container-registry/-/issues/842 for more details")
 		app.registry, err = proxy.NewRegistryPullThroughCache(ctx, app.registry, app.driver, config.Proxy)
 		if err != nil {
 			return nil, err
