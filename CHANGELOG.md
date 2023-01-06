@@ -1,3 +1,26 @@
+# [3.64.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.63.0-gitlab...v3.64.0-gitlab) (2023-01-06)
+
+
+### Bug Fixes
+
+* **gc:** retry aws serialization error if wrapped as aws request failure ([4135702](https://gitlab.com/gitlab-org/container-registry/commit/41357023ce7959d8536bb546517e45375b7fe277))
+* **handlers:** support http.prefix for gitlab v1 routes ([31b405c](https://gitlab.com/gitlab-org/container-registry/commit/31b405c88932b6513022a064e0c7c3526542a0ef))
+
+
+### Features
+
+* **api/gitlab/v1:** fallback to size estimate if failed to measure top-level namespaces ([74ff7ef](https://gitlab.com/gitlab-org/container-registry/commit/74ff7eff018ed7ee6c08da243d803d20ed6830e9))
+* **datastore:** add remaining indexes on layers for alternative namespace usage query ([42fe2bd](https://gitlab.com/gitlab-org/container-registry/commit/42fe2bd3fabb4db46d2b4a924eb27fe512f95450))
+* **datastore:** estimated namespace size with timeout awareness ([c27e2ba](https://gitlab.com/gitlab-org/container-registry/commit/c27e2bac6186749e1b45c0a4dd5fa10ff33162f8))
+* **db:** introduce query for repositories (with at least 1 tag) under a path ([c37bcad](https://gitlab.com/gitlab-org/container-registry/commit/c37bcad41dac351ce76c3b3d70234f32378ca7f8))
+* **handlers:** log router info for all http requests ([93d60bf](https://gitlab.com/gitlab-org/container-registry/commit/93d60bf46ff78e1d8d603787474783d49dab8be6))
+* show elapsed time when applying up/down schema migrations with CLI ([4dc495d](https://gitlab.com/gitlab-org/container-registry/commit/4dc495d4ba23f376723c9503013691e0503b8b80))
+
+
+### Performance Improvements
+
+* **urls:** do not instantiate routers each time NewBuilder is called ([ebc07fb](https://gitlab.com/gitlab-org/container-registry/commit/ebc07fba999fdd87629f8eb8533a0a0b67258166))
+
 # [3.63.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.62.0-gitlab...v3.63.0-gitlab) (2022-12-13)
 
 
