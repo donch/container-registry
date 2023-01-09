@@ -427,6 +427,12 @@ Permitted values are `error`, `warn`, `info` and `debug`. The default is
 
 ## `storage`
 
+
+> **DEPRECATION NOTICE**: The azure driver will default to using the standard
+> root prefix on 2023-05-22. Set `trimlegacyrootprefix:false` to maintain
+> backwards compatibility with existing azure deployments. See
+> https://gitlab.com/gitlab-org/container-registry/-/issues/854 for more details.
+
 ```none
 storage:
   filesystem:
