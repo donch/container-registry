@@ -5,7 +5,7 @@
     matrix:
       - GO_VERSION: [ "1.17", "1.18", "1.19" ]
   variables:
-    GO_TEST: 'go run gotest.tools/gotestsum@$GOTESTSUM_VERSION --junitfile junit.xml --format testname --'
+    GO_TEST: 'go run gotest.tools/gotestsum@$GOTESTSUM_VERSION --junitfile junit.xml --format testname --packages=$PACKAGE --'
   artifacts:
     reports:
       junit: junit.xml

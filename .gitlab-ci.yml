@@ -34,4 +34,3 @@ stages:
   - test
   - integration
   - release
-
