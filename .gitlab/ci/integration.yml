@@ -1,7 +1,6 @@
 .middleware:storage: &middleware-storage
   extends: .go-version-matrix
   stage: integration
-  needs: []
 
 middleware:storage-googlecdn:
   <<: *middleware-storage
@@ -17,7 +16,6 @@ middleware:storage-googlecdn:
 .storage-driver-test: &storage-driver-test
   extends: .go-version-matrix
   stage: integration
-  needs: []
   variables:
     TEST_SHORT_FLAG: "-test.short"
   rules:
@@ -79,7 +77,6 @@ gcs:
 api:
   extends: .go-version-matrix
   stage: integration
-  needs: []
   variables:
     TAGS: 'integration,handlers_test'
   script: $GO_TEST -v -coverprofile=coverage.out -tags=$TAGS github.com/docker/distribution/registry/handlers
@@ -87,7 +84,6 @@ api:
 api:conformance:
   extends: .go-version-matrix
   stage: integration
-  needs: []
   variables:
     TAGS: 'integration,api_conformance_test'
   script: $GO_TEST -v -coverprofile=coverage.out -tags=$TAGS github.com/docker/distribution/registry/handlers
@@ -95,7 +91,6 @@ api:conformance:
 api:online-gc:
   extends: .go-version-matrix
   stage: integration
-  needs: []
   variables:
     TAGS: 'integration,online_gc_test'
   script: $GO_TEST -v -coverprofile=coverage.out -tags=$TAGS github.com/docker/distribution/registry/handlers
@@ -103,7 +98,6 @@ api:online-gc:
 .database: &database
   extends: .go-version-matrix
   stage: integration
-  needs: []
   variables:
     FF_NETWORK_PER_BUILD: 1
     POSTGRES_PASSWORD: "secret"
@@ -169,7 +163,6 @@ database:api-fault-tolerance:
 .cache:redis: &cache-redis
   extends: .go-version-matrix
   stage: integration
-  needs: []
   variables:
     REDIS_ADDR: "redis:6379"
   services:
