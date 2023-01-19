@@ -2930,8 +2930,7 @@ func TestGitlabAPI_SubRepositoryList(t *testing.T) {
 			dec := json.NewDecoder(resp.Body)
 			err = dec.Decode(&body)
 			require.NoError(t, err)
-
-			var expectedBody []*handlers.RepositoryAPIResponse
+			expectedBody := make([]*handlers.RepositoryAPIResponse, 0, len(test.expectedRepoPaths))
 			for _, path := range test.expectedRepoPaths {
 				splitPath := strings.Split(path, "/")
 				expectedBody = append(expectedBody, &handlers.RepositoryAPIResponse{
@@ -3017,10 +3016,10 @@ func TestGitlabAPI_SubRepositoryList_EmptyRepository(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
-	// simply assert the number of repositories in the body
 	var body []*handlers.RepositoryAPIResponse
 	dec := json.NewDecoder(resp.Body)
 	err = dec.Decode(&body)
-	require.Nil(t, body)
 	require.NoError(t, err)
+	require.NotNil(t, body)
+	require.ElementsMatch(t, body, []*handlers.RepositoryAPIResponse{})
 }

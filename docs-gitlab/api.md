@@ -281,7 +281,7 @@ curl --header "Authorization: Bearer <token>" "https://registry.gitlab.com/gitla
 
 | Status Code        | Reason                                                                                                           |
 |--------------------|------------------------------------------------------------------------------------------------------------------|
-| `200 OK`           | The repository was found. The response body includes the requested details.                                      |
+| `200 OK`           | The response body includes the requested details or is empty if the repository does not exist or if there are no repositories with at least one tag under the base path provided in the request.                                      |
 | `400 Bad Request`  | The value for the `n` and/or `last` pagination query parameters are invalid.                                     |
 | `401 Unauthorized` | The client should take action based on the contents of the `WWW-Authenticate` header and try the endpoint again. |
 

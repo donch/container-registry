@@ -407,21 +407,18 @@ func (h *subRepositoriesHandler) GetSubRepositories(w http.ResponseWriter, r *ht
 
 	w.Header().Set("Content-Type", "application/json")
 
-	var resp []RepositoryAPIResponse
-	if len(repoList) != 0 {
-		resp = make([]RepositoryAPIResponse, 0, len(repoList))
-		for _, r := range repoList {
-			d := RepositoryAPIResponse{
-				Name:      r.Name,
-				Path:      r.Path,
-				Size:      r.Size,
-				CreatedAt: timeToString(r.CreatedAt),
-			}
-			if r.UpdatedAt.Valid {
-				d.UpdatedAt = timeToString(r.UpdatedAt.Time)
-			}
-			resp = append(resp, d)
+	resp := make([]RepositoryAPIResponse, 0, len(repoList))
+	for _, r := range repoList {
+		d := RepositoryAPIResponse{
+			Name:      r.Name,
+			Path:      r.Path,
+			Size:      r.Size,
+			CreatedAt: timeToString(r.CreatedAt),
 		}
+		if r.UpdatedAt.Valid {
+			d.UpdatedAt = timeToString(r.UpdatedAt.Time)
+		}
+		resp = append(resp, d)
 	}
 
 	enc := json.NewEncoder(w)
