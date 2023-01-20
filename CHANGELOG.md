@@ -1,3 +1,11 @@
+## [3.65.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.65.0-gitlab...v3.65.1-gitlab) (2023-01-20)
+
+
+### Bug Fixes
+
+* **api/gitlab/v1:** repositories list endpoint should return an empty response... ([b307d2c](https://gitlab.com/gitlab-org/container-registry/commit/b307d2c48f70e5858a2f67eaa8581fb092730878))
+* disable statement timeout for layers simplified usage migrations ([499e323](https://gitlab.com/gitlab-org/container-registry/commit/499e3233b4c2899741d6b0b0fa9818e2554e864a))
+
 # [3.65.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.64.0-gitlab...v3.65.0-gitlab) (2023-01-12)
 
 
