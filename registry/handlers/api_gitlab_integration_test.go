@@ -81,6 +81,20 @@ func finalImportRepository(t *testing.T, env *testEnv, mockNotificationSrv *mock
 	return importRepository(t, env, mockNotificationSrv, repoPath, "final")
 }
 
+// cancelImport sends a cancel import request
+func cancelImport(t *testing.T, importURL string) {
+	// DELETE the same URL
+	req, err := http.NewRequest(http.MethodDelete, importURL, nil)
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// DELETE import should be accepted
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+}
+
 func TestGitlabAPI_RepositoryImport_Get(t *testing.T) {
 	rootDir := t.TempDir()
 	migrationDir := filepath.Join(rootDir, "/new")
@@ -1262,7 +1276,22 @@ func TestGitlabAPI_RepositoryImport_Migration_PreImportInProgress(t *testing.T) 
 		// Simulate a long running pre import.
 		withMigrationTestSlowImport(waitForever),
 	)
-	t.Cleanup(env.Shutdown)
+
+	// Change the import cancellation monitoring interval
+	// to speed up any request for cancelling any ongoing pre-import
+	testOngoingImportCheckIntervalSeconds := time.Second * 1
+	originalInterval := handlers.OngoingImportCheckIntervalSeconds
+	handlers.OngoingImportCheckIntervalSeconds = testOngoingImportCheckIntervalSeconds
+
+	t.Cleanup(func() {
+		// Wait long enough for the pre-import cancellation to be picked up to avoid
+		// race condition when resetting the database tables.
+		time.Sleep(testOngoingImportCheckIntervalSeconds)
+
+		// Reset the import cancellation monitoring interval
+		handlers.OngoingImportCheckIntervalSeconds = originalInterval
+		env.Shutdown()
+	})
 
 	env.requireDB(t)
 
@@ -1285,6 +1314,12 @@ func TestGitlabAPI_RepositoryImport_Migration_PreImportInProgress(t *testing.T) 
 	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
 	defer resp.Body.Close()
+	// We neeed to cancel the pre-import or else we run into a database deadlock
+	// caused by running TRUNCATE statements on the database tabels in the cleanup stage (i.e env.Shutdown()),
+	// while accessing the same tables in the ongoing pre-import.
+	// This is because a TRUNCATE statements will try to acquire a postgres AccessExclusiveLock on tables,
+	// resulting in a conflict with the database table queries the async pre-import runs.
+	defer cancelImport(t, importURL)
 
 	// Pre import should start without error.
 	require.Equal(t, http.StatusAccepted, resp.StatusCode)
