@@ -1,3 +1,15 @@
+# [3.67.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.66.0-gitlab...v3.67.0-gitlab) (2023-02-15)
+
+
+### Bug Fixes
+
+* **driver:** write to in memory file in place ([73c1dd9](https://gitlab.com/gitlab-org/container-registry/commit/73c1dd9ec92faa5b3331c315216ad38c2fbb6b2a))
+
+
+### Features
+
+* temporarily log query duration for debugging ([6157779](https://gitlab.com/gitlab-org/container-registry/commit/6157779daee1997c17c7b68f0f53b0bc12d89186))
+
 # [3.66.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.65.1-gitlab...v3.66.0-gitlab) (2023-01-26)
 
 
