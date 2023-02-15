@@ -406,6 +406,8 @@ func (s *repositoryStore) FindByPath(ctx context.Context, path string) (*models.
 		return cached, nil
 	}
 
+	l := log.GetLogger(log.WithContext(ctx))
+
 	defer metrics.InstrumentQuery("repository_find_by_path")()
 	q := `SELECT
 			id,
@@ -423,12 +425,24 @@ func (s *repositoryStore) FindByPath(ctx context.Context, path string) (*models.
 			path = $1
 			AND deleted_at IS NULL` // temporary measure for the duration of https://gitlab.com/gitlab-org/container-registry/-/issues/570
 
+	t := time.Now()
 	row := s.db.QueryRowContext(ctx, q, path)
 
 	r, err := scanFullRepository(row)
 	if err != nil {
 		return r, err
 	}
+
+	var found bool
+	if r != nil {
+		found = true
+	}
+	l.WithFields(log.Fields{
+		"duration_ms": time.Since(t).Milliseconds(),
+		"name":        "repository_find_by_path",
+		"repository":  path,
+		"found":       found,
+	}).Info("query")
 
 	s.cache.Set(ctx, r)
 
@@ -879,6 +893,8 @@ func (s *repositoryStore) FindManifestByDigest(ctx context.Context, r *models.Re
 
 // FindManifestByTagName finds a manifest by tag name within a repository.
 func (s *repositoryStore) FindManifestByTagName(ctx context.Context, r *models.Repository, tagName string) (*models.Manifest, error) {
+	l := log.GetLogger(log.WithContext(ctx))
+
 	defer metrics.InstrumentQuery("repository_find_manifest_by_tag_name")()
 	q := `SELECT
 			m.id,
@@ -907,9 +923,27 @@ func (s *repositoryStore) FindManifestByTagName(ctx context.Context, r *models.R
 			AND m.repository_id = $2
 			AND t.name = $3`
 
+	t := time.Now()
 	row := s.db.QueryRowContext(ctx, q, r.NamespaceID, r.ID, tagName)
 
-	return scanFullManifest(row)
+	m, err := scanFullManifest(row)
+	if err != nil {
+		return m, err
+	}
+
+	var found bool
+	if m != nil {
+		found = true
+	}
+	l.WithFields(log.Fields{
+		"duration_ms": time.Since(t).Milliseconds(),
+		"name":        "repository_find_manifest_by_tag_name",
+		"repository":  r.Path,
+		"tag_name":    tagName,
+		"found":       found,
+	}).Info("query")
+
+	return m, nil
 }
 
 // Blobs finds all blobs associated with the repository.
