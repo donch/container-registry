@@ -158,12 +158,12 @@ var (
 
 // Sink accepts and sends events.
 type Sink interface {
-	// Write writes one or more events to the sink. If no error is returned,
-	// the caller will assume that all events have been committed and will not
-	// try to send them again. If an error is received, the caller may retry
+	// Write writes an event to the sink. If no error is returned,
+	// the caller will assume that the event was committed and will not
+	// try to send it again. If an error is received, the caller may retry
 	// sending the event. The caller should cede the slice of memory to the
 	// sink and not modify it after calling this method.
-	Write(events ...Event) error
+	Write(event *Event) error
 
 	// Close the sink, possibly waiting for pending events to flush.
 	Close() error
