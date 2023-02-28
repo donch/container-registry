@@ -1585,7 +1585,7 @@ func (s *repositoryStore) DeleteManifest(ctx context.Context, r *models.Reposito
 // Also, even if there are no repository with a `path` of `lastPath`, the returned
 // repositories will still be those with a base path `path` and lexicographically after lastPath.
 func (s *repositoryStore) FindPagingatedRepositoriesForPath(ctx context.Context, path string, lastPath string, limit int) (models.Repositories, error) {
-	defer metrics.InstrumentQuery("repository_find_descendants_of")()
+	defer metrics.InstrumentQuery("repository_find_paginated_repositories_for_path")()
 	q := `SELECT  
 			id,
 			top_level_namespace_id,
