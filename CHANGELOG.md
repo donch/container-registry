@@ -1,3 +1,10 @@
+## [3.67.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.67.0-gitlab...v3.67.1-gitlab) (2023-03-01)
+
+
+### Bug Fixes
+
+* **db:** update metric name ([b39e0e1](https://gitlab.com/gitlab-org/container-registry/commit/b39e0e130fa51ae11b11d5ab0d6fbf1fc66cac31))
+
 # [3.67.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.66.0-gitlab...v3.67.0-gitlab) (2023-02-15)
 
 
