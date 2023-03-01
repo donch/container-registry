@@ -976,34 +976,10 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 	}
 
 	if imp.importDanglingBlobs {
-		var index int
 		blobStart := time.Now()
 		l.Info("importing all blobs")
-		err := imp.registry.Blobs().Enumerate(ctx, func(desc distribution.Descriptor) error {
-			index++
-			l := l.WithFields(log.Fields{"digest": desc.Digest, "count": index, "size": desc.Size})
-			l.Info("importing blob")
 
-			dbBlob, err := imp.blobStore.FindByDigest(ctx, desc.Digest)
-			if err != nil {
-				return fmt.Errorf("checking for existence of blob: %w", err)
-			}
-
-			if dbBlob == nil {
-				if err := imp.blobStore.Create(ctx, &models.Blob{MediaType: "application/octet-stream", Digest: desc.Digest, Size: desc.Size}); err != nil {
-					return fmt.Errorf("creating blob in database: %w", err)
-				}
-			}
-
-			// Even if we found the blob in the database, try to transfer in case it's
-			// not present in blob storage on the transfer side.
-			if err = imp.transferBlob(ctx, desc.Digest, desc.Size, metrics.BlobTypeUnknown); err != nil {
-				return err
-			}
-
-			return nil
-		})
-		if err != nil {
+		if err := imp.importBlobs(ctx); err != nil {
 			return fmt.Errorf("importing blobs: %w", err)
 		}
 
@@ -1081,6 +1057,29 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 	l.WithFields(log.Fields{"duration_s": t}).Info("metadata import complete")
 
 	return err
+}
+
+func (imp *Importer) importBlobs(ctx context.Context) error {
+	var index int
+	return imp.registry.Blobs().Enumerate(ctx, func(desc distribution.Descriptor) error {
+		index++
+		log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"digest": desc.Digest, "count": index, "size": desc.Size}).Info("importing blob")
+
+		dbBlob, err := imp.blobStore.FindByDigest(ctx, desc.Digest)
+		if err != nil {
+			return fmt.Errorf("checking for existence of blob: %w", err)
+		}
+
+		if dbBlob == nil {
+			if err := imp.blobStore.Create(ctx, &models.Blob{MediaType: "application/octet-stream", Digest: desc.Digest, Size: desc.Size}); err != nil {
+				return fmt.Errorf("creating blob in database: %w", err)
+			}
+		}
+
+		// Even if we found the blob in the database, try to transfer in case it's
+		// not present in blob storage on the transfer side.
+		return imp.transferBlob(ctx, desc.Digest, desc.Size, metrics.BlobTypeUnknown)
+	})
 }
 
 // Import populates the registry database with metadata from a specific repository in the storage backend.
