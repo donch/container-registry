@@ -1,3 +1,10 @@
+# [3.68.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.67.1-gitlab...v3.68.0-gitlab) (2023-03-01)
+
+
+### Features
+
+* **datastore:** add index to speed up lookups of manifests by tag ([069a705](https://gitlab.com/gitlab-org/container-registry/commit/069a70513c0210a8adc8f9677bde46a5f0a4892d))
+
 ## [3.67.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.67.0-gitlab...v3.67.1-gitlab) (2023-03-01)
 
 
