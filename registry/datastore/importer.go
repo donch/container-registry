@@ -1059,6 +1059,68 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 	return err
 }
 
+// ImportBlobs populates the registry database with metadata from all blobs in the storage backend.
+func (imp *Importer) ImportBlobs(ctx context.Context) error {
+	var tx Transactor
+	var err error
+
+	// Add common fields to all subsequent logging.
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"pre_import": false, "dry_run": imp.dryRun})
+	ctx = log.WithLogger(ctx, l)
+
+	// Create a single transaction and roll it back at the end for dry runs.
+	if imp.dryRun {
+		tx, err = imp.beginTx(ctx)
+		if err != nil {
+			return fmt.Errorf("beginning dry run transaction: %w", err)
+		}
+		defer tx.Rollback()
+	}
+
+	if imp.requireEmptyDatabase {
+		empty, err := imp.isDatabaseEmpty(ctx)
+		if err != nil {
+			return fmt.Errorf("checking if database is empty: %w", err)
+		}
+		if !empty {
+			return errors.New("non-empty database")
+		}
+	}
+
+	start := time.Now()
+	l.Info("starting blob metadata import")
+
+	if err := imp.importBlobs(ctx); err != nil {
+		return fmt.Errorf("importing blobs: %w", err)
+	}
+
+	end := time.Since(start).Seconds()
+	l.WithFields(log.Fields{"duration_s": end}).Info("blob metadata import complete")
+
+	// This should only delay during testing.
+	time.Sleep(imp.testingDelay)
+
+	if !imp.dryRun {
+		// reset stores to use the main connection handler instead of the last (committed/rolled back) transaction
+		imp.loadStores(imp.db)
+	}
+
+	if imp.rowCount {
+		counters, err := imp.countRows(ctx)
+		if err != nil {
+			l.WithError(err).Error("counting table rows")
+		}
+
+		logCounters := make(map[string]interface{}, len(counters))
+		for t, n := range counters {
+			logCounters[t] = n
+		}
+		l = l.WithFields(logCounters)
+	}
+
+	return err
+}
+
 func (imp *Importer) importBlobs(ctx context.Context) error {
 	var index int
 	return imp.registry.Blobs().Enumerate(ctx, func(desc distribution.Descriptor) error {
