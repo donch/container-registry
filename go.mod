@@ -7,7 +7,7 @@ require (
 	github.com/Azure/azure-sdk-for-go v58.0.0+incompatible
 	github.com/DATA-DOG/go-sqlmock v1.5.0
 	github.com/Shopify/toxiproxy v2.1.4+incompatible
-	github.com/alicebob/miniredis/v2 v2.22.0
+	github.com/alicebob/miniredis/v2 v2.30.0
 	github.com/aws/aws-sdk-go v1.44.200
 	github.com/benbjohnson/clock v1.3.0
 	github.com/cenkalti/backoff/v4 v4.1.3
@@ -119,7 +119,7 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.4.1 // indirect
-	github.com/yuin/gopher-lua v0.0.0-20210529063254-f4c35e4016d9 // indirect
+	github.com/yuin/gopher-lua v0.0.0-20220504180219-658193537a64 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	golang.org/x/net v0.1.0 // indirect
 	golang.org/x/sys v0.1.0 // indirect
