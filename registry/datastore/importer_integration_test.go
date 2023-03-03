@@ -884,3 +884,30 @@ func TestImporter_PreImport_Retry_Succeeds(t *testing.T) {
 
 	validateImport(t, suite.db)
 }
+
+func TestImporter_ImportBlobs(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporter(t, suite.db)
+	require.NoError(t, imp.ImportBlobs(suite.ctx))
+	validateImport(t, suite.db)
+}
+
+func TestImporter_ImportBlobs_DryRun(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporter(t, suite.db, datastore.WithDryRun)
+	require.NoError(t, imp.ImportBlobs(suite.ctx))
+	validateImport(t, suite.db)
+}
+
+func TestImporter_ImportBlobs_AbortsIfDatabaseIsNotEmpty(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	// load some fixtures
+	reloadRepositoryFixtures(t)
+
+	imp := newImporter(t, suite.db, datastore.WithRequireEmptyDatabase)
+	err := imp.ImportBlobs(suite.ctx)
+	require.EqualError(t, err, "non-empty database")
+}
