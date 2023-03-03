@@ -15,7 +15,7 @@ require (
 	github.com/docker/go-metrics v0.0.1
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7
 	github.com/eko/gocache/v2 v2.3.1
-	github.com/getsentry/sentry-go v0.13.0
+	github.com/getsentry/sentry-go v0.18.0
 	github.com/globocom/go-redis-prometheus v0.4.0
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/go-redis/redismock/v8 v8.0.6
@@ -42,7 +42,7 @@ require (
 	github.com/vmihailenco/msgpack v4.0.4+incompatible
 	github.com/xanzy/go-gitlab v0.73.1
 	gitlab.com/gitlab-org/labkit v1.17.0
-	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
+	golang.org/x/crypto v0.0.0-20220926161630-eccd6366d1be
 	golang.org/x/oauth2 v0.0.0-20221014153046-6fdb5e3db783
 	golang.org/x/sync v0.1.0
 	golang.org/x/time v0.1.0
