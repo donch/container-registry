@@ -175,6 +175,14 @@ func TestImporter_ImportAll(t *testing.T) {
 	validateImport(t, suite.db)
 }
 
+func TestImporter_ImportAll_NoDanglingManifests(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporter(t, suite.db)
+	require.NoError(t, imp.ImportAll(suite.ctx))
+	validateImport(t, suite.db)
+}
+
 func TestImporter_ImportAll_DanglingBlobs(t *testing.T) {
 	require.NoError(t, testutil.TruncateAllTables(suite.db))
 
