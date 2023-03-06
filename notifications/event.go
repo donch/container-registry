@@ -168,3 +168,18 @@ type Sink interface {
 	// Close the sink, possibly waiting for pending events to flush.
 	Close() error
 }
+
+func (e *Event) artifact() string {
+	if e.Target.Tag != "" {
+		return "tag"
+	}
+
+	if e.Target.MediaType == "application/octet-stream" {
+		return "blob"
+	}
+
+	// We know that the previous cases take precedence, so we can fall back to manifest. The only exception right now
+	// is that there is no way to distinguish between deleted blobs and manifests.
+	// TODO: support for deleted blobs https://gitlab.com/gitlab-org/container-registry/-/issues/920
+	return "manifest"
+}
