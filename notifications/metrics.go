@@ -12,7 +12,7 @@ import (
 
 var (
 	// eventsCounter counts total events of incoming, success and failure
-	eventsCounter = prometheus.NotificationsNamespace.NewLabeledCounter("events", "The number of total events", "type")
+	eventsCounter = prometheus.NotificationsNamespace.NewLabeledCounter("events", "The number of total events", "type", "action", "artifact")
 	// pendingGauge measures the pending queue size
 	pendingGauge = prometheus.NotificationsNamespace.NewGauge("pending", "The gauge of pending events in queue", metrics.Total)
 	// statusCounter counts the total notification call per each status code
@@ -77,7 +77,7 @@ func (emsl *endpointMetricsHTTPStatusListener) success(status int, event *Event)
 	emsl.Successes++
 
 	statusCounter.WithValues(fmt.Sprintf("%d %s", status, http.StatusText(status))).Inc(1)
-	eventsCounter.WithValues("Successes").Inc(1)
+	eventsCounter.WithValues("Successes", event.Action, event.artifact()).Inc(1)
 }
 
 func (emsl *endpointMetricsHTTPStatusListener) failure(status int, event *Event) {
@@ -87,7 +87,7 @@ func (emsl *endpointMetricsHTTPStatusListener) failure(status int, event *Event)
 	emsl.Failures++
 
 	statusCounter.WithValues(fmt.Sprintf("%d %s", status, http.StatusText(status))).Inc(1)
-	eventsCounter.WithValues("Failures").Inc(1)
+	eventsCounter.WithValues("Failures", event.Action, event.artifact()).Inc(1)
 }
 
 func (emsl *endpointMetricsHTTPStatusListener) err(event *Event) {
@@ -111,7 +111,7 @@ func (eqc *endpointMetricsEventQueueListener) ingress(event *Event) {
 	eqc.Events++
 	eqc.Pending++
 
-	eventsCounter.WithValues("Events").Inc()
+	eventsCounter.WithValues("Events", event.Action, event.artifact()).Inc()
 	pendingGauge.Inc(1)
 }
 
