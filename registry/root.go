@@ -63,6 +63,8 @@ func init() {
 	ImportCmd.Flags().BoolVarP(&requireEmptyDatabase, "require-empty-database", "e", false, "abort import if the database is not empty")
 	ImportCmd.Flags().BoolVarP(&preImport, "pre-import", "p", false, "import immutable data to speed up a following full import, may only be used in conjunction with the `--repository` option")
 	ImportCmd.Flags().BoolVarP(&rowCount, "row-count", "c", false, "count and log number of rows across relevant database tables on (pre)import completion")
+	ImportCmd.Flags().BoolVarP(&importCommonBlobs, "common-blobs", "B", false, "import all blob metadata from common storage")
+	ImportCmd.Flags().BoolVarP(&importCommonBlobs, "step-three", "3", false, "perform step three of a multi-step import: alias for `common-blobs`")
 
 	InventoryCmd.Flags().StringVarP(&format, "format", "f", "text", "which format to write output to, text output produces an additional summary for convenience, options: text, json, csv")
 	InventoryCmd.Flags().BoolVarP(&countTags, "tag-count", "t", true, "count repository tags, set this to false to increase inventory speed")
@@ -87,6 +89,7 @@ var (
 	format                  string
 	countTags               bool
 	rowCount                bool
+	importCommonBlobs       bool
 )
 
 var parallelwalkKey = "parallelwalk"
@@ -551,6 +554,8 @@ var ImportCmd = &cobra.Command{
 		p := datastore.NewImporter(db, registry, opts...)
 
 		switch {
+		case importCommonBlobs:
+			err = p.ImportBlobs(ctx)
 		case repoPath == "" && preImport:
 			err = errors.New("pre-import is only supported with the `--repository` flag")
 		case repoPath == "" && !preImport:

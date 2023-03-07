@@ -15,6 +15,15 @@ form.
 
 ### Options
 
+#### Common Blobs
+
+The `--common-blobs` option instructs the tool to import all blob metadata from
+common blob storage not already present in the metadata database. This command
+does not import any repository scope metadata and is intended to be used as the
+final step of a three step import. Running this command ensures that any
+unreferenced blobs are visible to the online garbage collector, allowing them
+to be removed from object storage. Alias: `--step-three`
+
 #### Require Empty Database
 
 The `--require-empty-database` option allows the user to enable a safety check
