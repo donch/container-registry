@@ -1059,6 +1059,138 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 	return err
 }
 
+// PreImportAll populates repository data without including any tag information.
+// This command is safe to run without read-only mode enabled on the registry.
+func (imp *Importer) PreImportAll(ctx context.Context) error {
+	var tx Transactor
+	var err error
+
+	// Add specific log fields to all subsequent log entries.
+	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
+		"pre_import": true,
+		"component":  "importer",
+	})
+	ctx = log.WithLogger(ctx, l)
+	l.Info("Starting full pre-import")
+
+	// Create a single transaction and roll it back at the end for dry runs.
+	if imp.dryRun {
+		tx, err = imp.beginTx(ctx)
+		if err != nil {
+			return fmt.Errorf("begin dry run transaction: %w", err)
+		}
+		defer tx.Rollback()
+	}
+
+	if imp.requireEmptyDatabase {
+		empty, err := imp.isDatabaseEmpty(ctx)
+		if err != nil {
+			return fmt.Errorf("checking if database is empty: %w", err)
+		}
+		if !empty {
+			return errors.New("non-empty database")
+		}
+	}
+
+	repositoryEnumerator, ok := imp.registry.(distribution.RepositoryEnumerator)
+	if !ok {
+		return errors.New("building repository enumerator")
+	}
+
+	start := time.Now()
+
+	index := 0
+	err = repositoryEnumerator.Enumerate(ctx, func(path string) error {
+		if !imp.dryRun {
+			tx, err = imp.beginTx(ctx)
+			if err != nil {
+				return fmt.Errorf("beginning repository transaction: %w", err)
+			}
+			defer tx.Rollback()
+		}
+
+		index++
+		repoStart := time.Now()
+		l := l.WithFields(log.Fields{"repository": path, "count": index})
+		l.Info("importing repository")
+
+		named, err := reference.WithName(path)
+		if err != nil {
+			return fmt.Errorf("parsing repository name: %w", err)
+		}
+		fsRepo, err := imp.registry.Repository(ctx, named)
+		if err != nil {
+			return fmt.Errorf("constructing filesystem repository: %w", err)
+		}
+
+		dbRepo, err := imp.repositoryStore.CreateOrFindByPath(ctx, path)
+		if err != nil {
+			return fmt.Errorf("creating or finding repository in database: %w", err)
+		}
+
+		if err = imp.preImportTaggedManifests(ctx, fsRepo, dbRepo); err != nil {
+			l.WithError(err).Error("pre importing tagged manifests")
+			// if the storage driver failed to find a repository path (usually due to missing `_manifests/revisions`
+			// or `_manifests/tags` folders) continue to the next one, otherwise stop as the error is unknown.
+			if !(errors.As(err, &driver.PathNotFoundError{}) || errors.As(err, &distribution.ErrRepositoryUnknown{})) {
+				return fmt.Errorf("pre importing tagged manifests: %w", err)
+			}
+			return nil
+		}
+
+		repoEnd := time.Since(repoStart).Seconds()
+		l.WithFields(log.Fields{"duration_s": repoEnd}).Info("repository import complete")
+
+		if !imp.dryRun {
+			if err := tx.Commit(); err != nil {
+				return fmt.Errorf("commit repository transaction: %w", err)
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	if imp.testingDelay < 0 {
+		return errNegativeTestingDelay
+	}
+
+	// This should only delay during testing.
+	timer := time.NewTimer(imp.testingDelay)
+	select {
+	case <-timer.C:
+		// do nothing
+		l.Debug("done waiting for slow pre import test")
+	case <-ctx.Done():
+		return nil
+	}
+
+	if !imp.dryRun {
+		// reset stores to use the main connection handler instead of the last (committed/rolled back) transaction
+		imp.loadStores(imp.db)
+	}
+
+	if imp.rowCount {
+		counters, err := imp.countRows(ctx)
+		if err != nil {
+			l.WithError(err).Error("counting table rows")
+		}
+
+		logCounters := make(map[string]interface{}, len(counters))
+		for t, n := range counters {
+			logCounters[t] = n
+		}
+		l = l.WithFields(logCounters)
+	}
+
+	t := time.Since(start).Seconds()
+	l.WithFields(log.Fields{"duration_s": t}).Info("full pre-import complete")
+
+	return nil
+}
+
 // ImportBlobs populates the registry database with metadata from all blobs in the storage backend.
 func (imp *Importer) ImportBlobs(ctx context.Context) error {
 	var tx Transactor

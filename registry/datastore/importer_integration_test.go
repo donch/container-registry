@@ -919,3 +919,11 @@ func TestImporter_ImportBlobs_AbortsIfDatabaseIsNotEmpty(t *testing.T) {
 	err := imp.ImportBlobs(suite.ctx)
 	require.EqualError(t, err, "non-empty database")
 }
+
+func TestImporter_PreImportAll(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporter(t, suite.db)
+	require.NoError(t, imp.PreImportAll(suite.ctx))
+	validateImport(t, suite.db)
+}
