@@ -987,48 +987,7 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 		l.WithFields(log.Fields{"duration_s": blobEnd}).Info("blob import complete")
 	}
 
-	repositoryEnumerator, ok := imp.registry.(distribution.RepositoryEnumerator)
-	if !ok {
-		return errors.New("error building repository enumerator")
-	}
-
-	index := 0
-	err = repositoryEnumerator.Enumerate(ctx, func(path string) error {
-		if !imp.dryRun {
-			tx, err = imp.beginTx(ctx)
-			if err != nil {
-				return fmt.Errorf("beginning repository transaction: %w", err)
-			}
-			defer tx.Rollback()
-		}
-
-		index++
-		repoStart := time.Now()
-		l := l.WithFields(log.Fields{"repository": path, "count": index})
-		l.Info("importing repository")
-
-		if err := imp.importRepository(ctx, path); err != nil {
-			l.WithError(err).Error("error importing repository")
-			// if the storage driver failed to find a repository path (usually due to missing `_manifests/revisions`
-			// or `_manifests/tags` folders) continue to the next one, otherwise stop as the error is unknown.
-			if !(errors.As(err, &driver.PathNotFoundError{}) || errors.As(err, &distribution.ErrRepositoryUnknown{})) {
-				return err
-			}
-			return nil
-		}
-
-		repoEnd := time.Since(repoStart).Seconds()
-		l.WithFields(log.Fields{"duration_s": repoEnd}).Info("repository import complete")
-
-		if !imp.dryRun {
-			if err := tx.Commit(); err != nil {
-				return fmt.Errorf("commit repository transaction: %w", err)
-			}
-		}
-
-		return nil
-	})
-	if err != nil {
+	if err := imp.importAllRepositories(ctx); err != nil {
 		return err
 	}
 
@@ -1141,6 +1100,53 @@ func (imp *Importer) importBlobs(ctx context.Context) error {
 		// Even if we found the blob in the database, try to transfer in case it's
 		// not present in blob storage on the transfer side.
 		return imp.transferBlob(ctx, desc.Digest, desc.Size, metrics.BlobTypeUnknown)
+	})
+}
+
+func (imp *Importer) importAllRepositories(ctx context.Context) error {
+	var tx Transactor
+	var err error
+
+	repositoryEnumerator, ok := imp.registry.(distribution.RepositoryEnumerator)
+	if !ok {
+		return errors.New("error building repository enumerator")
+	}
+
+	index := 0
+	return repositoryEnumerator.Enumerate(ctx, func(path string) error {
+		if !imp.dryRun {
+			tx, err = imp.beginTx(ctx)
+			if err != nil {
+				return fmt.Errorf("beginning repository transaction: %w", err)
+			}
+			defer tx.Rollback()
+		}
+
+		index++
+		start := time.Now()
+		l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": path, "count": index})
+		l.Info("importing repository")
+
+		if err := imp.importRepository(ctx, path); err != nil {
+			l.WithError(err).Error("error importing repository")
+			// if the storage driver failed to find a repository path (usually due to missing `_manifests/revisions`
+			// or `_manifests/tags` folders) continue to the next one, otherwise stop as the error is unknown.
+			if !(errors.As(err, &driver.PathNotFoundError{}) || errors.As(err, &distribution.ErrRepositoryUnknown{})) {
+				return err
+			}
+			return nil
+		}
+
+		end := time.Since(start).Seconds()
+		l.WithFields(log.Fields{"duration_s": end}).Info("repository import complete")
+
+		if !imp.dryRun {
+			if err := tx.Commit(); err != nil {
+				return fmt.Errorf("commit repository transaction: %w", err)
+			}
+		}
+
+		return nil
 	})
 }
 
