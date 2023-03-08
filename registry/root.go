@@ -61,8 +61,9 @@ func init() {
 	ImportCmd.Flags().BoolVarP(&importDanglingBlobs, "dangling-blobs", "b", false, "import all blobs, regardless of whether they are referenced by a manifest or not")
 	ImportCmd.Flags().BoolVarP(&importDanglingManifests, "dangling-manifests", "m", false, "import all manifests, regardless of whether they are tagged or not")
 	ImportCmd.Flags().BoolVarP(&requireEmptyDatabase, "require-empty-database", "e", false, "abort import if the database is not empty")
-	ImportCmd.Flags().BoolVarP(&preImport, "pre-import", "p", false, "import immutable data to speed up a following full import, may only be used in conjunction with the `--repository` option")
 	ImportCmd.Flags().BoolVarP(&rowCount, "row-count", "c", false, "count and log number of rows across relevant database tables on (pre)import completion")
+	ImportCmd.Flags().BoolVarP(&preImport, "pre-import", "p", false, "import immutable data to speed up a following full import")
+	ImportCmd.Flags().BoolVarP(&preImport, "step-one", "1", false, "perform step one of a multi-step import: alias for `pre-import`")
 	ImportCmd.Flags().BoolVarP(&importCommonBlobs, "common-blobs", "B", false, "import all blob metadata from common storage")
 	ImportCmd.Flags().BoolVarP(&importCommonBlobs, "step-three", "3", false, "perform step three of a multi-step import: alias for `common-blobs`")
 
@@ -90,6 +91,7 @@ var (
 	countTags               bool
 	rowCount                bool
 	importCommonBlobs       bool
+	preImportAll            bool
 )
 
 var parallelwalkKey = "parallelwalk"
@@ -553,18 +555,28 @@ var ImportCmd = &cobra.Command{
 
 		p := datastore.NewImporter(db, registry, opts...)
 
-		switch {
-		case importCommonBlobs:
-			err = p.ImportBlobs(ctx)
-		case repoPath == "" && preImport:
-			err = errors.New("pre-import is only supported with the `--repository` flag")
-		case repoPath == "" && !preImport:
-			err = p.ImportAll(ctx)
-		case repoPath != "" && preImport:
-			err = p.PreImport(ctx, repoPath)
-		case repoPath != "" && !preImport:
-			err = p.Import(ctx, repoPath)
+		// Single repository commands.
+		if repoPath != "" {
+			switch {
+			case preImport:
+				err = p.PreImport(ctx, repoPath)
+			case importCommonBlobs:
+				err = errors.New("--common-blobs is not supported with the `--repository` flag")
+			default:
+				err = p.Import(ctx, repoPath)
+			}
+			// Full registry commands.
+		} else {
+			switch {
+			case preImport:
+				err = p.PreImportAll(ctx)
+			case importCommonBlobs:
+				err = p.ImportBlobs(ctx)
+			default:
+				err = p.ImportAll(ctx)
+			}
 		}
+
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to import metadata: %v", err)
 			os.Exit(1)

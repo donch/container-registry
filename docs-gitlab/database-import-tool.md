@@ -72,12 +72,12 @@ the configured storage driver must have read and write access to the new storage
 
 #### Pre Import
 The `--pre-import` option will only import immutable registry data. When running
-with this flag, it is not necessary to switch the repository to read-only mode.
+with this flag, it is not necessary to switch the registry to read-only mode.
 This, in conjunction with a normal import command ran afterward, should enable
 administrators to limit the amount of time a repository must be read-only, as
-much of the import work can be handled by the pre-import phase.
+much of the import work can be handled by the pre-import phase. Alias: `--step-one`
 
-While it is not necessary to switch the repository to read-only mode,
+While it is not necessary to switch the registry to read-only mode,
 administrators should take care not to use the [blob delete API
 endpoint](https://gitlab.com/gitlab-org/container-registry/-/blob/master/docs/spec/api.md#delete-blob)
 during the pre-import phase. This endpoint is not used by any of the Docker
@@ -90,7 +90,7 @@ are subject to online garbage collection, and therefore it is important to
 ensure that the subsequent import step is completed within the configured
 garbage collector workers
 [`reviewafter`](https://gitlab.com/gitlab-org/container-registry/-/blob/master/docs/configuration.md#gc)
-delay.
+delay or garbage collection is not enabled until after the import step finishes.
 
 #### Row Count
 
