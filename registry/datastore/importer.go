@@ -1021,9 +1021,6 @@ func (imp *Importer) ImportAll(ctx context.Context) error {
 // PreImportAll populates repository data without including any tag information.
 // This command is safe to run without read-only mode enabled on the registry.
 func (imp *Importer) PreImportAll(ctx context.Context) error {
-	var tx Transactor
-	var err error
-
 	// Add specific log fields to all subsequent log entries.
 	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
 		"pre_import": true,
@@ -1034,7 +1031,7 @@ func (imp *Importer) PreImportAll(ctx context.Context) error {
 
 	// Create a single transaction and roll it back at the end for dry runs.
 	if imp.dryRun {
-		tx, err = imp.beginTx(ctx)
+		tx, err := imp.beginTx(ctx)
 		if err != nil {
 			return fmt.Errorf("begin dry run transaction: %w", err)
 		}
@@ -1051,32 +1048,63 @@ func (imp *Importer) PreImportAll(ctx context.Context) error {
 		}
 	}
 
+	start := time.Now()
+
+	if err := imp.preImportAllRepositories(ctx); err != nil {
+		return fmt.Errorf("pre importing all repositories: %w", err)
+	}
+
+	if imp.testingDelay < 0 {
+		return errNegativeTestingDelay
+	}
+
+	// This should only delay during testing.
+	timer := time.NewTimer(imp.testingDelay)
+	select {
+	case <-timer.C:
+		// do nothing
+		l.Debug("done waiting for slow pre import test")
+	case <-ctx.Done():
+		return nil
+	}
+
+	if imp.rowCount {
+		counters, err := imp.countRows(ctx)
+		if err != nil {
+			l.WithError(err).Error("counting table rows")
+		}
+
+		logCounters := make(map[string]interface{}, len(counters))
+		for t, n := range counters {
+			logCounters[t] = n
+		}
+		l = l.WithFields(logCounters)
+	}
+
+	t := time.Since(start).Seconds()
+	l.WithFields(log.Fields{"duration_s": t}).Info("full pre-import complete")
+
+	return nil
+}
+
+func (imp *Importer) preImportAllRepositories(ctx context.Context) error {
 	repositoryEnumerator, ok := imp.registry.(distribution.RepositoryEnumerator)
 	if !ok {
 		return errors.New("building repository enumerator")
 	}
 
-	start := time.Now()
-
 	index := 0
-	err = repositoryEnumerator.Enumerate(ctx, func(path string) error {
-		if !imp.dryRun {
-			tx, err = imp.beginTx(ctx)
-			if err != nil {
-				return fmt.Errorf("beginning repository transaction: %w", err)
-			}
-			defer tx.Rollback()
-		}
-
+	return repositoryEnumerator.Enumerate(ctx, func(path string) error {
 		index++
 		repoStart := time.Now()
-		l := l.WithFields(log.Fields{"repository": path, "count": index})
-		l.Info("importing repository")
+		l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": path, "count": index})
+		l.Info("pre importing repository")
 
 		named, err := reference.WithName(path)
 		if err != nil {
 			return fmt.Errorf("parsing repository name: %w", err)
 		}
+
 		fsRepo, err := imp.registry.Repository(ctx, named)
 		if err != nil {
 			return fmt.Errorf("constructing filesystem repository: %w", err)
@@ -1098,56 +1126,10 @@ func (imp *Importer) PreImportAll(ctx context.Context) error {
 		}
 
 		repoEnd := time.Since(repoStart).Seconds()
-		l.WithFields(log.Fields{"duration_s": repoEnd}).Info("repository import complete")
-
-		if !imp.dryRun {
-			if err := tx.Commit(); err != nil {
-				return fmt.Errorf("commit repository transaction: %w", err)
-			}
-		}
+		l.WithFields(log.Fields{"duration_s": repoEnd}).Info("repository pre import complete")
 
 		return nil
 	})
-	if err != nil {
-		return err
-	}
-
-	if imp.testingDelay < 0 {
-		return errNegativeTestingDelay
-	}
-
-	// This should only delay during testing.
-	timer := time.NewTimer(imp.testingDelay)
-	select {
-	case <-timer.C:
-		// do nothing
-		l.Debug("done waiting for slow pre import test")
-	case <-ctx.Done():
-		return nil
-	}
-
-	if !imp.dryRun {
-		// reset stores to use the main connection handler instead of the last (committed/rolled back) transaction
-		imp.loadStores(imp.db)
-	}
-
-	if imp.rowCount {
-		counters, err := imp.countRows(ctx)
-		if err != nil {
-			l.WithError(err).Error("counting table rows")
-		}
-
-		logCounters := make(map[string]interface{}, len(counters))
-		for t, n := range counters {
-			logCounters[t] = n
-		}
-		l = l.WithFields(logCounters)
-	}
-
-	t := time.Since(start).Seconds()
-	l.WithFields(log.Fields{"duration_s": t}).Info("full pre-import complete")
-
-	return nil
 }
 
 // ImportBlobs populates the registry database with metadata from all blobs in the storage backend.
