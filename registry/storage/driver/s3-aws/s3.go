@@ -113,7 +113,7 @@ var validRegions = map[string]struct{}{}
 // validObjectACLs contains known s3 object Acls
 var validObjectACLs = map[string]struct{}{}
 
-//DriverParameters A struct that encapsulates all of the driver parameters after all values have been set
+// DriverParameters A struct that encapsulates all of the driver parameters after all values have been set
 type DriverParameters struct {
 	AccessKey                   string
 	SecretKey                   string
@@ -256,6 +256,7 @@ func parseParameters(parameters map[string]interface{}) (*DriverParameters, erro
 	}
 	secretKey := parameters["secretkey"]
 	if secretKey == nil {
+		//#nosec G101 -- This is a false positive
 		secretKey = ""
 	}
 
