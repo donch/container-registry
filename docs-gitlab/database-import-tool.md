@@ -33,12 +33,6 @@ where it is possible to import all registry data in one single period of
 read-only mode or downtime. Larger registries will likely need to break up the
 import process over multiple sessions.
 
-#### Dangling Blobs
-
-The `--dangling-blobs` option instructs the tool to import all blob metadata
-without confirmation that this information is reachable from a tagged image
-or that the blob is linked to any repository.
-
 #### Dangling Manifests
 
 The `--dangling-manifests` option instructs the import to import all manifests
