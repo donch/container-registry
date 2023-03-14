@@ -935,3 +935,11 @@ func TestImporter_PreImportAll(t *testing.T) {
 	require.NoError(t, imp.PreImportAll(suite.ctx))
 	validateImport(t, suite.db)
 }
+
+func TestImporter_FullImport(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporter(t, suite.db)
+	require.NoError(t, imp.FullImport(suite.ctx))
+	validateImport(t, suite.db)
+}
