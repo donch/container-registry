@@ -68,6 +68,9 @@ func WithImportDanglingManifests(imp *Importer) {
 
 // WithImportDanglingBlobs configures the Importer to import all blobs
 // rather than only blobs referenced by manifests.
+//
+// Deprecated: WithImportDanglingBlobs is a legacy option that is no longer used
+// in the import command made available to the user.
 func WithImportDanglingBlobs(imp *Importer) {
 	imp.importDanglingBlobs = true
 }
