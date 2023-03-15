@@ -3,6 +3,7 @@
 package handlers_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -3057,4 +3058,164 @@ func TestGitlabAPI_SubRepositoryList_EmptyRepository(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, body)
 	require.ElementsMatch(t, body, []*handlers.RepositoryAPIResponse{})
+}
+
+func TestGitlabAPI_RenameRepository(t *testing.T) {
+	nestedRepos := []string{
+		"foo/bar",
+		"foo/bar/a",
+		"foo/bar/b",
+		"foo/bar/b/c",
+	}
+
+	baseRepoName, err := reference.WithName("foo/bar")
+	require.NoError(t, err)
+
+	tt := []struct {
+		name               string
+		queryParams        url.Values
+		requestBody        []byte
+		expectedRespStatus int
+		expectedRespError  *errcode.ErrorCode
+		expectedRespBody   *handlers.RenameRepositoryAPIResponse
+	}{
+		{
+			name:               "dry run param not set means implicit true",
+			requestBody:        []byte(`{ "name" : "not-bar" }`),
+			expectedRespStatus: http.StatusOK,
+			expectedRespBody: &handlers.RenameRepositoryAPIResponse{
+				TTL: 0,
+			},
+		},
+		{
+			name:               "dry run param is set explicitly to true",
+			queryParams:        url.Values{"dry_run": []string{"true"}},
+			requestBody:        []byte(`{ "name" : "not-bar" }`),
+			expectedRespStatus: http.StatusOK,
+			expectedRespBody: &handlers.RenameRepositoryAPIResponse{
+				TTL: 0,
+			},
+		},
+		{
+			name:               "dry run param is set explicitly to false",
+			queryParams:        url.Values{"dry_run": []string{"false"}},
+			requestBody:        []byte(`{ "name" : "not-bar" }`),
+			expectedRespStatus: http.StatusNoContent,
+			expectedRespBody:   nil,
+		},
+		{
+			name:               "bad json body",
+			queryParams:        url.Values{"dry_run": []string{"false"}},
+			requestBody:        []byte(`"name" : "not-bar"`),
+			expectedRespStatus: http.StatusBadRequest,
+			expectedRespError:  &v1.ErrorCodeInvalidJSONBody,
+			expectedRespBody:   nil,
+		},
+		{
+			name:               "invalid name parameter in request",
+			queryParams:        url.Values{"dry_run": []string{"false"}},
+			requestBody:        []byte(`{ "name" : "@@@" }`),
+			expectedRespStatus: http.StatusBadRequest,
+			expectedRespError:  &v1.ErrorCodeInvalidBodyParamType,
+			expectedRespBody:   nil,
+		},
+		{
+			name:               "conflicting rename",
+			queryParams:        url.Values{"dry_run": []string{"false"}},
+			requestBody:        []byte(`{ "name" : "bar" }`),
+			expectedRespStatus: http.StatusConflict,
+			expectedRespError:  &v1.ErrorCodeRenameConflict,
+			expectedRespBody:   nil,
+		},
+	}
+
+	for _, test := range tt {
+		t.Run(test.name, func(t *testing.T) {
+			env := newTestEnv(t, disableMirrorFS)
+			env.requireDB(t)
+			t.Cleanup(env.Shutdown)
+
+			// seed repos
+			seedMultipleRepositoriesWithTaggedManifest(t, env, "latest", nestedRepos)
+
+			// create and execute test request
+			u, err := env.builder.BuildGitlabV1RepositoryURL(baseRepoName, test.queryParams)
+			require.NoError(t, err)
+
+			req, err := http.NewRequest(http.MethodPatch, u, bytes.NewReader(test.requestBody))
+			require.NoError(t, err)
+
+			resp, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			defer resp.Body.Close()
+
+			// assert results
+			require.Equal(t, test.expectedRespStatus, resp.StatusCode)
+			if test.expectedRespError != nil {
+				checkBodyHasErrorCodes(t, "", resp, *test.expectedRespError)
+				return
+			}
+
+			var body *handlers.RenameRepositoryAPIResponse
+			err = json.NewDecoder(resp.Body).Decode(&body)
+			if test.expectedRespBody != nil {
+				require.NoError(t, err)
+			}
+
+			require.Equal(t, test.expectedRespBody, body)
+		})
+	}
+}
+
+func TestGitlabAPI_RenameRepository_Empty(t *testing.T) {
+	env := newTestEnv(t, disableMirrorFS)
+	env.requireDB(t)
+	t.Cleanup(env.Shutdown)
+
+	baseRepoName, err := reference.WithName("foo/foo")
+	require.NoError(t, err)
+
+	// create and execute test request
+	u, err := env.builder.BuildGitlabV1RepositoryURL(baseRepoName, url.Values{"dry_run": []string{"false"}})
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPatch, u, bytes.NewReader([]byte(`{"name" : "not-bar"}`)))
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// assert results
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+}
+func TestGitlabAPI_RenameRepository_ExceedsLimit(t *testing.T) {
+	env := newTestEnv(t, disableMirrorFS)
+	env.requireDB(t)
+	t.Cleanup(env.Shutdown)
+
+	// seed 1000 + 1 sub repos of base-repo: foo/bar
+	baseRepoName, err := reference.WithName("foo/bar")
+	require.NoError(t, err)
+
+	nestedRepos := make([]string, 0, 1001)
+	nestedRepos = append(nestedRepos, "foo/bar")
+	for i := 0; i <= 1000; i++ {
+		nestedRepos = append(nestedRepos, fmt.Sprintf("foo/bar/%d", i))
+	}
+	seedMultipleRepositoriesWithTaggedManifest(t, env, "latest", nestedRepos)
+
+	// create and execute test request
+	u, err := env.builder.BuildGitlabV1RepositoryURL(baseRepoName, url.Values{"dry_run": []string{"false"}})
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPatch, u, bytes.NewReader([]byte(`{"name" : "not-bar"}`)))
+	require.NoError(t, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// assert results
+	checkBodyHasErrorCodes(t, "", resp, v1.ErrorCodeExceedsLimit)
 }

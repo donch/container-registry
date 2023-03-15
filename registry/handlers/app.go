@@ -1695,15 +1695,17 @@ func appendRepositoryDetailsAccessRecords(accessRecords []auth.Access, r *http.R
 	route := mux.CurrentRoute(r)
 	routeName := route.GetName()
 
-	// For now, we only have two operation requiring a custom access record, which are:
+	// For now, we only have three operations requiring a custom access record, which are:
 	// 1. for returning the size of a repository including its descendants.
 	// 2. for returning all the repositories under a given repository base path (including the base repository)
-	// These two operations requires an access record of type `repository` and name `<name>/*`
-	// (to grant read access on all descendants), in addition to the standard access record of type `repository` and
+	// 3. renaming a base repository (name and path) and updating the sub-repositories (path) accordingly
+	// These three operations require an access record of type `repository` and name `<name>/*`
+	// (to grant access on all descendants), in addition to the standard access record of type `repository` and
 	// name `<name>` (to grant read access to the base repository), which was appended in the preceding call to
 	// `appendAccessRecords`.
 	if routeName == v1.SubRepositories.Name ||
-		(routeName == v1.Repositories.Name && sizeQueryParamValue(r) == sizeQueryParamSelfWithDescendantsValue) {
+		(routeName == v1.Repositories.Name &&
+			(sizeQueryParamValue(r) == sizeQueryParamSelfWithDescendantsValue || r.Method == http.MethodPatch)) {
 		accessRecords = append(accessRecords, auth.Access{
 			Resource: auth.Resource{
 				Type: "repository",
