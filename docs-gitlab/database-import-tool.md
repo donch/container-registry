@@ -15,6 +15,14 @@ form.
 
 ### Options
 
+#### All Repositories
+
+The `--all-repositories` option will import all repository metadata. With this
+flag, it is required to switch the registry to read-only mode. Start with a
+`pre-import` to limit the amount of read-only time required as much of the
+import work can be handled by the pre-import phase which has no read-only
+requirement. Alias: `--step-two`
+
 #### Common Blobs
 
 The `--common-blobs` option instructs the tool to import all blob metadata from

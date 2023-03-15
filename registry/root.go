@@ -61,8 +61,10 @@ func init() {
 	ImportCmd.Flags().BoolVarP(&importDanglingManifests, "dangling-manifests", "m", false, "import all manifests, regardless of whether they are tagged or not")
 	ImportCmd.Flags().BoolVarP(&requireEmptyDatabase, "require-empty-database", "e", false, "abort import if the database is not empty")
 	ImportCmd.Flags().BoolVarP(&rowCount, "row-count", "c", false, "count and log number of rows across relevant database tables on (pre)import completion")
-	ImportCmd.Flags().BoolVarP(&preImport, "pre-import", "p", false, "import immutable data to speed up a following full import")
+	ImportCmd.Flags().BoolVarP(&preImport, "pre-import", "p", false, "import immutable repository-scoped data to speed up a following import")
 	ImportCmd.Flags().BoolVarP(&preImport, "step-one", "1", false, "perform step one of a multi-step import: alias for `pre-import`")
+	ImportCmd.Flags().BoolVarP(&importAllRepos, "all-repositories", "R", false, "import all repository-scoped data")
+	ImportCmd.Flags().BoolVarP(&importAllRepos, "step-two", "2", false, "perform step two of a multi-step import: alias for `all-repositories`")
 	ImportCmd.Flags().BoolVarP(&importCommonBlobs, "common-blobs", "B", false, "import all blob metadata from common storage")
 	ImportCmd.Flags().BoolVarP(&importCommonBlobs, "step-three", "3", false, "perform step three of a multi-step import: alias for `common-blobs`")
 
@@ -89,6 +91,7 @@ var (
 	countTags               bool
 	rowCount                bool
 	importCommonBlobs       bool
+	importAllRepos          bool
 	preImportAll            bool
 )
 
@@ -565,6 +568,8 @@ var ImportCmd = &cobra.Command{
 			switch {
 			case preImport:
 				err = p.PreImportAll(ctx)
+			case importAllRepos:
+				err = p.ImportAllRepositories(ctx)
 			case importCommonBlobs:
 				err = p.ImportBlobs(ctx)
 			default:
