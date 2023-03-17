@@ -584,6 +584,7 @@ func New(params *DriverParameters) (*Driver, error) {
 		StorageClass:                params.StorageClass,
 		ObjectACL:                   params.ObjectACL,
 		ParallelWalk:                params.ParallelWalk,
+		ObjectOwnership:             params.ObjectOwnership,
 	}
 
 	return &Driver{
