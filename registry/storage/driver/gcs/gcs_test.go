@@ -5,7 +5,6 @@ package gcs
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/rand"
 	"net/url"
@@ -37,14 +36,12 @@ import (
 func Test(t *testing.T) { check.TestingT(t) }
 
 var gcsDriverConstructor func(rootDirectory string) (storagedriver.StorageDriver, error)
-var gcsTargetDriverConstructor func(rootDirectory string) (storagedriver.StorageDriver, error)
 var skipGCS func() string
 
 const maxConcurrency = 10
 
 func init() {
 	bucket := os.Getenv("REGISTRY_STORAGE_GCS_BUCKET")
-	migrationBucket := os.Getenv("REGISTRY_STORAGE_GCS_TARGET_BUCKET")
 	credentials := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
 	parallelWalk := os.Getenv("GCS_PARALLEL_WALK")
 
@@ -104,26 +101,6 @@ func init() {
 	gcsDriverConstructor = func(rootDirectory string) (storagedriver.StorageDriver, error) {
 		parameters := &driverParameters{
 			bucket:         bucket,
-			rootDirectory:  rootDirectory,
-			email:          email,
-			privateKey:     privateKey,
-			client:         oauth2.NewClient(dcontext.Background(), ts),
-			storageClient:  storageClient,
-			chunkSize:      defaultChunkSize,
-			maxConcurrency: maxConcurrency,
-			parallelWalk:   parallelWalkBool,
-		}
-
-		return New(parameters)
-	}
-
-	gcsTargetDriverConstructor = func(rootDirectory string) (storagedriver.StorageDriver, error) {
-		if migrationBucket == "" {
-			return nil, errors.New("REGISTRY_STORAGE_GCS_TARGET_BUCKET must be set")
-		}
-
-		parameters := &driverParameters{
-			bucket:         migrationBucket,
 			rootDirectory:  rootDirectory,
 			email:          email,
 			privateKey:     privateKey,
