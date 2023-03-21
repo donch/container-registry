@@ -1209,10 +1209,6 @@ func (d *driver) WalkParallel(ctx context.Context, from string, f storagedriver.
 	return retError
 }
 
-func (d *driver) TransferTo(ctx context.Context, destDriver storagedriver.StorageDriver, src, dest string) error {
-	return storagedriver.ErrUnsupportedMethod{}
-}
-
 func (d *driver) ExistsPath(ctx context.Context, path string) (bool, error) {
 	prefix := d.pathToDirKey(path)
 	var query *s3.ListObjectsV2Input
