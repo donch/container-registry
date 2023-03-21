@@ -76,7 +76,6 @@ gcs:
   variables:
     <<: *storage-driver-variables
     REGISTRY_STORAGE_GCS_BUCKET: $GCS_BUCKET
-    REGISTRY_STORAGE_GCS_TARGET_BUCKET: $GCS_BUCKET
     TEST_SHORT_FLAG: "-test.short"
     PACKAGE: "github.com/docker/distribution/registry/storage/driver/gcs"
     TEST_TIMEOUT: "35m"
