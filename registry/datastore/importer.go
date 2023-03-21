@@ -39,13 +39,12 @@ var (
 // Importer populates the registry database with filesystem metadata. This is only meant to be used for an initial
 // one-off migration, starting with an empty database.
 type Importer struct {
-	registry            distribution.Namespace
-	blobTransferService distribution.BlobTransferService
-	db                  *DB
-	repositoryStore     RepositoryStore
-	manifestStore       ManifestStore
-	tagStore            TagStore
-	blobStore           BlobStore
+	registry        distribution.Namespace
+	db              *DB
+	repositoryStore RepositoryStore
+	manifestStore   ManifestStore
+	tagStore        TagStore
+	blobStore       BlobStore
 
 	importDanglingManifests bool
 	importDanglingBlobs     bool
@@ -91,13 +90,6 @@ func WithDryRun(imp *Importer) {
 // on (pre)import completion.
 func WithRowCount(imp *Importer) {
 	imp.rowCount = true
-}
-
-// WithBlobTransferService configures the Importer to use the passed BlobTransferService.
-func WithBlobTransferService(bts distribution.BlobTransferService) ImporterOption {
-	return func(imp *Importer) {
-		imp.blobTransferService = bts
-	}
 }
 
 // WithTagConcurrency configures the Importer to retrieve the details of n tags
@@ -186,10 +178,6 @@ func (imp *Importer) importLayer(ctx context.Context, dbRepo *models.Repository,
 		return fmt.Errorf("linking layer blob to repository: %w", err)
 	}
 
-	if err := imp.transferBlob(ctx, dbLayer.Digest, dbLayer.Size, metrics.BlobTypeLayer); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -232,35 +220,6 @@ func (imp *Importer) importLayers(ctx context.Context, dbRepo *models.Repository
 	return dbLayers, nil
 }
 
-func (imp *Importer) transferBlob(ctx context.Context, d digest.Digest, size int64, t metrics.BlobType) error {
-	if imp.dryRun || imp.blobTransferService == nil {
-		return nil
-	}
-
-	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
-		"digest":    d,
-		"blob_type": t.String(),
-	})
-
-	start := time.Now()
-	var noop bool
-	if err := imp.blobTransferService.Transfer(ctx, d); err != nil {
-		if !errors.Is(err, distribution.ErrBlobExists) {
-			return fmt.Errorf("transferring blob with digest %s: %w", d, err)
-		}
-		noop = true
-	}
-
-	duration := time.Since(start).Seconds()
-	metrics.BlobTransfer(duration, float64(size), t)
-	l.WithFields(log.Fields{
-		"noop":       noop,
-		"duration_s": duration,
-	}).Info("blob transfer complete")
-
-	return nil
-}
-
 func (imp *Importer) importManifestV2(ctx context.Context, fsRepo distribution.Repository, dbRepo *models.Repository, m distribution.ManifestV2, dgst digest.Digest, payload []byte, nonConformant bool) (*models.Manifest, error) {
 	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": dbRepo.Path})
 
@@ -285,10 +244,6 @@ func (imp *Importer) importManifestV2(ctx context.Context, fsRepo distribution.R
 	}
 
 	if err := imp.blobStore.CreateOrFind(ctx, dbConfigBlob); err != nil {
-		return nil, err
-	}
-
-	if err := imp.transferBlob(ctx, m.Config().Digest, m.Config().Size, metrics.BlobTypeConfig); err != nil {
 		return nil, err
 	}
 
@@ -1375,9 +1330,7 @@ func (imp *Importer) importBlobs(ctx context.Context) error {
 			}
 		}
 
-		// Even if we found the blob in the database, try to transfer in case it's
-		// not present in blob storage on the transfer side.
-		return imp.transferBlob(ctx, desc.Digest, desc.Size, metrics.BlobTypeUnknown)
+		return nil
 	})
 }
 

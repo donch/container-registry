@@ -65,13 +65,6 @@ repository path each time.
 
 Note: The `--dangling-blobs` option is ignored when this option is specified.
 
-#### Blob Transfer Destination
-The `--blob-transfer-destination` option allows the user to copy imported blobs to
-another storage location. This option is only available for GCS and filesystem
-drivers. For GCS, the name of the new bucket should be passed to this flag. For
-the filesystem driver, this should be the new root directory. In both cases,
-the configured storage driver must have read and write access to the new storage.
-
 #### Pre Import
 The `--pre-import` option will only import immutable registry data. When running
 with this flag, it is not necessary to switch the registry to read-only mode.
