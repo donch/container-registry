@@ -14,15 +14,15 @@ import (
 	"github.com/docker/distribution/registry/datastore/metrics"
 	"github.com/docker/distribution/registry/datastore/models"
 	"github.com/docker/distribution/registry/internal/migration"
-	"gitlab.com/gitlab-org/labkit/errortracking"
 
-	gocache "github.com/eko/gocache/v2/cache"
-	"github.com/eko/gocache/v2/marshaler"
-	"github.com/eko/gocache/v2/store"
-	"github.com/go-redis/redis/v8"
+	gocache "github.com/eko/gocache/lib/v4/cache"
+	"github.com/eko/gocache/lib/v4/marshaler"
+	libstore "github.com/eko/gocache/lib/v4/store"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
 	"github.com/opencontainers/go-digest"
+	"github.com/redis/go-redis/v9"
+	"gitlab.com/gitlab-org/labkit/errortracking"
 )
 
 // cacheOpTimeout defines the timeout applied to cache operations against Redis
@@ -250,13 +250,13 @@ func (c *singleRepositoryCache) HasSizeWithDescendantsTimedOut(context.Context, 
 // centralRepositoryCache is the interface for the centralized repository object cache backed by Redis.
 type centralRepositoryCache struct {
 	// cache provides access to the raw gocache interface
-	cache *gocache.Cache
+	cache *gocache.Cache[any]
 	// marshaler provides access to a MessagePack backed marshaling interface
 	marshaler *marshaler.Marshaler
 }
 
 // NewCentralRepositoryCache creates an interface for the centralized repository object cache backed by Redis.
-func NewCentralRepositoryCache(cache *gocache.Cache) *centralRepositoryCache {
+func NewCentralRepositoryCache(cache *gocache.Cache[any]) *centralRepositoryCache {
 	return &centralRepositoryCache{cache, marshaler.New(cache)}
 }
 
@@ -317,7 +317,7 @@ func (c *centralRepositoryCache) Set(ctx context.Context, r *models.Repository) 
 	setCtx, cancel := context.WithTimeout(ctx, cacheOpTimeout)
 	defer cancel()
 
-	if err := c.marshaler.Set(setCtx, c.key(r.Path), r, nil); err != nil {
+	if err := c.marshaler.Set(setCtx, c.key(r.Path), r); err != nil {
 		log.GetLogger(log.WithContext(ctx)).WithError(err).Warn("failed to write repository to cache")
 	}
 }
@@ -333,8 +333,7 @@ func (c *centralRepositoryCache) SizeWithDescendantsTimedOut(ctx context.Context
 	setCtx, cancel := context.WithTimeout(ctx, cacheOpTimeout)
 	defer cancel()
 
-	opts := &store.Options{Expiration: sizeTimedOutKeyTTL}
-	if err := c.cache.Set(setCtx, c.sizeWithDescendantsTimedOutKey(r.Path), "true", opts); err != nil {
+	if err := c.cache.Set(setCtx, c.sizeWithDescendantsTimedOutKey(r.Path), "true", libstore.WithExpiration(sizeTimedOutKeyTTL)); err != nil {
 		log.GetLogger(log.WithContext(ctx)).WithError(err).Warn("failed to create size with descendants timeout key in cache")
 	}
 }
@@ -364,7 +363,7 @@ func (c *centralRepositoryCache) InvalidateSize(ctx context.Context, r *models.R
 	defer cancel()
 
 	r.Size = nil
-	if err := c.marshaler.Set(inValCtx, c.key(r.Path), r, nil); err != nil {
+	if err := c.marshaler.Set(inValCtx, c.key(r.Path), r); err != nil {
 		detail := "failed to invalidate repository size in cache for repo: " + r.Path
 		log.GetLogger(log.WithContext(ctx)).WithError(err).Warn(detail)
 		err := fmt.Errorf("%q: %q", detail, err)
