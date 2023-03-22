@@ -57,7 +57,6 @@ func init() {
 	DBCmd.AddCommand(ImportCmd)
 	ImportCmd.Flags().StringVarP(&repoPath, "repository", "r", "", "import a specific repository (all by default)")
 	ImportCmd.Flags().BoolVarP(&dryRun, "dry-run", "d", false, "do not commit changes to the database")
-	ImportCmd.Flags().BoolVarP(&importDanglingManifests, "dangling-manifests", "m", false, "import all manifests, regardless of whether they are tagged or not")
 	ImportCmd.Flags().BoolVarP(&requireEmptyDatabase, "require-empty-database", "e", false, "abort import if the database is not empty")
 	ImportCmd.Flags().BoolVarP(&rowCount, "row-count", "c", false, "count and log number of rows across relevant database tables on (pre)import completion")
 	ImportCmd.Flags().BoolVarP(&preImport, "pre-import", "p", false, "import immutable repository-scoped data to speed up a following import")
@@ -73,24 +72,23 @@ func init() {
 
 // Command flag vars
 var (
-	requireEmptyDatabase    bool
-	debugAddr               string
-	dryRun                  bool
-	force                   bool
-	importDanglingManifests bool
-	maxNumMigrations        *int
-	removeUntagged          bool
-	repoPath                string
-	showVersion             bool
-	skipPostDeployment      bool
-	upToDateCheck           bool
-	preImport               bool
-	format                  string
-	countTags               bool
-	rowCount                bool
-	importCommonBlobs       bool
-	importAllRepos          bool
-	preImportAll            bool
+	requireEmptyDatabase bool
+	debugAddr            string
+	dryRun               bool
+	force                bool
+	maxNumMigrations     *int
+	removeUntagged       bool
+	repoPath             string
+	showVersion          bool
+	skipPostDeployment   bool
+	upToDateCheck        bool
+	preImport            bool
+	format               string
+	countTags            bool
+	rowCount             bool
+	importCommonBlobs    bool
+	importAllRepos       bool
+	preImportAll         bool
 )
 
 var parallelwalkKey = "parallelwalk"
@@ -509,9 +507,6 @@ var ImportCmd = &cobra.Command{
 		}
 
 		var opts []datastore.ImporterOption
-		if importDanglingManifests {
-			opts = append(opts, datastore.WithImportDanglingManifests)
-		}
 		if dryRun {
 			opts = append(opts, datastore.WithDryRun)
 		}

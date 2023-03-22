@@ -61,6 +61,9 @@ type ImporterOption func(*Importer)
 
 // WithImportDanglingManifests configures the Importer to import all manifests
 // rather than only tagged manifests.
+//
+// Deprecated: WithImportDanglingManifests is a legacy option that is no longer used
+// in the import command made available to the user.
 func WithImportDanglingManifests(imp *Importer) {
 	imp.importDanglingManifests = true
 }
@@ -673,6 +676,7 @@ func (imp *Importer) importRepository(ctx context.Context, path string) error {
 	}
 
 	if imp.importDanglingManifests {
+		log.GetLogger(log.WithContext(ctx)).Warn("beginning legacy dangling manifests import")
 		// import all repository manifests
 		if err := imp.importManifests(ctx, fsRepo, dbRepo); err != nil {
 			return fmt.Errorf("importing manifests: %w", err)

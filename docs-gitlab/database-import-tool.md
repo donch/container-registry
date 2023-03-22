@@ -41,11 +41,6 @@ where it is possible to import all registry data in one single period of
 read-only mode or downtime. Larger registries will likely need to break up the
 import process over multiple sessions.
 
-#### Dangling Manifests
-
-The `--dangling-manifests` option instructs the import to import all manifests
-without confirmation that this information is reachable from a tagged image.
-
 #### Dry Run
 
 The `--dry-run` option will perform a full import without committing any changes
