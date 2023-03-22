@@ -26,7 +26,7 @@ middleware:storage-googlecdn:
       variables:
         TEST_SHORT_FLAG: ""
     - when: always
-  script: $GO_TEST -timeout=$TEST_TIMEOUT -v -coverprofile=coverage.out -tags=$BUILDTAGS $PACKAGE -args $TEST_SHORT_FLAG
+  script: $GO_TEST -timeout=$TEST_TIMEOUT -v -coverprofile=coverage.out -tags=$BUILDTAGS $PACKAGE -args -check.v $TEST_SHORT_FLAG
 
 filesystem:
   <<: *storage-driver-test
