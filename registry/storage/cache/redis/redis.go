@@ -9,8 +9,9 @@ import (
 	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/storage/cache"
 	"github.com/docker/distribution/registry/storage/cache/metrics"
-	"github.com/go-redis/redis/v8"
+
 	"github.com/opencontainers/go-digest"
+	"github.com/redis/go-redis/v9"
 )
 
 // redisBlobStatService provides an implementation of
