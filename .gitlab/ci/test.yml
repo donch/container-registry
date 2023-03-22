@@ -14,5 +14,8 @@ coverage:
   extends: .go-version-matrix
   stage: test
   needs: ['mocks', 'modules:download']
+  variables:
+    GO_TEST: 'go run gotest.tools/gotestsum@$(GOTESTSUM_VERSION) --junitfile junit.xml --format testname --'
+  coverage: '/total:.+\(statements\).+\d+\.\d+/'
   script:
     - make coverage
