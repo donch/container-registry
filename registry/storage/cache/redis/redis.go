@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -182,7 +183,7 @@ func (rsrbds *repositoryScopedRedisBlobDescriptorService) Stat(ctx context.Conte
 	// We allow a per repository mediatype, let's look it up here.
 	mediatype, err := rsrbds.upstream.client.HGet(ctx, rsrbds.blobDescriptorHashKey(dgst), "mediatype").Result()
 	if err != nil {
-		if err == redis.Nil {
+		if errors.Is(err, redis.Nil) {
 			return distribution.Descriptor{}, distribution.ErrBlobUnknown
 		}
 
