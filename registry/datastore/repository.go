@@ -54,7 +54,7 @@ type RepositoryReader interface {
 	SizeWithDescendants(ctx context.Context, r *models.Repository) (int64, error)
 	EstimatedSizeWithDescendants(ctx context.Context, r *models.Repository) (int64, error)
 	TagsDetailPaginated(ctx context.Context, r *models.Repository, limit int, lastName string) ([]*models.TagDetail, error)
-	FindPagingatedRepositoriesForPath(ctx context.Context, path string, lastPath string, limit int) (models.Repositories, error)
+	FindPagingatedRepositoriesForPath(ctx context.Context, r *models.Repository, lastPath string, limit int) (models.Repositories, error)
 }
 
 // RepositoryWriter is the interface that defines write operations for a repository store.
@@ -1565,7 +1565,13 @@ func (s *repositoryStore) DeleteManifest(ctx context.Context, r *models.Reposito
 // Empty repositories (which do not have at least a tag) are ignored.
 // Also, even if there are no repository with a `path` of `lastPath`, the returned
 // repositories will still be those with a base path `path` and lexicographically after lastPath.
-func (s *repositoryStore) FindPagingatedRepositoriesForPath(ctx context.Context, path string, lastPath string, limit int) (models.Repositories, error) {
+func (s *repositoryStore) FindPagingatedRepositoriesForPath(ctx context.Context, r *models.Repository, lastPath string, limit int) (models.Repositories, error) {
+	// start from a path lexicographically before r.Path when no last path is availaible.
+	// this improves the query performance as we will not need to filter from `r.path > ""` in the query below.
+	if lastPath == "" {
+		lastPath = lexicographicallyBeforePath(r.Path)
+	}
+
 	defer metrics.InstrumentQuery("repository_find_paginated_repositories_for_path")()
 	q := `SELECT  
 			id,
@@ -1583,10 +1589,11 @@ func (s *repositoryStore) FindPagingatedRepositoriesForPath(ctx context.Context,
 			(r.path = $1 OR r.path LIKE $2)
 			AND EXISTS ( SELECT FROM tags AS t WHERE t.top_level_namespace_id = r.top_level_namespace_id AND t.repository_id = r.id )
 			AND (r.path > $3 AND r.path < $4)
+			AND r.top_level_namespace_id = $5
 		ORDER BY r.path
-		LIMIT $5`
+		LIMIT $6`
 
-	rows, err := s.db.QueryContext(ctx, q, path, path+"/%", lastPath, lexicographicallyNextPath(path), limit)
+	rows, err := s.db.QueryContext(ctx, q, r.Path, r.Path+"/%", lastPath, lexicographicallyNextPath(r.Path), r.NamespaceID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("finding pagingated list of repository for path: %w", err)
 	}
@@ -1652,4 +1659,36 @@ func lexicographicallyNextPath(path string) string {
 		nexLexPath = string(rPath)
 	}
 	return nexLexPath
+}
+
+// lexicographicallyBeforePath takes a path string and returns the lexicographical path just before the provided path.
+// e.g gitlab-con => gitlab-com , gitlab-com/  => gitlab-com.
+// In the event that an empty string is provided as a path it returns 'z'.
+// In the event where only "a's" exist in the path; the last 'a' carachter of the path is converted to a "z".
+// This function serves primarily as a helper for optimizing paginated db queries used in `FindPagingatedRepositoriesForPath.
+func lexicographicallyBeforePath(path string) string {
+	// this shouldn't be possible but to be safe we return a z on empty path
+	if path == "" {
+		return "z"
+	}
+
+	// Find first character from right
+	// which is not a.
+	i := strings.LastIndexFunc(path, func(r rune) bool {
+		return r != 'a'
+	})
+
+	var beforeLexPath string
+	// If all characters are 'a',
+	// change the last character to 'z'.
+	if i == -1 {
+		beforeLexPath = strings.TrimSuffix(path, "a") + "z"
+	} else {
+		// If there are some non "a" characters,
+		// convert the very last one to its reverse lexicographical unicode character
+		rPath := []rune(path)
+		rPath[i]--
+		beforeLexPath = string(rPath)
+	}
+	return beforeLexPath
 }
