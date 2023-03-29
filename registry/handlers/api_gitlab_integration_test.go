@@ -3001,17 +3001,19 @@ func TestGitlabAPI_SubRepositoryList_DefaultPageSize(t *testing.T) {
 	t.Cleanup(env.Shutdown)
 	env.requireDB(t)
 
+	baseRepoPath := "foo/bar"
+	baseRepoName, err := reference.WithName(baseRepoPath)
+
 	// generate 100+1 repos with tagged images
 	reposWithTag := make([]string, 0, 101)
+	reposWithTag = append(reposWithTag, baseRepoPath)
 	for i := 0; i <= 100; i++ {
-		reposWithTag = append(reposWithTag, fmt.Sprintf("foo/bar/%d", i))
+		reposWithTag = append(reposWithTag, fmt.Sprintf(baseRepoPath+"/%d", i))
 	}
-
-	baseRepoName, err := reference.WithName("foo/bar")
-	tagName := "latest"
 	require.NoError(t, err)
 
 	// seed repos of the same base path foo/bar but with a tagged manifest
+	tagName := "latest"
 	seedMultipleRepositoriesWithTaggedManifest(t, env, tagName, reposWithTag)
 
 	u, err := env.builder.BuildGitlabV1SubRepositoriesURL(baseRepoName)
@@ -3036,7 +3038,7 @@ func TestGitlabAPI_SubRepositoryList_DefaultPageSize(t *testing.T) {
 	require.Equal(t, expectedLink, resp.Header.Get("Link"))
 }
 
-func TestGitlabAPI_SubRepositoryList_EmptyRepository(t *testing.T) {
+func TestGitlabAPI_SubRepositoryList_EmptyTagRepository(t *testing.T) {
 	env := newTestEnv(t, disableMirrorFS)
 	t.Cleanup(env.Shutdown)
 	env.requireDB(t)
@@ -3044,6 +3046,23 @@ func TestGitlabAPI_SubRepositoryList_EmptyRepository(t *testing.T) {
 	baseRepoName, err := reference.WithName("foo/bar")
 	require.NoError(t, err)
 
+	// create repository and then delete its only tag
+	tag := "latest"
+	createRepository(t, env, baseRepoName.Name(), tag)
+
+	ref, err := reference.WithTag(baseRepoName, tag)
+	require.NoError(t, err)
+
+	tagURL, err := env.builder.BuildTagURL(ref)
+	require.NoError(t, err)
+
+	res, err := httpDelete(tagURL)
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Equal(t, http.StatusAccepted, res.StatusCode)
+
+	// assert subrepositories response
 	u, err := env.builder.BuildGitlabV1SubRepositoriesURL(baseRepoName)
 	require.NoError(t, err)
 	resp, err := http.Get(u)
@@ -3058,6 +3077,23 @@ func TestGitlabAPI_SubRepositoryList_EmptyRepository(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, body)
 	require.ElementsMatch(t, body, []*handlers.RepositoryAPIResponse{})
+}
+
+func TestGitlabAPI_SubRepositoryList_NonExistentRepository(t *testing.T) {
+	env := newTestEnv(t, disableMirrorFS)
+	t.Cleanup(env.Shutdown)
+	env.requireDB(t)
+
+	baseRepoName, err := reference.WithName("foo/bar")
+	require.NoError(t, err)
+
+	u, err := env.builder.BuildGitlabV1SubRepositoriesURL(baseRepoName)
+	require.NoError(t, err)
+	resp, err := http.Get(u)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
 
 func TestGitlabAPI_RenameRepository(t *testing.T) {

@@ -429,9 +429,30 @@ func (h *subRepositoriesHandler) GetSubRepositories(w http.ResponseWriter, r *ht
 		}
 	}
 
+	// extract the repository name to create the a preliminary repository
 	path := h.Repository.Named().Name()
+	repo := &models.Repository{Path: path}
+
+	// try to find the namespaceid for the repo if it exists
+	topLevelPathSegment := repo.TopLevelPathSegment()
+	nStore := datastore.NewNamespaceStore(h.db)
+	namespace, err := nStore.FindByName(h.Context, topLevelPathSegment)
+	if err != nil {
+		h.Errors = append(h.Errors, errcode.FromUnknownError(err))
+		return
+	}
+	if namespace == nil {
+		h.Errors = append(h.Errors, v2.ErrorCodeNameUnknown.WithDetail(map[string]string{"namespace": topLevelPathSegment}))
+		return
+	}
+
+	// path and namespace ID are the two required parameters for the queries in repositoryStore.FindPagingatedRepositoriesForPath,
+	// so we must fill those. We also fill the name for consistency on the response.
+	repo.NamespaceID = namespace.ID
+	repo.Name = repo.Path[strings.LastIndex(repo.Path, "/")+1:]
+
 	rStore := datastore.NewRepositoryStore(h.db)
-	repoList, err := rStore.FindPagingatedRepositoriesForPath(h.Context, path, lastEntry, maxEntries)
+	repoList, err := rStore.FindPagingatedRepositoriesForPath(h.Context, repo, lastEntry, maxEntries)
 	if err != nil {
 		h.Errors = append(h.Errors, errcode.FromUnknownError(err))
 		return
