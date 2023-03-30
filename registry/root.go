@@ -55,13 +55,12 @@ func init() {
 	DBCmd.AddCommand(MigrateCmd)
 
 	DBCmd.AddCommand(ImportCmd)
-	ImportCmd.Flags().StringVarP(&repoPath, "repository", "r", "", "import a specific repository (all by default)")
 	ImportCmd.Flags().BoolVarP(&dryRun, "dry-run", "d", false, "do not commit changes to the database")
 	ImportCmd.Flags().BoolVarP(&requireEmptyDatabase, "require-empty-database", "e", false, "abort import if the database is not empty")
 	ImportCmd.Flags().BoolVarP(&rowCount, "row-count", "c", false, "count and log number of rows across relevant database tables on (pre)import completion")
 	ImportCmd.Flags().BoolVarP(&preImport, "pre-import", "p", false, "import immutable repository-scoped data to speed up a following import")
 	ImportCmd.Flags().BoolVarP(&preImport, "step-one", "1", false, "perform step one of a multi-step import: alias for `pre-import`")
-	ImportCmd.Flags().BoolVarP(&importAllRepos, "all-repositories", "R", false, "import all repository-scoped data")
+	ImportCmd.Flags().BoolVarP(&importAllRepos, "all-repositories", "r", false, "import all repository-scoped data")
 	ImportCmd.Flags().BoolVarP(&importAllRepos, "step-two", "2", false, "perform step two of a multi-step import: alias for `all-repositories`")
 	ImportCmd.Flags().BoolVarP(&importCommonBlobs, "common-blobs", "B", false, "import all blob metadata from common storage")
 	ImportCmd.Flags().BoolVarP(&importCommonBlobs, "step-three", "3", false, "perform step three of a multi-step import: alias for `common-blobs`")
@@ -78,7 +77,6 @@ var (
 	force                bool
 	maxNumMigrations     *int
 	removeUntagged       bool
-	repoPath             string
 	showVersion          bool
 	skipPostDeployment   bool
 	upToDateCheck        bool
@@ -445,7 +443,6 @@ var ImportCmd = &cobra.Command{
 	Short: "Import filesystem metadata into the database",
 	Long: "Import filesystem metadata into the database.\n" +
 		"Untagged manifests are not imported.\n " +
-		"Individual repositories may be imported via the --repository option.\n " +
 		"This tool can not be used with the parallelwalk storage configuration enabled.",
 	Run: func(cmd *cobra.Command, args []string) {
 		config, err := resolveConfiguration(args)
@@ -519,28 +516,15 @@ var ImportCmd = &cobra.Command{
 
 		p := datastore.NewImporter(db, registry, opts...)
 
-		// Single repository commands.
-		if repoPath != "" {
-			switch {
-			case preImport:
-				err = p.PreImport(ctx, repoPath)
-			case importCommonBlobs:
-				err = errors.New("--common-blobs is not supported with the `--repository` flag")
-			default:
-				err = p.Import(ctx, repoPath)
-			}
-			// Full registry commands.
-		} else {
-			switch {
-			case preImport:
-				err = p.PreImportAll(ctx)
-			case importAllRepos:
-				err = p.ImportAllRepositories(ctx)
-			case importCommonBlobs:
-				err = p.ImportBlobs(ctx)
-			default:
-				err = p.FullImport(ctx)
-			}
+		switch {
+		case preImport:
+			err = p.PreImportAll(ctx)
+		case importAllRepos:
+			err = p.ImportAllRepositories(ctx)
+		case importCommonBlobs:
+			err = p.ImportBlobs(ctx)
+		default:
+			err = p.FullImport(ctx)
 		}
 
 		if err != nil {
