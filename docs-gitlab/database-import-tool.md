@@ -51,15 +51,6 @@ be ran while the registry is in full operation, although this could impact the
 performance of the registry and the import may not capture any images which
 are added while the dry run is in progress.
 
-#### Repository
-
-The `--repository` option allow the user to pass the path to a particular
-repository to be imported. This option enables the user to import a subset of
-repositories via repeated calls to the import command, passing in a new
-repository path each time.
-
-Note: The `--dangling-blobs` option is ignored when this option is specified.
-
 #### Pre Import
 The `--pre-import` option will only import immutable registry data. When running
 with this flag, it is not necessary to switch the registry to read-only mode.
