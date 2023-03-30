@@ -448,6 +448,20 @@ var ImportCmd = &cobra.Command{
 		"Individual repositories may be imported via the --repository option.\n " +
 		"This tool can not be used with the parallelwalk storage configuration enabled.",
 	Run: func(cmd *cobra.Command, args []string) {
+
+		// Ensure no more than one step flag is set.
+		if preImport && (importAllRepos || importCommonBlobs) {
+			fmt.Fprint(os.Stderr, "steps two or three can't be used with step one\n")
+			cmd.Usage()
+			os.Exit(1)
+		}
+
+		if importAllRepos && importCommonBlobs {
+			fmt.Fprint(os.Stderr, "step three can't be used with step two\n")
+			cmd.Usage()
+			os.Exit(1)
+		}
+
 		config, err := resolveConfiguration(args)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "configuration error: %v\n", err)
