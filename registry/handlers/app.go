@@ -947,11 +947,13 @@ func (app *App) configureRedisCache(ctx context.Context, config *configuration.C
 	// depending on the configuration options. See https://pkg.go.dev/github.com/go-redis/redis/v9#NewUniversalClient.
 	redisClient := redis.NewUniversalClient(opts)
 
-	redismetrics.InstrumentClient(
-		redisClient,
-		redismetrics.WithInstanceName("cache"),
-		redismetrics.WithMaxConns(opts.PoolSize),
-	)
+	if config.HTTP.Debug.Prometheus.Enabled {
+		redismetrics.InstrumentClient(
+			redisClient,
+			redismetrics.WithInstanceName("cache"),
+			redismetrics.WithMaxConns(opts.PoolSize),
+		)
+	}
 
 	// Ensure the client is correctly configured and the server is reachable. We use a new local context here with a
 	// tight timeout to avoid blocking the application start for too long.
