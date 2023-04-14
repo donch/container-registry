@@ -1,3 +1,12 @@
+# [3.71.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.70.0-gitlab...v3.71.0-gitlab) (2023-04-14)
+
+
+### Features
+
+* add support for Flux media types ([bf844d6](https://gitlab.com/gitlab-org/container-registry/commit/bf844d66fca9a4fdf2cd368209e4e3c74590ac8d))
+* **api/gitlab/v1:** update rename endpoint to use redis ([2a6f01a](https://gitlab.com/gitlab-org/container-registry/commit/2a6f01ab43bf21093ce50c47a614797333ad855b))
+* **notifications:** add endpoint name label to Prometheus metrics ([6fe8cc2](https://gitlab.com/gitlab-org/container-registry/commit/6fe8cc2b0dbb3e8708ffecbe85855b553c9739ea))
+
 # [3.70.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.69.0-gitlab...v3.70.0-gitlab) (2023-03-31)
 
 
