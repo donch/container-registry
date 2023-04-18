@@ -356,13 +356,6 @@ func (e *testEnv) requireDB(t *testing.T) {
 	}
 }
 
-func newTestEnvMirror(t *testing.T, opts ...configOpt) *testEnv {
-	config := newConfig(opts...)
-	config.Proxy.RemoteURL = "http://example.com"
-
-	return newTestEnvWithConfig(t, &config)
-}
-
 func newTestEnv(t *testing.T, opts ...configOpt) *testEnv {
 	config := newConfig(opts...)
 

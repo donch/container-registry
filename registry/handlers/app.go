@@ -44,7 +44,6 @@ import (
 	mrouter "github.com/docker/distribution/registry/internal/migration/router"
 	registrymiddleware "github.com/docker/distribution/registry/middleware/registry"
 	repositorymiddleware "github.com/docker/distribution/registry/middleware/repository"
-	"github.com/docker/distribution/registry/proxy"
 	"github.com/docker/distribution/registry/storage"
 	memorycache "github.com/docker/distribution/registry/storage/cache/memory"
 	rediscache "github.com/docker/distribution/registry/storage/cache/redis"
@@ -109,9 +108,6 @@ type App struct {
 
 	redis redis.UniversalClient
 
-	// isCache is true if this registry is configured as a pull through cache
-	isCache bool
-
 	// readOnly is true if the registry is in a read-only maintenance mode
 	readOnly bool
 
@@ -131,7 +127,6 @@ func NewApp(ctx context.Context, config *configuration.Configuration) (*App, err
 	app := &App{
 		Config:  config,
 		Context: ctx,
-		isCache: config.Proxy.RemoteURL != "",
 	}
 
 	if err := app.initMetaRouter(); err != nil {
@@ -255,10 +250,6 @@ func NewApp(ctx context.Context, config *configuration.Configuration) (*App, err
 			return nil, fmt.Errorf(`could not parse http "host" parameter: %w`, err)
 		}
 		app.httpHost = *u
-	}
-
-	if app.isCache {
-		options = append(options, storage.DisableDigestResumption)
 	}
 
 	// configure deletion
@@ -520,17 +511,6 @@ func NewApp(ctx context.Context, config *configuration.Configuration) (*App, err
 		log.WithField("auth_type", authType).Debug("configured access controller")
 	}
 
-	// configure as a pull through cache
-	if config.Proxy.RemoteURL != "" {
-		log.Warn("DEPRECATION NOTICE: The proxy pull-through cache mode is deprecated and will be removed in " +
-			"2023-05-22. See https://gitlab.com/gitlab-org/container-registry/-/issues/842 for more details")
-		app.registry, err = proxy.NewRegistryPullThroughCache(ctx, app.registry, app.driver, config.Proxy)
-		if err != nil {
-			return nil, err
-		}
-		app.isCache = true
-		log.WithField("remote", config.Proxy.RemoteURL).Info("registry configured as a proxy cache")
-	}
 	var ok bool
 	app.repoRemover, ok = app.registry.(distribution.RepositoryRemover)
 	if !ok {

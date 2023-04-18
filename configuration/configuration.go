@@ -154,8 +154,6 @@ type Configuration struct {
 
 	Health Health `yaml:"health,omitempty"`
 
-	Proxy Proxy `yaml:"proxy,omitempty"`
-
 	// Validation configures validation options for the registry.
 	Validation struct {
 		// Enabled enables the other options in this section. This field is
@@ -1004,7 +1002,7 @@ type Events struct {
 	IncludeReferences bool `yaml:"includereferences"` // include reference data in manifest events
 }
 
-//Ignore configures mediaTypes and actions of the event, that it won't be propagated
+// Ignore configures mediaTypes and actions of the event, that it won't be propagated
 type Ignore struct {
 	MediaTypes []string `yaml:"mediatypes"` // target media types to ignore
 	Actions    []string `yaml:"actions"`    // ignore action types
@@ -1034,18 +1032,6 @@ type Middleware struct {
 	Disabled bool `yaml:"disabled,omitempty"`
 	// Map of parameters that will be passed to the middleware's initialization function
 	Options Parameters `yaml:"options"`
-}
-
-// Proxy configures the registry as a pull through cache
-type Proxy struct {
-	// RemoteURL is the URL of the remote registry
-	RemoteURL string `yaml:"remoteurl"`
-
-	// Username of the hub user
-	Username string `yaml:"username"`
-
-	// Password of the hub user
-	Password string `yaml:"password"`
 }
 
 type parseOpts struct {
