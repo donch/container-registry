@@ -1055,12 +1055,6 @@ func (imp *Importer) doImport(ctx context.Context, required step, steps ...step)
 	}
 
 	t := time.Since(start).Seconds()
-	l.WithFields(log.Fields{"duration_s": t}).Info("metadata import complete")
-
-	if !imp.dryRun {
-		// reset stores to use the main connection handler instead of the last (committed/rolled back) transaction
-		imp.loadStores(imp.db)
-	}
 
 	if imp.rowCount {
 		counters, err := imp.countRows(ctx)
@@ -1074,6 +1068,8 @@ func (imp *Importer) doImport(ctx context.Context, required step, steps ...step)
 		}
 		l = l.WithFields(logCounters)
 	}
+
+	l.WithFields(log.Fields{"duration_s": t}).Info("metadata import complete")
 
 	return err
 }
