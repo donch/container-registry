@@ -36,6 +36,8 @@ var (
 	errManifestSkip         = errors.New("the manifest is invalid and its (pre)import should be skipped")
 )
 
+const mtOctetStream = "application/octet-stream"
+
 // Importer populates the registry database with filesystem metadata. This is only meant to be used for an initial
 // one-off migration, starting with an empty database.
 type Importer struct {
@@ -212,11 +214,16 @@ func (imp *Importer) importLayers(ctx context.Context, dbRepo *models.Repository
 			return dbLayers, fmt.Errorf("checking for access to blob with digest %s on repository %s: %w", fsLayer.Digest, fsRepo.Named().Name(), err)
 		}
 
-		layer := &models.Blob{MediaType: fsLayer.MediaType, Digest: fsLayer.Digest, Size: fsLayer.Size}
-
+		// Use the generic octet stream media type for common blob storage, but set
+		// the original fs media type on the *models.Blob object populated by importLayer.
+		// This way, when the layers are associated with the manifest, the
+		// manifest-layer associations record the layer media type in the manifest JSON.
+		layer := &models.Blob{MediaType: mtOctetStream, Digest: fsLayer.Digest, Size: fsLayer.Size}
 		if err := imp.importLayer(ctx, dbRepo, layer); err != nil {
 			return dbLayers, err
 		}
+		layer.MediaType = fsLayer.MediaType
+
 		dbLayers = append(dbLayers, layer)
 	}
 
@@ -1160,7 +1167,7 @@ func (imp *Importer) importBlobs(ctx context.Context) error {
 		}
 
 		if dbBlob == nil {
-			if err := imp.blobStore.Create(ctx, &models.Blob{MediaType: "application/octet-stream", Digest: desc.Digest, Size: desc.Size}); err != nil {
+			if err := imp.blobStore.Create(ctx, &models.Blob{MediaType: mtOctetStream, Digest: desc.Digest, Size: desc.Size}); err != nil {
 				return fmt.Errorf("creating blob in database: %w", err)
 			}
 		}
