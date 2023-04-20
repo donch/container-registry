@@ -343,10 +343,6 @@ health:
       timeout: 3s
       interval: 10s
       threshold: 3
-proxy:
-  remoteurl: https://registry-1.docker.io
-  username: [username]
-  password: [password]
 validation:
   manifests:
     referencelimit: 150
@@ -1401,38 +1397,6 @@ attempt fails, the health check will fail.
 | `timeout` | no       | How long to wait before timing out the TCP connection. A positive integer and an optional suffix indicating the unit of time. The suffix is one of `ns`, `us`, `ms`, `s`, `m`, or `h`. If you specify a value but omit the suffix, the value is interpreted as a number of nanoseconds. |
 | `interval`| no       | How long to wait between repetitions of the check. A positive integer and an optional suffix indicating the unit of time. The suffix is one of `ns`, `us`, `ms`, `s`, `m`, or `h`. Defaults to `10s` if the value is omitted. If you specify a value but omit the suffix, the value is interpreted as a number of nanoseconds. |
 | `threshold`| no      | The number of times the check must fail before the state is marked as unhealthy. If this field is not specified, a single failure marks the state as unhealthy. |
-
-
-## `proxy`
-
-> **DEPRECATION NOTICE**: The proxy pull-through cache mode is deprecated and will be removed in 2023-05-22. See
-> https://gitlab.com/gitlab-org/container-registry/-/issues/842 for more details.
-
-```
-proxy:
-  remoteurl: https://registry-1.docker.io
-  username: [username]
-  password: [password]
-```
-
-The `proxy` structure allows a registry to be configured as a pull-through cache
-to Docker Hub.  See
-[mirror](https://github.com/docker/docker.github.io/tree/master/registry/recipes/mirror.md)
-for more information. Pushing to a registry configured as a pull-through cache
-is unsupported.
-
-| Parameter | Required | Description                                           |
-|-----------|----------|-------------------------------------------------------|
-| `remoteurl`| yes     | The URL for the repository on Docker Hub.             |
-| `username` | no      | The username registered with Docker Hub which has access to the repository. |
-| `password` | no      | The password used to authenticate to Docker Hub using the username specified in `username`. |
-
-
-To enable pulling private repositories (e.g. `batman/robin`) specify the
-username (such as `batman`) and the password for that username.
-
-> **Note**: These private repositories are stored in the proxy cache's storage.
-> Take appropriate measures to protect access to the proxy cache.
 
 ## `validation`
 
