@@ -18,10 +18,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/docker/distribution"
-	"github.com/docker/distribution/configuration"
 	"github.com/docker/distribution/manifest"
 	"github.com/docker/distribution/manifest/manifestlist"
 	"github.com/docker/distribution/manifest/ocischema"
@@ -31,7 +29,6 @@ import (
 	"github.com/docker/distribution/registry/api/errcode"
 	v2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/docker/distribution/version"
-
 	"github.com/opencontainers/go-digest"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/require"
@@ -200,24 +197,6 @@ func TestAPIConformance(t *testing.T) {
 					migrationRoot := path.Join(rootDir, o.migrationRoot)
 
 					o.opts = append(o.opts, withMigrationEnabled, withMigrationRootDirectory(migrationRoot))
-				}
-
-				if o.notificationsEnabled {
-					notifCfg := configuration.Notifications{
-						Endpoints: []configuration.Endpoint{
-							{
-								Name:              t.Name(),
-								Disabled:          false,
-								Headers:           http.Header{"test-header": []string{t.Name()}},
-								Timeout:           100 * time.Millisecond,
-								Threshold:         1,
-								Backoff:           100 * time.Millisecond,
-								IgnoredMediaTypes: []string{"application/octet-stream"},
-							},
-						},
-					}
-
-					o.opts = append(o.opts, withNotifications(notifCfg))
 				}
 
 				f(t, o.opts...)

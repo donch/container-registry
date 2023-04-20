@@ -90,7 +90,6 @@ type App struct {
 	registry          distribution.Namespace      // registry is the primary registry backend for the app instance.
 	migrationRegistry distribution.Namespace      // migrationRegistry is the secondary registry backend for migration
 	migrationDriver   storagedriver.StorageDriver // migrationDriver is the secondary storage driver for migration
-	importNotifier    *migration.Notifier         // importNotifier used to send notifications when an import or pre-import is done
 	importSemaphore   chan struct{}               // importSemaphore is used to limit the maximum number of concurrent imports
 	ongoingImports    *ongoingImports             // ongoingImports is used to keep track of in progress imports for graceful shutdowns
 
@@ -162,19 +161,6 @@ func NewApp(ctx context.Context, config *configuration.Configuration) (*App, err
 		app.migrationDriver = md
 		app.importSemaphore = make(chan struct{}, config.Migration.MaxConcurrentImports)
 		app.ongoingImports = newOngoingImports()
-
-		if config.Migration.ImportNotification.Enabled {
-			notifier, err := migration.NewNotifier(
-				config.Migration.ImportNotification.URL,
-				config.Migration.ImportNotification.Secret,
-				config.Migration.ImportNotification.Timeout,
-			)
-			if err != nil {
-				return nil, fmt.Errorf("could not create import notifier: %w", err)
-			}
-
-			app.importNotifier = notifier
-		}
 	}
 
 	purgeConfig := uploadPurgeDefaultConfig()
@@ -1091,7 +1077,6 @@ func (app *App) initMetaRouter() error {
 		h := &gitlabBaseHandler{app.Config.Database.Enabled}
 		return http.HandlerFunc(h.GetBase)
 	})
-	app.registerGitlab(v1.RepositoryImport, importDispatcher)
 	app.registerGitlab(v1.RepositoryTags, repositoryTagsDispatcher)
 	app.registerGitlab(v1.Repositories, repositoryDispatcher)
 	app.registerGitlab(v1.SubRepositories, subRepositoriesDispatcher)
@@ -1504,7 +1489,6 @@ func (app *App) authorized(w http.ResponseWriter, r *http.Request, context *Cont
 
 	if repo != "" {
 		accessRecords = appendAccessRecords(accessRecords, r.Method, repo)
-		accessRecords = appendRepositoryImportAccessRecords(accessRecords, r, repo)
 		accessRecords = appendRepositoryDetailsAccessRecords(accessRecords, r, repo)
 
 		if fromRepo := r.FormValue("from"); fromRepo != "" {
@@ -1670,27 +1654,6 @@ func appendCatalogAccessRecord(accessRecords []auth.Access, r *http.Request) []a
 				Action:   "*",
 			})
 	}
-	return accessRecords
-}
-
-func appendRepositoryImportAccessRecords(accessRecords []auth.Access, r *http.Request, repo string) []auth.Access {
-	route := mux.CurrentRoute(r)
-	routeName := route.GetName()
-
-	if routeName == v1.RepositoryImport.Name {
-		// If targeting the import route we override any previously added required accesses (from the v2 API) with a
-		// single action of type `registry`, name `import` and action `*`.
-		accessRecords = []auth.Access{
-			{
-				Resource: auth.Resource{
-					Type: "registry",
-					Name: "import",
-				},
-				Action: "*",
-			},
-		}
-	}
-
 	return accessRecords
 }
 
