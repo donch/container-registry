@@ -584,7 +584,7 @@ func validate(config *configuration.Configuration) error {
 		}
 	}
 
-	// Deprecation warning for azure.
+	//  Warning for azure configuration without `trimlegacyrootprefix` option.
 	if ac, ok := config.Storage["azure"]; ok {
 		v, ok := ac["trimlegacyrootprefix"]
 		if ok {
@@ -592,10 +592,7 @@ func validate(config *configuration.Configuration) error {
 				errs = multierror.Append(fmt.Errorf("invalid type %[1]T for 'storage.azure.trimlegacyrootprefix' (boolean)", v))
 			}
 		} else {
-			dlog.GetLogger().Warn("**DEPRECATION NOTICE**: The azure driver will default to using the standard " +
-				"root prefix on 2023-05-22. Set `trimlegacyrootprefix:false` to maintain " +
-				"backwards compatibility with existing azure deployments. See " +
-				"https://gitlab.com/gitlab-org/container-registry/-/issues/854 for more details.")
+			dlog.GetLogger().Warn("A configuration parameter for 'storage.azure.trimlegacyrootprefix' was not specified. The azure driver will default to using the standard root prefix")
 		}
 	}
 
