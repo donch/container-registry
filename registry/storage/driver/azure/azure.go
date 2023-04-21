@@ -106,7 +106,7 @@ func parseParameters(parameters map[string]interface{}) (*driverParameters, erro
 		root = ""
 	}
 
-	trimLegacyRootPrefix, err := parse.Bool(parameters, paramTrimLegacyRootPrefix, false)
+	trimLegacyRootPrefix, err := parse.Bool(parameters, paramTrimLegacyRootPrefix, true)
 	if err != nil {
 		return nil, err
 	}

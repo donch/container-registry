@@ -75,7 +75,8 @@ stored. Defaults to the empty string (bucket root).
 Originally, the Azure driver would write to `//` as the root directory, also
 appearing in some places as `/<no-name>/` within the Azure UI. This legacy
 behavior must be preserved to support older deployments using this driver.
-Set to `true` to build root paths without an extra leading slash.
+Set to `false` to build root paths with an extra leading slash (i.e `//`).
+Defaults to the `true` to remove legacy root prefix.
 
 #### GCS Storage Driver
 

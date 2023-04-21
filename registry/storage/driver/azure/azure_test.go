@@ -281,7 +281,7 @@ func Test_parseParameters_Bool(t *testing.T) {
 	}
 
 	opts := dtestutil.Opts{
-		Defaultt:          false,
+		Defaultt:          true,
 		ParamName:         paramTrimLegacyRootPrefix,
 		DriverParamName:   "trimLegacyRootPrefix",
 		OriginalParams:    p,
