@@ -560,7 +560,7 @@ func TestImporter_PreImport_UnknownManifestConfigMediaType(t *testing.T) {
 
 	imp := newImporterWithRoot(t, suite.db, "unknown-manifestconfig-mediatype")
 	err := imp.PreImport(suite.ctx, "a-simple")
-	require.EqualError(t, err, "pre importing tagged manifests: pre importing manifest: unknown media type: application/foo.bar.container.image.v1+json")
+	require.EqualError(t, err, "pre importing tagged manifests: pre importing manifest: creating manifest: mapping config media type: unknown media type: application/foo.bar.container.image.v1+json")
 }
 
 func TestImporter_Import_UnknownManifestConfigMediaType(t *testing.T) {
@@ -568,7 +568,7 @@ func TestImporter_Import_UnknownManifestConfigMediaType(t *testing.T) {
 
 	imp := newImporterWithRoot(t, suite.db, "unknown-manifestconfig-mediatype")
 	err := imp.Import(suite.ctx, "a-simple")
-	require.EqualError(t, err, "importing tags: importing manifest: unknown media type: application/foo.bar.container.image.v1+json")
+	require.EqualError(t, err, "importing tags: importing manifest: creating manifest: mapping config media type: unknown media type: application/foo.bar.container.image.v1+json")
 }
 
 func TestImporter_PreImport_NoTagsPrefix(t *testing.T) {
