@@ -253,9 +253,15 @@ func (imp *Importer) importManifestV2(ctx context.Context, fsRepo distribution.R
 		return nil, err
 	}
 
+	// Use the generic octet stream media type for common blob storage, but set
+	// the orginal media type on the *models.Blob object populated by CreateOrFind.
+	// This way, when the configuration is stored with the manifest, the media
+	// type will match what is present in the manifest JSON.
+	dbConfigBlob.MediaType = mtOctetStream
 	if err := imp.blobStore.CreateOrFind(ctx, dbConfigBlob); err != nil {
 		return nil, err
 	}
+	dbConfigBlob.MediaType = m.Config().MediaType
 
 	// link configuration to repository
 	if err := imp.repositoryStore.LinkBlob(ctx, dbRepo, dbConfigBlob.Digest); err != nil {

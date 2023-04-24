@@ -42,7 +42,7 @@
  {"size":524674,"created_at":"2020-04-15T12:04:28.95584","media_type_id":21,"digest":"\\x01ba44d9d3f13a26d49ec4e53f8b69092d61c7f7fd9d4abd07ae086d96958fdb13"}, 
  {"size":6,"created_at":"2020-04-15T12:04:28.95584","media_type_id":21,"digest":"\\x01bc3141806bdc4b83ac744c622a094557530eb0806035fd282d94a12c445403c5"}, 
  {"size":6,"created_at":"2020-04-15T12:04:28.95584","media_type_id":21,"digest":"\\x01bd01e7204bc2e6511d76700eae62c49824b429140735ce33c26ec5cf7cd2fd08"}, 
- {"size":2048,"created_at":"2020-04-15T12:04:28.95584","media_type_id":8,"digest":"\\x01bda9e8f07268fe2c2e97833c721102739f7d6ff9401b7f03aaec176e772bbd8b"}, 
+ {"size":2048,"created_at":"2020-04-15T12:04:28.95584","media_type_id":21,"digest":"\\x01bda9e8f07268fe2c2e97833c721102739f7d6ff9401b7f03aaec176e772bbd8b"}, 
  {"size":1494,"created_at":"2020-04-15T12:04:28.95584","media_type_id":21,"digest":"\\x01be5888e67be651f1fbb59006f0fd791b44ed3fceaa6323ab4e37d5928874345a"}, 
  {"size":5532,"created_at":"2020-04-15T12:04:28.95584","media_type_id":21,"digest":"\\x01c59f425529b7d5d3fb646a0a5288878d27a16fee361d86ab89d3be36c1e6e560"}, 
  {"size":6,"created_at":"2020-04-15T12:04:28.95584","media_type_id":21,"digest":"\\x01c7b5e96879e00e980373ed29b9088020ea3d931c156252c1aae326b86a6775d4"}, 
