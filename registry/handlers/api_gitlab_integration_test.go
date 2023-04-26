@@ -239,7 +239,7 @@ func TestGitlabAPI_RepositoryTagsList(t *testing.T) {
 	// To simplify and speed up things we don't create N new images but rather N tags for the same new image. As result,
 	// the `digest` and `size` for all returned tag details will be the same and only `name` varies. This allows us to
 	// simplify the test setup and assertions.
-	dgst, mediaType, size := createRepositoryWithMultipleIdenticalTags(t, env, imageName.Name(), shuffledTags)
+	dgst, cfgDgst, mediaType, size := createRepositoryWithMultipleIdenticalTags(t, env, imageName.Name(), shuffledTags)
 
 	tt := []struct {
 		name                string
@@ -386,9 +386,10 @@ func TestGitlabAPI_RepositoryTagsList(t *testing.T) {
 					// this is what changes
 					Name: name,
 					// the rest is the same for all objects as we have a single image that all tags point to
-					Digest:    dgst.String(),
-					MediaType: mediaType,
-					Size:      size,
+					Digest:       dgst.String(),
+					ConfigDigest: cfgDgst.String(),
+					MediaType:    mediaType,
+					Size:         size,
 				})
 			}
 
@@ -510,6 +511,33 @@ func TestGitlabAPI_RepositoryTagsList_EmptyRepository(t *testing.T) {
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Empty(t, resp.Header.Get("Link"))
 	require.Empty(t, list)
+}
+
+func TestGitlabAPI_RepositoryTagsList_OmitEmptyConfigDigest(t *testing.T) {
+	env := newTestEnv(t, disableMirrorFS)
+	t.Cleanup(env.Shutdown)
+	env.requireDB(t)
+
+	repoRef, err := reference.WithName("foo/bar")
+	require.NoError(t, err)
+
+	tag := "latest"
+	seedRandomOCIImageIndex(t, env, repoRef.Name(), putByTag(tag), withoutMediaType)
+
+	// assert response
+	tagsURL, err := env.builder.BuildGitlabV1RepositoryTagsURL(repoRef)
+	require.NoError(t, err)
+
+	resp, err := http.Get(tagsURL)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	payload, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	require.Contains(t, string(payload), tag)
+	require.NotContains(t, string(payload), "config_digest")
 }
 
 func TestGitlabAPI_SubRepositoryList(t *testing.T) {
