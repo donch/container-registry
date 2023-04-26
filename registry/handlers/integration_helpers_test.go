@@ -1264,7 +1264,7 @@ func createRepository(t *testing.T, env *testEnv, repoPath string, tag string) d
 	return digest.FromBytes(payload)
 }
 
-func createRepositoryWithMultipleIdenticalTags(t *testing.T, env *testEnv, repoPath string, tags []string) (digest.Digest, string, int64) {
+func createRepositoryWithMultipleIdenticalTags(t *testing.T, env *testEnv, repoPath string, tags []string) (digest.Digest, digest.Digest, string, int64) {
 	deserializedManifest := seedRandomSchema2Manifest(t, env, repoPath)
 
 	_, payload, err := deserializedManifest.Payload()
@@ -1284,7 +1284,7 @@ func createRepositoryWithMultipleIdenticalTags(t *testing.T, env *testEnv, repoP
 		require.Equal(t, dgst.String(), resp.Header.Get("Docker-Content-Digest"))
 	}
 
-	return dgst, schema2.MediaTypeManifest, deserializedManifest.TotalSize()
+	return dgst, deserializedManifest.Config().Digest, schema2.MediaTypeManifest, deserializedManifest.TotalSize()
 }
 
 func httpDelete(url string) (*http.Response, error) {

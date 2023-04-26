@@ -191,14 +191,15 @@ curl --header "Authorization: Bearer <token>" "https://registry.gitlab.com/gitla
 
 The response body is an array of objects (one per tag, if any) with the following attributes:
 
-| Key          | Value                                            | Type   | Format                              | Condition                                                                                                |
-|--------------|--------------------------------------------------|--------|-------------------------------------|----------------------------------------------------------------------------------------------------------|
-| `name`       | The tag name.                                    | String |                                     |                                                                                                          |
-| `digest`     | The digest of the tagged manifest.               | String |                                     |                                                                                                          |
-| `media_type` | The media type of the tagged manifest.           | String |                                     |                                                                                                          |
-| `size_bytes` | The size of the tagged image.                    | Number | Bytes                               |                                                                                                          |
-| `created_at` | The timestamp at which the tag was created.      | String | ISO 8601 with millisecond precision |                                                                                                          |
-| `updated_at` | The timestamp at which the tag was last updated. | String | ISO 8601 with millisecond precision | Only present if updated at least once. An update happens when a tag is switched to a different manifest. |
+| Key             | Value                                            | Type   | Format                              | Condition                                                                                                |
+|-----------------|--------------------------------------------------|--------|-------------------------------------|----------------------------------------------------------------------------------------------------------|
+| `name`          | The tag name.                                    | String |                                     |                                                                                                          |
+| `digest`        | The digest of the tagged manifest.               | String |                                     |                                                                                                          |
+| `config_digest` | The configuration digest of the tagged image.    | String |                                     | Only present if image has an associated configuration.                                                   |
+| `media_type`    | The media type of the tagged manifest.           | String |                                     |                                                                                                          |
+| `size_bytes`    | The size of the tagged image.                    | Number | Bytes                               |                                                                                                          |
+| `created_at`    | The timestamp at which the tag was created.      | String | ISO 8601 with millisecond precision |                                                                                                          |
+| `updated_at`    | The timestamp at which the tag was last updated. | String | ISO 8601 with millisecond precision | Only present if updated at least once. An update happens when a tag is switched to a different manifest. |
 
 The tag objects are sorted lexicographically by tag name to enable marker-based pagination.
 
@@ -209,6 +210,7 @@ The tag objects are sorted lexicographically by tag name to enable marker-based 
   {
     "name": "0.1.0",
     "digest": "sha256:6c3c624b58dbbcd3c0dd82b4c53f04194d1247c6eebdaab7c610cf7d66709b3b",
+    "config_digest": "sha256:66b1132a0173910b01ee3a15ef4e69583bbf2f7f1e4462c99efbe1b9ab5bf808",
     "media_type": "application/vnd.oci.image.manifest.v1+json",
     "size_bytes": 286734237,
     "created_at": "2022-06-07T12:10:12.412+00:00"
@@ -216,6 +218,7 @@ The tag objects are sorted lexicographically by tag name to enable marker-based 
   {
     "name": "latest",
     "digest": "sha256:6c3c624b58dbbcd3c0dd82b4c53f04194d1247c6eebdaab7c610cf7d66709b3b",
+    "config_digest": "sha256:0c4c8e302e7a074a8a1c2600cd1af07505843adb2c026ea822f46d3b5a98dd1f",
     "media_type": "application/vnd.oci.image.manifest.v1+json",
     "size_bytes": 286734237,
     "created_at": "2022-06-07T12:11:13.633+00:00",
@@ -363,6 +366,10 @@ error codes described in the
 `INVALID_QUERY_PARAMETER_TYPE` | `the value of a query parameter is of an invalid type` | The value of a request query parameter is of an invalid type. The error detail identifies the concerning parameter and the list of possible types.
 
 ## Changes
+
+### 2023-04-24
+
+- Add config digest to List Repository Tags response.
 
 ### 2023-04-20
 
