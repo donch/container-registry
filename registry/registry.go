@@ -19,6 +19,7 @@ import (
 	dlog "github.com/docker/distribution/log"
 	"github.com/docker/distribution/registry/datastore"
 	"github.com/docker/distribution/registry/handlers"
+	"github.com/docker/distribution/registry/internal/dns"
 	"github.com/docker/distribution/registry/listener"
 	"github.com/docker/distribution/uuid"
 	"github.com/docker/distribution/version"
@@ -642,6 +643,57 @@ func nextProtos(http2Disabled bool) []string {
 	default:
 		return []string{"h2", "http/1.1"}
 	}
+}
+
+// TODO: this method is not used yet but will be part of a follow-up MR for
+// https://gitlab.com/gitlab-org/container-registry/-/issues/890
+func dbPrimaryFromConfig(config *configuration.Configuration) (*datastore.DB, error) {
+	sd := config.Database.Discovery
+	network := "udp"
+	if sd.TCP {
+		network = "tcp"
+	}
+
+	resolver := dns.NewResolver(sd.Nameserver, sd.Port, network)
+
+	// Try to resolve the SRV records for from the nameserver.
+	srvRecords, err := resolver.LookupSRV(sd.PrimaryRecord)
+	if err != nil {
+		return nil, err
+	}
+
+	// At least 1 record will be returned by LookupSRV or an error if none found.
+	// So we can always use the first record from the primary address target.
+	record := srvRecords[0]
+	ips, err := resolver.LookupA(record.Target)
+	if err != nil {
+		return nil, err
+	}
+
+	return datastore.Open(&datastore.DSN{
+		Host:        ips[0].A.String(),
+		Port:        int(record.Port),
+		User:        config.Database.User,
+		Password:    config.Database.Password,
+		DBName:      config.Database.DBName,
+		SSLMode:     config.Database.SSLMode,
+		SSLCert:     config.Database.SSLCert,
+		SSLKey:      config.Database.SSLKey,
+		SSLRootCert: config.Database.SSLRootCert,
+	},
+		datastore.WithLogger(log.WithFields(log.Fields{"database": config.Database.DBName})),
+		datastore.WithLogLevel(config.Log.Level),
+		datastore.WithPoolConfig(&datastore.PoolConfig{
+			// override max open connections for applying migrations
+			// TODO: expose options for MaxIdle and MaxOpen
+			// https://gitlab.com/gitlab-org/container-registry/-/issues/994
+			MaxIdle:     1,
+			MaxOpen:     1,
+			MaxLifetime: config.Database.Pool.MaxLifetime,
+			MaxIdleTime: config.Database.Pool.MaxIdleTime,
+		}),
+		datastore.WithPreparedStatements(config.Database.PreparedStatements),
+	)
 }
 
 func dbFromConfig(config *configuration.Configuration) (*datastore.DB, error) {

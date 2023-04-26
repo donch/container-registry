@@ -179,6 +179,12 @@ database:
     maxidle: 25
     maxopen: 25
     maxlifetime: 5m
+  discovery:
+    enabled: true
+    nameserver: fqdn.of.valid.dns
+    port: 53
+    primaryrecord: primary.database.fqdn.
+    tcp: true
 migration:
   enabled: true
   disablemirrorfs: true
@@ -653,6 +659,12 @@ database:
     maxidle: 25
     maxopen: 25
     maxlifetime: 5m
+  discovery:
+    enabled: true
+    nameserver: fqdn.of.valid.dns
+    port: 53
+    primaryrecord: primary.database.fqdn.
+    tcp: true
 ```
 
 | Parameter  | Required | Description                                                                                                                                                                                                                                          |
@@ -689,6 +701,28 @@ Use these settings to configure the behavior of the database connection pool.
 | `maxopen`| no      | The maximum number of open connections to the database. If `maxopen` is less than `maxidle`, then `maxidle` is reduced to match the `maxopen` limit. Defaults to 0 (unlimited). |
 | `maxlifetime`| no    | The maximum amount of time a connection may be reused. Expired connections may be closed lazily before reuse. Defaults to 0 (unlimited). |
 | `maxidletime` | no | The maximum amount of time a connection may be idle. Expired connections may be closed lazily before reuse. Defaults to 0 (unlimited). |
+
+### `discovery`
+
+```none
+  discovery:
+    enabled: true
+    nameserver: fqdn.of.valid.dns
+    port: 53
+    primaryrecord: primary.database.fqdn.
+    tcp: true
+```
+
+Use these settings to configure the behavior of the database service discovery.
+This is currently used to connect to the primary server for applying database migrations on high-availability replicated deployments.
+
+| Parameter       | Required | Description                                                                        |
+|-----------------|----------|------------------------------------------------------------------------------------|
+| `enabled`       | no       | Whether the registry should use service discovery via DNS to resolve DB hosts.     |
+| `nameserver`    | no       | The IP address or FQD of the DNS server to query from.                             |
+| `port`          | no       | The port of the `Nameserver`. Defaults to `53`.                                    |
+| `primaryrecord` | no       | FQDN of the database's primary host. Used to apply schema migrations.              |
+| `tcp`           | no       | Whether to use `tcp` instead of `udp`. Defaults to `false`.                        |
 
 ## `migration`
 
