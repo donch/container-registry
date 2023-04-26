@@ -26,6 +26,7 @@ require (
 	github.com/jackc/pgerrcode v0.0.0-20220416144525-469b46aa5efa
 	github.com/jackc/pgx/v4 v4.17.2
 	github.com/jszwec/csvutil v1.7.1
+	github.com/miekg/dns v1.0.14
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/ncw/swift v1.0.53
 	github.com/olekukonko/tablewriter v0.0.5

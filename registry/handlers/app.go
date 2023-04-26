@@ -39,6 +39,7 @@ import (
 	"github.com/docker/distribution/registry/gc/worker"
 	"github.com/docker/distribution/registry/handlers/internal/metrics"
 	"github.com/docker/distribution/registry/internal"
+	"github.com/docker/distribution/registry/internal/dns"
 	redismetrics "github.com/docker/distribution/registry/internal/metrics/redis"
 	"github.com/docker/distribution/registry/internal/migration"
 	mrouter "github.com/docker/distribution/registry/internal/migration/router"
@@ -349,6 +350,47 @@ func NewApp(ctx context.Context, config *configuration.Configuration) (*App, err
 	// Connect to the metadata database, if enabled.
 	if config.Database.Enabled {
 		log.Warn("the metadata database is an experimental feature, please do not enable it in production")
+
+		// TODO: this function only exists to test https://gitlab.com/gitlab-org/container-registry/-/issues/890
+		// as the migration code runs on a separate container that does not output any searchable logs.
+		go func() {
+			if config.Database.Discovery.Nameserver == "" {
+				return
+			}
+
+			sd := config.Database.Discovery
+			network := "udp"
+			if sd.TCP {
+				network = "tcp"
+			}
+
+			resolver := dns.NewResolver(sd.Nameserver, sd.Port, network)
+			// Try to resolve the SRV records for from the nameserver.
+			// At least 1 record will be returned or an error if not found.
+			srvRecords, err := resolver.LookupSRV(sd.PrimaryRecord)
+			if err != nil {
+				log.WithError(err).Error("failed to lookup SRV record")
+				return
+			}
+
+			log.Info("DNS lookup found SRV records")
+			for k, ip := range srvRecords {
+				log.Infof("DNS SRV record: %d - ip: %+v", k, ip)
+			}
+
+			// Always use the first record from the primary address
+			record := srvRecords[0]
+			ips, err := resolver.LookupA(record.Target)
+			if err != nil {
+				log.WithError(err).Error("failed to lookup A record")
+				return
+			}
+
+			log.Info("DNS lookup found A records")
+			for k, ip := range ips {
+				log.Infof("DNS A record: %d - ip: %+v", k, ip)
+			}
+		}()
 
 		db, err := datastore.Open(&datastore.DSN{
 			Host:           config.Database.Host,
