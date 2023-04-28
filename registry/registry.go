@@ -585,15 +585,46 @@ func validate(config *configuration.Configuration) error {
 		}
 	}
 
-	//  Warning for azure configuration without `trimlegacyrootprefix` option.
+	//  Validate and/or Log potential issues with azure `trimlegacyrootprefix` and `legacyrootprefix` configuration options.
 	if ac, ok := config.Storage["azure"]; ok {
-		v, ok := ac["trimlegacyrootprefix"]
-		if ok {
-			if _, ok := v.(bool); !ok {
-				errs = multierror.Append(fmt.Errorf("invalid type %[1]T for 'storage.azure.trimlegacyrootprefix' (boolean)", v))
+		var legacyPrefix, legacyPrefixIsBool, trimLegacyPrefix, trimLegacyPrefixIsBool bool
+
+		// assert `trimlegacyrootprefix` can be represented as a boolean
+		trimLegacyPrefixI, trimLegacyPrefixExist := ac["trimlegacyrootprefix"]
+		if trimLegacyPrefixExist {
+			if trimLegacyPrefix, trimLegacyPrefixIsBool = trimLegacyPrefixI.(bool); !trimLegacyPrefixIsBool {
+				errs = multierror.Append(fmt.Errorf("invalid type %[1]T for 'storage.azure.trimlegacyrootprefix' (boolean)", trimLegacyPrefix))
 			}
-		} else {
-			dlog.GetLogger().Warn("A configuration parameter for 'storage.azure.trimlegacyrootprefix' was not specified. The azure driver will default to using the standard root prefix")
+		}
+
+		// assert `legacyrootprefix` can be represented as a boolean
+		legacyPrefixI, legacyPrefixExist := ac["legacyrootprefix"]
+		if legacyPrefixExist {
+			if legacyPrefix, legacyPrefixIsBool = legacyPrefixI.(bool); !legacyPrefixIsBool {
+				errs = multierror.Append(fmt.Errorf("invalid type %[1]T for 'storage.azure.legacyrootprefix' (boolean)", legacyPrefix))
+			}
+		}
+
+		switch {
+		// both parameters exist, check for conflict:
+		case trimLegacyPrefixExist && legacyPrefixExist:
+			// while it is allowed to set both configs (as long as they do not conflict), setting only one is sufficient.
+			dlog.GetLogger().Warn("Both 'storage.azure.legacyrootprefix' and 'storage.azure.trimlegacyrootprefix' are set. It is recommended to set one or the other, rather than both.")
+
+			// conflict: user explicitly enabled legacyrootprefix but also enabled trimlegacyrootprefix (or disabled both).
+			if legacyPrefixIsBool && trimLegacyPrefixIsBool {
+				if legacyPrefix == trimLegacyPrefix {
+					errs = multierror.Append(fmt.Errorf("storage.azure.trimlegacyrootprefix' and  'storage.azure.trimlegacyrootprefix' can not both be %v", legacyPrefix))
+				}
+			}
+
+		// both parameters do not exist, warn user that we will be using the default (i.e storage.azure.legacyrootprefix=false aka storage.azure.trimlegacyrootprefix=true):
+		case !trimLegacyPrefixExist && !legacyPrefixExist:
+			dlog.GetLogger().Warn("A configuration parameter for 'storage.azure.legacyrootprefix' or 'storage.azure.trimlegacyrootprefix' was not specified. The azure driver will default to using the standard root prefix: \"/\" ")
+
+		// one parameter does not exist, while the other does
+		case !trimLegacyPrefixExist || !legacyPrefixExist:
+			// nothing to do here
 		}
 	}
 
