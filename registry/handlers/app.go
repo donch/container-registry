@@ -15,7 +15,6 @@ import (
 	"os"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/benbjohnson/clock"
@@ -37,12 +36,9 @@ import (
 	"github.com/docker/distribution/registry/datastore/migrations"
 	"github.com/docker/distribution/registry/gc"
 	"github.com/docker/distribution/registry/gc/worker"
-	"github.com/docker/distribution/registry/handlers/internal/metrics"
 	"github.com/docker/distribution/registry/internal"
 	"github.com/docker/distribution/registry/internal/dns"
 	redismetrics "github.com/docker/distribution/registry/internal/metrics/redis"
-	"github.com/docker/distribution/registry/internal/migration"
-	mrouter "github.com/docker/distribution/registry/internal/migration/router"
 	registrymiddleware "github.com/docker/distribution/registry/middleware/registry"
 	repositorymiddleware "github.com/docker/distribution/registry/middleware/repository"
 	"github.com/docker/distribution/registry/storage"
@@ -84,14 +80,10 @@ type App struct {
 
 	Config *configuration.Configuration
 
-	router            *metaRouter                 // router dispatcher while we consolidate into the new router
-	driver            storagedriver.StorageDriver // driver maintains the app global storage driver instance.
-	db                *datastore.DB               // db is the global database handle used across the app.
-	registry          distribution.Namespace      // registry is the primary registry backend for the app instance.
-	migrationRegistry distribution.Namespace      // migrationRegistry is the secondary registry backend for migration
-	migrationDriver   storagedriver.StorageDriver // migrationDriver is the secondary storage driver for migration
-	importSemaphore   chan struct{}               // importSemaphore is used to limit the maximum number of concurrent imports
-	ongoingImports    *ongoingImports             // ongoingImports is used to keep track of in progress imports for graceful shutdowns
+	router   *metaRouter                 // router dispatcher while we consolidate into the new router
+	driver   storagedriver.StorageDriver // driver maintains the app global storage driver instance.
+	db       *datastore.DB               // db is the global database handle used across the app.
+	registry distribution.Namespace      // registry is the primary registry backend for the app instance.
 
 	repoRemover      distribution.RepositoryRemover // repoRemover provides ability to delete repos
 	accessController auth.AccessController          // main access controller for application
@@ -149,16 +141,6 @@ func NewApp(ctx context.Context, config *configuration.Configuration) (*App, err
 
 	log := dcontext.GetLogger(app)
 
-	if config.Migration.Enabled {
-		md, err := migrationDriver(config)
-		if err != nil {
-			return nil, err
-		}
-		app.migrationDriver = md
-		app.importSemaphore = make(chan struct{}, config.Migration.MaxConcurrentImports)
-		app.ongoingImports = newOngoingImports()
-	}
-
 	purgeConfig := uploadPurgeDefaultConfig()
 	if mc, ok := config.Storage["maintenance"]; ok {
 		if v, ok := mc["uploadpurging"]; ok {
@@ -192,23 +174,9 @@ func NewApp(ctx context.Context, config *configuration.Configuration) (*App, err
 		return nil, err
 	}
 
-	// Also start an upload purger for the new root directory if we're migrating
-	// to a different root directory.
-	if app.Config.Migration.Enabled && distinctMigrationRootDirectory(config) {
-		if err := startUploadPurger(app, app.migrationDriver, log, purgeConfig); err != nil {
-			return nil, err
-		}
-	}
-
 	app.driver, err = applyStorageMiddleware(app.driver, config.Middleware["storage"])
 	if err != nil {
 		return nil, err
-	}
-	if app.Config.Migration.Enabled {
-		app.migrationDriver, err = applyStorageMiddleware(app.migrationDriver, config.Middleware["storage"])
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	if err := app.configureSecret(config); err != nil {
@@ -439,12 +407,6 @@ func NewApp(ctx context.Context, config *configuration.Configuration) (*App, err
 			promclient.MustRegister(collector)
 		}
 
-		// In migration mode, we need to ensure that we never disable the FS
-		// mirroring for the registry which handles repositories on the old path.
-		if config.Migration.DisableMirrorFS && !config.Migration.Enabled {
-			options = append(options, storage.DisableMirrorFS)
-		}
-
 		// update online GC settings (if needed) in the background to avoid delaying the app start
 		go func() {
 			if err := updateOnlineGCSettings(app.Context, app.db, config); err != nil {
@@ -453,17 +415,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) (*App, err
 			}
 		}()
 
-		// If we're migrating, then we'll use use the migration driver since that
-		// will contain the storage managed by the database, if not we need to use
-		// the main storage driver.
-		var gcDriver storagedriver.StorageDriver
-		if app.Config.Migration.Enabled {
-			gcDriver = app.migrationDriver
-		} else {
-			gcDriver = app.driver
-		}
-
-		startOnlineGC(app.Context, app.db, gcDriver, config)
+		startOnlineGC(app.Context, app.db, app.driver, config)
 	}
 
 	// configure storage caches
@@ -522,12 +474,6 @@ func NewApp(ctx context.Context, config *configuration.Configuration) (*App, err
 		return nil, err
 	}
 
-	if config.Migration.Enabled {
-		if app.migrationRegistry, err = migrationRegistry(app.Context, app.migrationDriver, config, options...); err != nil {
-			return nil, err
-		}
-	}
-
 	authType := config.Auth.Type()
 
 	if authType != "" && !strings.EqualFold(authType, "none") {
@@ -546,58 +492,6 @@ func NewApp(ctx context.Context, config *configuration.Configuration) (*App, err
 	}
 
 	return app, nil
-}
-
-func migrationDriver(config *configuration.Configuration) (storagedriver.StorageDriver, error) {
-	paramsCopy := make(configuration.Parameters)
-	storageParams := config.Storage.Parameters()
-
-	for k := range storageParams {
-		paramsCopy[k] = storageParams[k]
-	}
-
-	if distinctMigrationRootDirectory(config) {
-		paramsCopy["rootdirectory"] = config.Migration.RootDirectory
-	}
-
-	driver, err := factory.Create(config.Storage.Type(), paramsCopy)
-	if err != nil {
-		return nil, err
-	}
-
-	return driver, nil
-}
-
-func migrationRegistry(ctx context.Context, driver storagedriver.StorageDriver, config *configuration.Configuration, options ...storage.RegistryOption) (distribution.Namespace, error) {
-	if config.Migration.DisableMirrorFS {
-		options = append(options, storage.DisableMirrorFS)
-	}
-
-	return storage.NewRegistry(ctx, driver, options...)
-}
-
-func distinctMigrationRootDirectory(config *configuration.Configuration) bool {
-	storageParams := config.Storage.Parameters()
-	if storageParams == nil {
-		storageParams = make(configuration.Parameters)
-	}
-
-	if config.Migration.RootDirectory != fmt.Sprintf("%s", storageParams["rootdirectory"]) {
-		return true
-	}
-
-	return false
-}
-
-func (app *App) getMigrationStatus(ctx context.Context, repo distribution.Repository) (migration.Status, error) {
-	if !(app.Config.Database.Enabled && app.Config.Migration.Enabled) {
-		return migration.StatusMigrationDisabled, nil
-	}
-
-	rStore := datastore.NewRepositoryStore(app.db)
-	migrationRouter := &mrouter.Router{RepoFinder: rStore}
-
-	return migrationRouter.MigrationStatus(ctx, repo)
 }
 
 var (
@@ -1209,9 +1103,12 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 		// sync up context on the request.
 		r = r.WithContext(ctx)
 
-		// Save migration status for logging later.
-		var mStatus migration.Status
-		var migrationStatusDuration time.Duration
+		// get all metadata either from the database or from the filesystem
+		if app.Config.Database.Enabled {
+			ctx.useDatabase = true
+		} else {
+			ctx.writeFSMetadata = true
+		}
 
 		if app.nameRequired(r) {
 			bp, ok := app.registry.Blobs().(distribution.BlobProvider)
@@ -1227,67 +1124,6 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 				return
 			}
 
-			// TODO: We'll need to do check the migration status in a transaction once
-			// https://gitlab.com/gitlab-org/container-registry/-/issues/595 is resolved.
-			start := time.Now()
-			mStatus, err = app.getMigrationStatus(ctx, repository)
-			if err != nil {
-				err = fmt.Errorf("determining whether repository is eligible for migration: %v", err)
-				dcontext.GetLogger(ctx).Error(err)
-				ctx.Errors = append(ctx.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
-			}
-			migrationStatusDuration = time.Since(start)
-
-			// We're in the middle of a full import and we have received a write request.
-			// Deny the write request so that the full import can continue.
-			if mStatus == migration.StatusImportInProgress &&
-				!(r.Method == http.MethodGet || r.Method == http.MethodHead) {
-				err = fmt.Errorf("canceling write request: full import of repository in progress")
-				dcontext.GetLogger(ctx).Error(err)
-				ctx.Errors = append(ctx.Errors, errcode.ErrorCodeUnavailable.WithDetail(err))
-				w.WriteHeader(http.StatusServiceUnavailable)
-				return
-			}
-
-			ctx.writeFSMetadata = !app.Config.Migration.DisableMirrorFS
-			migrateRepo := mStatus.ShouldMigrate()
-
-			switch {
-			case migrateRepo:
-				// Prepare the migration side of filesystem storage and pass it to the Context.
-				bp, ok := app.migrationRegistry.Blobs().(distribution.BlobProvider)
-				if !ok {
-					err = fmt.Errorf("unable to convert BlobEnumerator into BlobProvider")
-					dcontext.GetLogger(ctx).Error(err)
-					ctx.Errors = append(ctx.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
-				}
-				ctx.blobProvider = bp
-
-				repository, err = app.migrationRepositoryFromContext(ctx, w)
-				if err != nil {
-					return
-				}
-
-				// We're writing the migrating repository to the database.
-				ctx.useDatabase = true
-			// We're not migrating and the database is enabled, read/write from the
-			// database except for writing blobs to common storage.
-			case !app.Config.Migration.Enabled && app.Config.Database.Enabled:
-				ctx.useDatabase = true
-			// We're either not migrating this repository, or we're not migrating at
-			// all and the database is not enabled. Either way, read/write from
-			// the filesystem alone.
-			case app.Config.Migration.Enabled && !migrateRepo,
-				!app.Config.Database.Enabled:
-				ctx.useDatabase = false
-				ctx.writeFSMetadata = true
-			default:
-				// this should never happen as we pre-validate all possible combinations before starting, nevertheless
-				err = errors.New("invalid database and migration configuration")
-				dcontext.GetLogger(ctx).Error(err)
-				ctx.Errors = append(ctx.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
-			}
-
 			ctx.queueBridge = app.queueBridge(ctx, r)
 
 			// assign and decorate the authorized repository with an event bridge.
@@ -1295,7 +1131,8 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 				repository,
 				ctx.App.repoRemover,
 				app.eventBridge(ctx, r),
-				app.Config.Migration.DisableMirrorFS)
+				// mirroring is always disabled when the database is enabled
+				ctx.useDatabase)
 
 			ctx.Repository, err = applyRepoMiddleware(app, ctx.Repository, app.Config.Middleware["repository"])
 			if err != nil {
@@ -1307,52 +1144,10 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 				}
 				return
 			}
-		} else {
-			// This is not a repository-scoped request, so we must return resuts from
-			// either either the filesystem or the database, even if we're configured
-			// for migration.
-			if app.Config.Database.Enabled {
-				ctx.useDatabase = true
-			} else {
-				ctx.useDatabase = false
-			}
-
-			mStatus = migration.StatusNonRepositoryScopedRequest
 		}
 
 		if ctx.useDatabase {
 			ctx.repoCache = datastore.NewSingleRepositoryCache()
-		}
-
-		if app.Config.Migration.Enabled {
-			metrics.MigrationRoute(mStatus.ShouldMigrate())
-
-			// Set temporary response header to denote the code path that a request has followed during migration
-			var path migration.CodePathVal
-			if mStatus.ShouldMigrate() {
-				path = migration.NewCodePath
-			} else {
-				path = migration.OldCodePath
-			}
-			w.Header().Set(migration.CodePathHeader, path.String())
-
-			log := dcontext.GetLoggerWithFields(ctx.Context, map[interface{}]interface{}{
-				"use_database":          ctx.useDatabase,
-				"write_fs_metadata":     ctx.writeFSMetadata,
-				"migration_path":        path.String(),
-				"migration_status":      mStatus.String(),
-				"migration_description": mStatus.Description(),
-			})
-			ctx.Context = dcontext.WithLogger(migration.WithCodePath(ctx.Context, path), log)
-
-			// In migration mode, we should log each request at least once. This will
-			// allow us to match the access log entries with the extra migration
-			// fields contained in the app log.
-			log.WithFields(logrus.Fields{
-				"method":            r.Method,
-				"path":              r.URL.Path,
-				"status_duration_s": migrationStatusDuration.Seconds(),
-			}).Info("serving request in migration mode")
 		}
 
 		dispatch(ctx, r).ServeHTTP(w, r)
@@ -1853,10 +1648,6 @@ func (app *App) repositoryFromContext(ctx *Context, w http.ResponseWriter) (dist
 	return repositoryFromContextWithRegistry(ctx, w, app.registry)
 }
 
-func (app *App) migrationRepositoryFromContext(ctx *Context, w http.ResponseWriter) (distribution.Repository, error) {
-	return repositoryFromContextWithRegistry(ctx, w, app.migrationRegistry)
-}
-
 func repositoryFromContextWithRegistry(ctx *Context, w http.ResponseWriter, registry distribution.Namespace) (distribution.Repository, error) {
 	nameRef, err := reference.WithName(getName(ctx))
 	if err != nil {
@@ -1891,91 +1682,4 @@ func repositoryFromContextWithRegistry(ctx *Context, w http.ResponseWriter, regi
 	}
 
 	return repository, nil
-}
-
-type ongoingImports struct {
-	sync.Mutex
-	imports map[string]*repositoryImport
-	done    chan bool
-	wg      sync.WaitGroup
-}
-
-func newOngoingImports() *ongoingImports {
-	return &ongoingImports{sync.Mutex{}, make(map[string]*repositoryImport), make(chan bool), sync.WaitGroup{}}
-}
-
-func (i *ongoingImports) add(id string, repo *repositoryImport) error {
-	i.Lock()
-	defer i.Unlock()
-
-	if _, ok := i.imports[id]; ok {
-		return fmt.Errorf("duplicate import %s", id)
-	}
-
-	i.imports[id] = repo
-	i.wg.Add(1)
-	return nil
-}
-
-func (i *ongoingImports) remove(id string) {
-	i.Lock()
-	defer i.Unlock()
-
-	if _, ok := i.imports[id]; !ok {
-		dlog.GetLogger().Warn("removing import %s: not found", id)
-		return
-	}
-
-	i.wg.Done()
-	delete(i.imports, id)
-}
-
-func (i *ongoingImports) cancelAllAndWait() {
-	if len(i.imports) == 0 {
-		return
-	}
-
-	i.Lock()
-
-	l := dlog.GetLogger().WithFields(dlog.Fields{"ongoing_imports": len(i.imports)})
-	l.Info("cancelling ongoing imports")
-
-	for id, repo := range i.imports {
-		l.WithFields(dlog.Fields{"import_correlation_ID": id, "repository_path": repo.path}).Info("canceling import")
-		repo.cancelFn()
-	}
-
-	i.Unlock()
-
-	go func() {
-		i.wg.Wait()
-		i.done <- true
-	}()
-
-	// If this function is called, the instance is in danger of being killed if
-	// we take too long to shut down so also use a timeout instead of only
-	// relying on the waitgroup.
-	timeout := time.Second * 10
-
-	select {
-	case <-i.done:
-		l.Info("finished canceling in progress imports")
-	case <-time.After(timeout):
-		l.WithFields(dlog.Fields{"timeout_s": timeout}).Warn("timeout canceling in progress imports")
-	}
-}
-
-type repositoryImport struct {
-	path     string
-	cancelFn func()
-}
-
-// CancelAllImportsAndWait sets a canceled status for all running repository
-// imports to allow for graceful shutdowns.
-func (app *App) CancelAllImportsAndWait() {
-	if app.ongoingImports == nil {
-		return
-	}
-
-	app.ongoingImports.cancelAllAndWait()
 }

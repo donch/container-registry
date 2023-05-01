@@ -147,16 +147,16 @@ func testGitlabApiRepositoryGet(t *testing.T, opts ...configOpt) {
 }
 
 func TestGitlabAPI_Repository_Get(t *testing.T) {
-	testGitlabApiRepositoryGet(t, disableMirrorFS)
+	testGitlabApiRepositoryGet(t)
 }
 
 func TestGitlabAPI_Repository_Get_WithCentralRepositoryCache(t *testing.T) {
 	srv := testutil.RedisServer(t)
-	testGitlabApiRepositoryGet(t, disableMirrorFS, withRedisCache(srv.Addr()))
+	testGitlabApiRepositoryGet(t, withRedisCache(srv.Addr()))
 }
 
 func TestGitlabAPI_Repository_Get_SizeWithDescendants_NonExistingBase(t *testing.T) {
-	env := newTestEnv(t, disableMirrorFS)
+	env := newTestEnv(t)
 	t.Cleanup(env.Shutdown)
 	env.requireDB(t)
 
@@ -195,7 +195,7 @@ func TestGitlabAPI_Repository_Get_SizeWithDescendants_NonExistingBase(t *testing
 }
 
 func TestGitlabAPI_Repository_Get_SizeWithDescendants_NonExistingTopLevel(t *testing.T) {
-	env := newTestEnv(t, disableMirrorFS)
+	env := newTestEnv(t)
 	t.Cleanup(env.Shutdown)
 	env.requireDB(t)
 
@@ -213,7 +213,7 @@ func TestGitlabAPI_Repository_Get_SizeWithDescendants_NonExistingTopLevel(t *tes
 }
 
 func TestGitlabAPI_RepositoryTagsList(t *testing.T) {
-	env := newTestEnv(t, disableMirrorFS)
+	env := newTestEnv(t)
 	t.Cleanup(env.Shutdown)
 	env.requireDB(t)
 
@@ -413,7 +413,7 @@ func TestGitlabAPI_RepositoryTagsList(t *testing.T) {
 // in the former test would mean more complicated table test definitions, instead of the current small set of tags that
 // make it easy to follow/understand the expected results.
 func TestGitlabAPI_RepositoryTagsList_DefaultPageSize(t *testing.T) {
-	env := newTestEnv(t, disableMirrorFS)
+	env := newTestEnv(t)
 	t.Cleanup(env.Shutdown)
 	env.requireDB(t)
 
@@ -452,7 +452,7 @@ func TestGitlabAPI_RepositoryTagsList_DefaultPageSize(t *testing.T) {
 }
 
 func TestGitlabAPI_RepositoryTagsList_RepositoryNotFound(t *testing.T) {
-	env := newTestEnv(t, disableMirrorFS)
+	env := newTestEnv(t)
 	t.Cleanup(env.Shutdown)
 	env.requireDB(t)
 
@@ -472,7 +472,7 @@ func TestGitlabAPI_RepositoryTagsList_RepositoryNotFound(t *testing.T) {
 }
 
 func TestGitlabAPI_RepositoryTagsList_EmptyRepository(t *testing.T) {
-	env := newTestEnv(t, disableMirrorFS)
+	env := newTestEnv(t)
 	t.Cleanup(env.Shutdown)
 	env.requireDB(t)
 
@@ -514,7 +514,7 @@ func TestGitlabAPI_RepositoryTagsList_EmptyRepository(t *testing.T) {
 }
 
 func TestGitlabAPI_RepositoryTagsList_OmitEmptyConfigDigest(t *testing.T) {
-	env := newTestEnv(t, disableMirrorFS)
+	env := newTestEnv(t)
 	t.Cleanup(env.Shutdown)
 	env.requireDB(t)
 
@@ -541,7 +541,7 @@ func TestGitlabAPI_RepositoryTagsList_OmitEmptyConfigDigest(t *testing.T) {
 }
 
 func TestGitlabAPI_SubRepositoryList(t *testing.T) {
-	env := newTestEnv(t, disableMirrorFS)
+	env := newTestEnv(t)
 	t.Cleanup(env.Shutdown)
 	env.requireDB(t)
 
@@ -702,7 +702,7 @@ func TestGitlabAPI_SubRepositoryList(t *testing.T) {
 // instead of the current small set of repositories w/tags that make it easy to follow/understand the expected results.
 func TestGitlabAPI_SubRepositoryList_DefaultPageSize(t *testing.T) {
 
-	env := newTestEnv(t, disableMirrorFS)
+	env := newTestEnv(t)
 	t.Cleanup(env.Shutdown)
 	env.requireDB(t)
 
@@ -744,7 +744,7 @@ func TestGitlabAPI_SubRepositoryList_DefaultPageSize(t *testing.T) {
 }
 
 func TestGitlabAPI_SubRepositoryList_EmptyTagRepository(t *testing.T) {
-	env := newTestEnv(t, disableMirrorFS)
+	env := newTestEnv(t)
 	t.Cleanup(env.Shutdown)
 	env.requireDB(t)
 
@@ -785,7 +785,7 @@ func TestGitlabAPI_SubRepositoryList_EmptyTagRepository(t *testing.T) {
 }
 
 func TestGitlabAPI_SubRepositoryList_NonExistentRepository(t *testing.T) {
-	env := newTestEnv(t, disableMirrorFS)
+	env := newTestEnv(t)
 	t.Cleanup(env.Shutdown)
 	env.requireDB(t)
 
@@ -862,7 +862,7 @@ func TestGitlabAPI_RenameRepository_WithNoBaseRepository(t *testing.T) {
 	for _, test := range tt {
 		t.Run(test.name, func(t *testing.T) {
 			srv := testutil.RedisServer(t)
-			env := newTestEnv(t, disableMirrorFS, withRedisCache(srv.Addr()))
+			env := newTestEnv(t, withRedisCache(srv.Addr()))
 			env.requireDB(t)
 			t.Cleanup(env.Shutdown)
 
@@ -973,7 +973,7 @@ func TestGitlabAPI_RenameRepository_WithBaseRepository(t *testing.T) {
 	for _, test := range tt {
 		t.Run(test.name, func(t *testing.T) {
 			srv := testutil.RedisServer(t)
-			env := newTestEnv(t, disableMirrorFS, withRedisCache(srv.Addr()))
+			env := newTestEnv(t, withRedisCache(srv.Addr()))
 			env.requireDB(t)
 			t.Cleanup(env.Shutdown)
 
@@ -1015,7 +1015,7 @@ func TestGitlabAPI_RenameRepository_WithBaseRepository(t *testing.T) {
 }
 
 func TestGitlabAPI_RenameRepository_WithoutRedis(t *testing.T) {
-	env := newTestEnv(t, disableMirrorFS)
+	env := newTestEnv(t)
 	env.requireDB(t)
 	t.Cleanup(env.Shutdown)
 
@@ -1039,7 +1039,7 @@ func TestGitlabAPI_RenameRepository_WithoutRedis(t *testing.T) {
 
 func TestGitlabAPI_RenameRepository_Empty(t *testing.T) {
 	srv := testutil.RedisServer(t)
-	env := newTestEnv(t, disableMirrorFS, withRedisCache(srv.Addr()))
+	env := newTestEnv(t, withRedisCache(srv.Addr()))
 	env.requireDB(t)
 	t.Cleanup(env.Shutdown)
 
@@ -1063,7 +1063,7 @@ func TestGitlabAPI_RenameRepository_Empty(t *testing.T) {
 
 func TestGitlabAPI_RenameRepository_LeaseTaken(t *testing.T) {
 	srv := testutil.RedisServer(t)
-	env := newTestEnv(t, disableMirrorFS, withRedisCache(srv.Addr()))
+	env := newTestEnv(t, withRedisCache(srv.Addr()))
 	env.requireDB(t)
 	t.Cleanup(env.Shutdown)
 
@@ -1115,7 +1115,7 @@ func TestGitlabAPI_RenameRepository_LeaseTaken(t *testing.T) {
 
 func TestGitlabAPI_RenameRepository_LeaseTaken_Nested(t *testing.T) {
 	srv := testutil.RedisServer(t)
-	env := newTestEnv(t, disableMirrorFS, withRedisCache(srv.Addr()))
+	env := newTestEnv(t, withRedisCache(srv.Addr()))
 	env.requireDB(t)
 	t.Cleanup(env.Shutdown)
 
@@ -1173,7 +1173,7 @@ func TestGitlabAPI_RenameRepository_LeaseTaken_Nested(t *testing.T) {
 
 func TestGitlabAPI_RenameRepository_NameTaken(t *testing.T) {
 	srv := testutil.RedisServer(t)
-	env := newTestEnv(t, disableMirrorFS, withRedisCache(srv.Addr()))
+	env := newTestEnv(t, withRedisCache(srv.Addr()))
 	env.requireDB(t)
 	t.Cleanup(env.Shutdown)
 
@@ -1220,7 +1220,7 @@ func TestGitlabAPI_RenameRepository_NameTaken(t *testing.T) {
 
 func TestGitlabAPI_RenameRepository_ExceedsLimit(t *testing.T) {
 	srv := testutil.RedisServer(t)
-	env := newTestEnv(t, disableMirrorFS, withRedisCache(srv.Addr()))
+	env := newTestEnv(t, withRedisCache(srv.Addr()))
 	env.requireDB(t)
 	t.Cleanup(env.Shutdown)
 
