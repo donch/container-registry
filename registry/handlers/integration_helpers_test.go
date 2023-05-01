@@ -88,20 +88,6 @@ func withoutManifestURLValidation(config *configuration.Configuration) {
 	config.Validation.Manifests.URLs.Allow = []string{".*"}
 }
 
-func disableMirrorFS(config *configuration.Configuration) {
-	config.Migration.DisableMirrorFS = true
-}
-
-func withMigrationEnabled(config *configuration.Configuration) {
-	config.Migration.Enabled = true
-}
-
-func withMigrationRootDirectory(path string) configOpt {
-	return func(config *configuration.Configuration) {
-		config.Migration.RootDirectory = path
-	}
-}
-
 func withSillyAuth(config *configuration.Configuration) {
 	if config.Auth == nil {
 		config.Auth = make(map[string]configuration.Parameters)

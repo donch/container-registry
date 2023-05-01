@@ -186,8 +186,6 @@ func (registry *Registry) ListenAndServe() error {
 		})
 		log.Info("attempting to stop server gracefully...")
 
-		registry.app.CancelAllImportsAndWait()
-
 		// shutdown the server with a grace period of configured timeout
 		if registry.config.HTTP.DrainTimeout != 0 {
 			log.Info("draining http connections")
@@ -561,10 +559,6 @@ func resolveConfiguration(args []string, opts ...configuration.ParseOption) (*co
 func validate(config *configuration.Configuration) error {
 	var errs *multierror.Error
 
-	if !config.Database.Enabled && config.Migration.DisableMirrorFS {
-		errs = multierror.Append(errors.New("filesystem mirroring may only be disabled when database is enabled"))
-	}
-
 	// Validate redirect section.
 	if redirectConfig, ok := config.Storage["redirect"]; ok {
 		if v, ok := redirectConfig["disable"]; ok {
@@ -625,42 +619,6 @@ func validate(config *configuration.Configuration) error {
 		// one parameter does not exist, while the other does
 		case !trimLegacyPrefixExist || !legacyPrefixExist:
 			// nothing to do here
-		}
-	}
-
-	// Validate migration section.
-	if config.Migration.Enabled {
-		if !config.Database.Enabled {
-			errs = multierror.Append(errs, errors.New("database must be enabled to migrate"))
-		}
-
-		if config.Migration.RootDirectory == "" {
-			errs = multierror.Append(errs, errors.New("'migration.rootdirectory' must be set when in migration mode"))
-		}
-
-		storageParams := config.Storage.Parameters()
-		if storageParams == nil {
-			storageParams = make(configuration.Parameters)
-		}
-
-		// TODO: This is a temporary restraint while we are in Phase one of the migration proposal:
-		// https://gitlab.com/gitlab-org/container-registry/-/issues/374
-		if config.Migration.RootDirectory == fmt.Sprintf("%s", storageParams["rootdirectory"]) {
-			errs = multierror.Append(errs,
-				errors.New("migration requires a 'migration.rootdirectory` distinct from the root directory of primary storage driver"))
-		}
-
-		if config.Migration.ImportNotification.Enabled {
-			_, err := url.Parse(config.Migration.ImportNotification.URL)
-			if err != nil {
-				errs = multierror.Append(errs, fmt.Errorf("invalid 'migration.importnotification.url' %q %w", config.Migration.ImportNotification.URL, err))
-			}
-			if config.Migration.ImportNotification.URL == "" {
-				errs = multierror.Append(errs, errors.New("'migration.importnotification.url` cannot be empty when import notification is enabled'"))
-			}
-			if config.Migration.ImportNotification.Secret == "" {
-				errs = multierror.Append(errs, errors.New("'migration.importnotification.secret` cannot be empty when import notification is enabled'"))
-			}
 		}
 	}
 

@@ -21,7 +21,6 @@ import (
 	v2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/docker/distribution/registry/datastore/models"
 	"github.com/docker/distribution/registry/internal/migration"
-	"github.com/docker/distribution/registry/internal/migration/metrics"
 	"github.com/docker/distribution/registry/storage/driver"
 	"github.com/jackc/pgconn"
 	"github.com/opencontainers/go-digest"
@@ -188,7 +187,6 @@ func (imp *Importer) importLayer(ctx context.Context, dbRepo *models.Repository,
 
 func (imp *Importer) importLayers(ctx context.Context, dbRepo *models.Repository, fsRepo distribution.Repository, fsLayers []distribution.Descriptor) ([]*models.Blob, error) {
 	total := len(fsLayers)
-	metrics.LayerCount(total)
 
 	var dbLayers []*models.Blob
 
@@ -561,7 +559,6 @@ func (imp *Importer) importTags(ctx context.Context, fsRepo distribution.Reposit
 	}
 
 	total := len(fsTags)
-	metrics.TagCount(metrics.ImportTypeFinal, total)
 	semaphore := make(chan struct{}, imp.tagConcurrency)
 	tagResChan := make(chan *tagLookupResponse)
 
@@ -717,8 +714,6 @@ func (imp *Importer) preImportTaggedManifests(ctx context.Context, fsRepo distri
 	}
 
 	total := len(fsTags)
-	metrics.TagCount(metrics.ImportTypePre, total)
-
 	doneManifests := map[digest.Digest]struct{}{}
 
 	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": dbRepo.Path, "total": total})
