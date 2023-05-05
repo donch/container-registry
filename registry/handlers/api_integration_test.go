@@ -1186,6 +1186,52 @@ func TestManifestAPI_Put_DatabaseEnabled_InvalidConfigMediaType(t *testing.T) {
 	require.Equal(t, datastore.ErrUnknownMediaType{MediaType: unknownMediaType}.Error(), errc.Detail)
 }
 
+func TestManifestAPI_Put_UnknownLayerMediaType(t *testing.T) {
+	env := newTestEnv(t)
+	defer env.Shutdown()
+
+	if !env.config.Database.Enabled {
+		t.Skip("skipping test because the metadata database is not enabled")
+	}
+
+	tagName := "latest"
+	repoPath := "foo/bar"
+	unknownMediaType := "application/vnd.foo.layer.v1+json"
+
+	cfgPayload, cfgDesc := schema2Config()
+	assertBlobPutResponse(t, env, repoPath, cfgDesc.Digest, bytes.NewReader(cfgPayload), 201)
+
+	// Create and push 1 random layer with an unknown media type.
+	rs, dgst, size := createRandomSmallLayer()
+	assertBlobPutResponse(t, env, repoPath, dgst, rs, http.StatusCreated)
+	layerDesc := distribution.Descriptor{
+		MediaType: unknownMediaType,
+		Digest:    dgst,
+		Size:      size,
+	}
+
+	m := &schema2.Manifest{
+		Versioned: manifest.Versioned{
+			SchemaVersion: 2,
+			MediaType:     schema2.MediaTypeManifest,
+		},
+		Config: cfgDesc,
+		Layers: []distribution.Descriptor{layerDesc},
+	}
+
+	dm, err := schema2.FromStruct(*m)
+	require.NoError(t, err)
+
+	// Push manifest, for now we should not error out, but with
+	// https://gitlab.com/gitlab-org/container-registry/-/issues/990 we will
+	// expect to see the put operation fail.
+	u := buildManifestTagURL(t, env, repoPath, tagName)
+	resp := putManifest(t, "", u, schema2.MediaTypeManifest, dm.Manifest)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+}
+
 func TestManifestAPI_Put_OCIImageIndexByTagManifestsNotPresentInDatabase(t *testing.T) {
 	env := newTestEnv(t)
 	defer env.Shutdown()
