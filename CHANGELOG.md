@@ -1,3 +1,10 @@
+# [3.73.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.72.0-gitlab...v3.73.0-gitlab) (2023-05-08)
+
+
+### Features
+
+* **handlers:** log unknown layer media types ([e53aee9](https://gitlab.com/gitlab-org/container-registry/commit/e53aee93c459ea7fb4c79b5fa293cc0b31237ba8))
+
 # [3.72.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.71.0-gitlab...v3.72.0-gitlab) (2023-05-02)
 
 
