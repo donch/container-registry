@@ -1,3 +1,10 @@
+## [3.73.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.73.0-gitlab...v3.73.1-gitlab) (2023-05-16)
+
+
+### Bug Fixes
+
+* **handlers:** disable filesystem layer link metadata if the database is enabled ([aae69ab](https://gitlab.com/gitlab-org/container-registry/commit/aae69ab826d412dd0785d1f5c0175afd4a1188b5))
+
 # [3.73.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.72.0-gitlab...v3.73.0-gitlab) (2023-05-08)
 
 
