@@ -319,6 +319,9 @@ func NewApp(ctx context.Context, config *configuration.Configuration) (*App, err
 	if config.Database.Enabled {
 		log.Warn("the metadata database is an experimental feature, please do not enable it in production")
 
+		// Do not write or check for repository layer link metadata on the filesystem when the database is enabled.
+		options = append(options, storage.DisableMirrorFS)
+
 		// TODO: this function only exists to test https://gitlab.com/gitlab-org/container-registry/-/issues/890
 		// as the migration code runs on a separate container that does not output any searchable logs.
 		go func() {
