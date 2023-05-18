@@ -110,7 +110,10 @@ func (bh *blobHandler) GetBlob(w http.ResponseWriter, r *http.Request) {
 		dgst = desc.Digest
 	}
 
-	if err := blobs.ServeBlob(bh, w, r, dgst); err != nil {
+	// TODO: The unused returned meta object (i.e "_" ) is returned in preperation for tackling
+	// https://gitlab.com/gitlab-org/container-registry/-/issues/824. In that issue a refactor will be implemented
+	// to allow notifications to be emitted directly from the handlers (hence requiring the meta object presence).
+	if _, err := blobs.ServeBlob(bh, w, r, dgst); err != nil {
 		log.GetLogger(log.WithContext(bh)).WithError(err).Debug("unexpected error getting blob HTTP handler")
 		if errors.Is(err, distribution.ErrBlobUnknown) {
 			bh.Errors = append(bh.Errors, v2.ErrorCodeBlobUnknown.WithDetail(bh.Digest))
