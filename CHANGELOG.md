@@ -1,3 +1,11 @@
+# [3.74.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.73.1-gitlab...v3.74.0-gitlab) (2023-05-18)
+
+
+### Features
+
+* **api/gitlab/v1:** filter tags by name on List Repository Tags endpoint ([e7c6630](https://gitlab.com/gitlab-org/container-registry/commit/e7c66304bd3a0fa555c3f107c5460a8ae52928ef))
+* **notification:** add blob download meta object to notifications ([5d7c130](https://gitlab.com/gitlab-org/container-registry/commit/5d7c130287bab4789eb073c93a53303988729cbc))
+
 ## [3.73.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.73.0-gitlab...v3.73.1-gitlab) (2023-05-16)
 
 
