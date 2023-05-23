@@ -6,7 +6,6 @@ import (
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/context"
-	"github.com/docker/distribution/notifications/meta"
 	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/uuid"
 	"github.com/opencontainers/go-digest"
@@ -70,15 +69,15 @@ func (b *bridge) ManifestDeleted(repo reference.Named, dgst digest.Digest) error
 }
 
 func (b *bridge) BlobPushed(repo reference.Named, desc distribution.Descriptor) error {
-	return b.createBlobEventAndWrite(EventActionPush, repo, desc, nil)
+	return b.createBlobEventAndWrite(EventActionPush, repo, desc)
 }
 
-func (b *bridge) BlobPulled(repo reference.Named, desc distribution.Descriptor, eventMeta *meta.Blob) error {
-	return b.createBlobEventAndWrite(EventActionPull, repo, desc, eventMeta)
+func (b *bridge) BlobPulled(repo reference.Named, desc distribution.Descriptor) error {
+	return b.createBlobEventAndWrite(EventActionPull, repo, desc)
 }
 
 func (b *bridge) BlobMounted(repo reference.Named, desc distribution.Descriptor, fromRepo reference.Named) error {
-	event, err := b.createBlobEvent(EventActionMount, repo, desc, nil)
+	event, err := b.createBlobEvent(EventActionMount, repo, desc)
 	if err != nil {
 		return err
 	}
@@ -162,8 +161,8 @@ func (b *bridge) createBlobDeleteEventAndWrite(action string, repo reference.Nam
 	return b.sink.Write(event)
 }
 
-func (b *bridge) createBlobEventAndWrite(action string, repo reference.Named, desc distribution.Descriptor, eventMeta *meta.Blob) error {
-	event, err := b.createBlobEvent(action, repo, desc, eventMeta)
+func (b *bridge) createBlobEventAndWrite(action string, repo reference.Named, desc distribution.Descriptor) error {
+	event, err := b.createBlobEvent(action, repo, desc)
 	if err != nil {
 		return err
 	}
@@ -171,14 +170,11 @@ func (b *bridge) createBlobEventAndWrite(action string, repo reference.Named, de
 	return b.sink.Write(event)
 }
 
-func (b *bridge) createBlobEvent(action string, repo reference.Named, desc distribution.Descriptor, eventMeta *meta.Blob) (*Event, error) {
+func (b *bridge) createBlobEvent(action string, repo reference.Named, desc distribution.Descriptor) (*Event, error) {
 	event := b.createEvent(action)
 	event.Target.Descriptor = desc
 	event.Target.Length = desc.Size
 	event.Target.Repository = repo.Name()
-	if eventMeta != nil {
-		event.Meta = map[string]Meta{"blob": eventMeta}
-	}
 
 	ref, err := reference.WithDigest(repo, desc.Digest)
 	if err != nil {

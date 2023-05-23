@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/docker/distribution/notifications/meta"
 	"github.com/docker/distribution/reference"
 	"github.com/opencontainers/go-digest"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
@@ -173,7 +172,7 @@ type BlobServer interface {
 	// The implementation may serve the same blob from a different digest
 	// domain. The appropriate headers will be set for the blob, unless they
 	// have already been set by the caller.
-	ServeBlob(ctx context.Context, w http.ResponseWriter, r *http.Request, dgst digest.Digest) (*meta.Blob, error)
+	ServeBlob(ctx context.Context, w http.ResponseWriter, r *http.Request, dgst digest.Digest) error
 }
 
 // BlobIngester ingests blob data.

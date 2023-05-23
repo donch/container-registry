@@ -8,7 +8,6 @@ import (
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/log"
-	"github.com/docker/distribution/notifications/meta"
 	"github.com/docker/distribution/registry/storage/driver"
 	"github.com/docker/distribution/registry/storage/internal/metrics"
 	"github.com/opencontainers/go-digest"
@@ -31,15 +30,15 @@ type blobServer struct {
 	redirect redirect
 }
 
-func (bs *blobServer) ServeBlob(ctx context.Context, w http.ResponseWriter, r *http.Request, dgst digest.Digest) (*meta.Blob, error) {
+func (bs *blobServer) ServeBlob(ctx context.Context, w http.ResponseWriter, r *http.Request, dgst digest.Digest) error {
 	desc, err := bs.statter.Stat(ctx, dgst)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	path, err := bs.pathFn(desc.Digest)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
@@ -47,40 +46,33 @@ func (bs *blobServer) ServeBlob(ctx context.Context, w http.ResponseWriter, r *h
 		"digest":     desc.Digest,
 	})
 
-	var redirect bool
 	if bs.redirect.enabled {
 		opts := map[string]interface{}{"method": r.Method}
 		if bs.redirect.expiryDelay > 0 {
 			opts["expiry"] = time.Now().Add(bs.redirect.expiryDelay)
 		}
-
-		// TODO: The `driver` needs to be able to infer the redirect url's provider name that is used to obtain a redirect url.
-		// This is required for notification purposes see: https://gitlab.com/gitlab-org/container-registry/-/issues/961.
-		// Currently only the cofigured driver's name can be inferred. Example: using `gcs` storage driver the redirect url's provider
-		// should be either the driver itself (e.g `gcs`) OR a pre-configured redirect middleware (e.g `googlecdn`)
 		redirectURL, err := bs.driver.URLFor(ctx, path, opts)
 		switch err.(type) {
 		case nil:
 			// Redirect to storage URL.
 			http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
-			redirect = true
-			metrics.BlobDownload(redirect, desc.Size)
+			metrics.BlobDownload(true, desc.Size)
 			if r.Method == http.MethodGet {
-				l.WithFields(log.Fields{"redirect": redirect}).Info("blob downloaded")
+				l.WithFields(log.Fields{"redirect": true}).Info("blob downloaded")
 			}
-			return &meta.Blob{StorageBackend: bs.driver.Name(), Redirected: redirect}, nil
+			return nil
 
 		case driver.ErrUnsupportedMethod:
 			// Fallback to serving the content directly.
 		default:
 			// Some unexpected error.
-			return nil, err
+			return err
 		}
 	}
 
 	br, err := newFileReader(ctx, bs.driver, path, desc.Size)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer br.Close()
 
@@ -102,10 +94,10 @@ func (bs *blobServer) ServeBlob(ctx context.Context, w http.ResponseWriter, r *h
 	}
 
 	http.ServeContent(w, r, desc.Digest.String(), time.Time{}, br)
-	metrics.BlobDownload(redirect, desc.Size)
+	metrics.BlobDownload(false, desc.Size)
 	if r.Method == http.MethodGet {
-		l.WithFields(log.Fields{"redirect": redirect}).Info("blob downloaded")
+		l.WithFields(log.Fields{"redirect": false}).Info("blob downloaded")
 	}
 
-	return &meta.Blob{StorageBackend: bs.driver.Name(), Redirected: redirect}, nil
+	return nil
 }
