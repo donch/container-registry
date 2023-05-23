@@ -10,7 +10,6 @@ import (
 
 	"github.com/docker/distribution"
 	dcontext "github.com/docker/distribution/context"
-	"github.com/docker/distribution/notifications/meta"
 	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/storage/driver"
 	"github.com/docker/distribution/uuid"
@@ -70,13 +69,13 @@ func (lbs *linkedBlobStore) Open(ctx context.Context, dgst digest.Digest) (distr
 	return lbs.blobStore.Open(ctx, canonical.Digest)
 }
 
-func (lbs *linkedBlobStore) ServeBlob(ctx context.Context, w http.ResponseWriter, r *http.Request, dgst digest.Digest) (*meta.Blob, error) {
+func (lbs *linkedBlobStore) ServeBlob(ctx context.Context, w http.ResponseWriter, r *http.Request, dgst digest.Digest) error {
 	var d digest.Digest
 
 	if !lbs.disableMirrorFS {
 		canonical, err := lbs.Stat(ctx, dgst) // access check
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		if canonical.MediaType != "" {
