@@ -1045,7 +1045,7 @@ func TestRepositoryStore_TagsCountAfterName(t *testing.T) {
 
 	for _, test := range tt {
 		t.Run(test.name, func(t *testing.T) {
-			c, err := s.TagsCountAfterName(suite.ctx, r, test.lastName, "")
+			c, err := s.TagsCountAfterName(suite.ctx, r, test.lastName)
 			require.NoError(t, err)
 			require.Equal(t, test.expectedCount, c)
 		})
@@ -2484,7 +2484,7 @@ func TestRepositoryStore_TagsDetailPaginated(t *testing.T) {
 
 	for _, test := range tt {
 		t.Run(test.name, func(t *testing.T) {
-			rr, err := s.TagsDetailPaginated(suite.ctx, r, test.limit, test.lastName, "")
+			rr, err := s.TagsDetailPaginated(suite.ctx, r, test.limit, test.lastName)
 			// reset created_at and updated_at attributes for reproducible comparisons
 			for _, r := range rr {
 				r.CreatedAt = time.Time{}
@@ -2503,7 +2503,7 @@ func TestRepositoryStore_TagsDetailPaginated_None(t *testing.T) {
 	r := &models.Repository{NamespaceID: 1, ID: 1}
 
 	s := datastore.NewRepositoryStore(suite.db)
-	tt, err := s.TagsDetailPaginated(suite.ctx, r, 100, "", "")
+	tt, err := s.TagsDetailPaginated(suite.ctx, r, 100, "")
 	require.NoError(t, err)
 	require.Empty(t, tt)
 }

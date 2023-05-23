@@ -227,11 +227,10 @@ func TestGitlabAPI_RepositoryTagsList(t *testing.T) {
 		"hpgkt",
 		"jyi7b",
 		"jyi7b-fxt1v",
-		"kav2-jyi7b",
+		"jyi7b-sgv2q",
 		"kb0j5",
 		"n343n",
-		"sjyi7by",
-		"x_y_z",
+		"sb71y",
 	}
 
 	// shuffle tags before creation to make sure results are consistent regardless of creation order
@@ -298,7 +297,7 @@ func TestGitlabAPI_RepositoryTagsList(t *testing.T) {
 			expectedOrderedTags: []string{
 				"jyi7b",
 				"jyi7b-fxt1v",
-				"kav2-jyi7b",
+				"jyi7b-sgv2q",
 				"kb0j5",
 			},
 			expectedLinkHeader: `</gitlab/v1/repositories/foo/bar/tags/list/?last=kb0j5&n=4>; rel="next"`,
@@ -309,8 +308,7 @@ func TestGitlabAPI_RepositoryTagsList(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			expectedOrderedTags: []string{
 				"n343n",
-				"sjyi7by",
-				"x_y_z",
+				"sb71y",
 			},
 		},
 		{
@@ -337,8 +335,7 @@ func TestGitlabAPI_RepositoryTagsList(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			expectedOrderedTags: []string{
 				"n343n",
-				"sjyi7by",
-				"x_y_z",
+				"sb71y",
 			},
 		},
 		{
@@ -349,79 +346,15 @@ func TestGitlabAPI_RepositoryTagsList(t *testing.T) {
 				"hpgkt",
 				"jyi7b",
 				"jyi7b-fxt1v",
-				"kav2-jyi7b",
+				"jyi7b-sgv2q",
 				"kb0j5",
 				"n343n",
-				"sjyi7by",
-				"x_y_z",
+				"sb71y",
 			},
 		},
 		{
 			name:           "invalid marker",
 			queryParams:    url.Values{"last": []string{"-"}},
-			expectedStatus: http.StatusBadRequest,
-			expectedError:  &v1.ErrorCodeInvalidQueryParamValue,
-		},
-		{
-			name:           "filtered by name",
-			queryParams:    url.Values{"name": []string{"jyi7b"}},
-			expectedStatus: http.StatusOK,
-			expectedOrderedTags: []string{
-				"jyi7b",
-				"jyi7b-fxt1v",
-				"kav2-jyi7b",
-				"sjyi7by",
-			},
-		},
-		{
-			name:           "filtered by name with literal underscore",
-			queryParams:    url.Values{"name": []string{"_y_"}},
-			expectedStatus: http.StatusOK,
-			expectedOrderedTags: []string{
-				"x_y_z",
-			},
-		},
-		{
-			name:           "filtered by name 1st page",
-			queryParams:    url.Values{"name": []string{"jyi7b"}, "n": []string{"1"}},
-			expectedStatus: http.StatusOK,
-			expectedOrderedTags: []string{
-				"jyi7b",
-			},
-			expectedLinkHeader: `</gitlab/v1/repositories/foo/bar/tags/list/?last=jyi7b&n=1&name=jyi7b>; rel="next"`,
-		},
-		{
-			name:           "filtered by name nth page",
-			queryParams:    url.Values{"name": []string{"jyi7b"}, "last": []string{"jyi7b"}, "n": []string{"1"}},
-			expectedStatus: http.StatusOK,
-			expectedOrderedTags: []string{
-				"jyi7b-fxt1v",
-			},
-			expectedLinkHeader: `</gitlab/v1/repositories/foo/bar/tags/list/?last=jyi7b-fxt1v&n=1&name=jyi7b>; rel="next"`,
-		},
-		{
-			name:           "filtered by name last page",
-			queryParams:    url.Values{"name": []string{"jyi7b"}, "last": []string{"jyi7b-fxt1v"}, "n": []string{"2"}},
-			expectedStatus: http.StatusOK,
-			expectedOrderedTags: []string{
-				"kav2-jyi7b",
-				"sjyi7by",
-			},
-		},
-		{
-			name:           "valid name filter value characters",
-			queryParams:    url.Values{"name": []string{"_Foo..Bar--abc-"}},
-			expectedStatus: http.StatusOK,
-		},
-		{
-			name:           "invalid name filter value characters",
-			queryParams:    url.Values{"name": []string{"*foo&bar%"}},
-			expectedStatus: http.StatusBadRequest,
-			expectedError:  &v1.ErrorCodeInvalidQueryParamValue,
-		},
-		{
-			name:           "invalid name filter value length",
-			queryParams:    url.Values{"name": []string{"LwyhP4sECWBzXfWHv8dHdnPKpLSut2DChaykZHTbPerFSwLJvGrzFZ5kSdesutqImBGsdKyRA7BepsHSVrqCkxSftStrTk8UY1HCsuGd4N8ZUYFkcwWbc8GzKmLC2MHqJ"}},
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  &v1.ErrorCodeInvalidQueryParamValue,
 		},
@@ -447,7 +380,7 @@ func TestGitlabAPI_RepositoryTagsList(t *testing.T) {
 			err = dec.Decode(&body)
 			require.NoError(t, err)
 
-			expectedBody := make([]*handlers.RepositoryTagResponse, 0, len(test.expectedOrderedTags))
+			var expectedBody []*handlers.RepositoryTagResponse
 			for _, name := range test.expectedOrderedTags {
 				expectedBody = append(expectedBody, &handlers.RepositoryTagResponse{
 					// this is what changes
