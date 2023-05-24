@@ -1234,7 +1234,8 @@ func (app *App) logError(ctx context.Context, r *http.Request, errors errcode.Er
 			message = ex.Error()
 		}
 
-		l := dcontext.GetLogger(ctx).WithField("code", code.String())
+		// inject request specifc fields into the error logs
+		l := dcontext.GetMappedRequestLogger(ctx).WithField("code", code.String())
 		if detail != "" {
 			l = l.WithField("detail", detail)
 		}
