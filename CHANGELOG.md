@@ -1,3 +1,17 @@
+# [3.75.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.74.0-gitlab...v3.75.0-gitlab) (2023-05-24)
+
+
+### Bug Fixes
+
+* **handlers:** add debug messages for repository blob link checking ([42f6bba](https://gitlab.com/gitlab-org/container-registry/commit/42f6bba50c179134a5b9c87f4bad66ce44e0fc22))
+* **storage:** prevent panic in inmemory driver ([6d2935d](https://gitlab.com/gitlab-org/container-registry/commit/6d2935da4c05fa33d981bfcbb51586c3f03648f4))
+
+
+### Features
+
+* **api/gitlab/v1:** revert filter tags by name on List Repository Tags endpoint ([1d79415](https://gitlab.com/gitlab-org/container-registry/commit/1d79415b01813c271109daf524efa7abdac13fde))
+* **notification:** revert add blob download meta object to notifications ([1317de1](https://gitlab.com/gitlab-org/container-registry/commit/1317de1c3965d18a6e343d84201a868ac637a58a))
+
 # [3.74.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.73.1-gitlab...v3.74.0-gitlab) (2023-05-18)
 
 
