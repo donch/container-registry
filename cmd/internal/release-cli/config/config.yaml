@@ -31,7 +31,7 @@ releases:
     project_id: 12547113
     branch_name: bump-registry-version-gstg-pre
     commit_message: Bump Container Registry version (gstg/pre)
-    ref: main
+    ref: master
     mr_title: Bump Container Registry (gstg/pre)
     paths:
       - bases/pre.yaml
@@ -40,7 +40,7 @@ releases:
     project_id: 12547113
     branch_name: bump-registry-version-gprd-cny
     commit_message: Bump Container Registry version (gprd-cny)
-    ref: main
+    ref: master
     mr_title: Bump Container Registry (gprd-cny)
     paths:
       - bases/gprd.yaml
