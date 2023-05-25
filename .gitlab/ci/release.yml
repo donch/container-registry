@@ -55,7 +55,7 @@ version-bump:charts:
   variables:
     TARGET_TRIGGER_TOKEN: $BUMP_VERSION_TRIGGER_TOKEN_CHARTS
   script:
-   - go run cmd/internal/release-cli/main.go charts $TARGET_TRIGGER_TOKEN --registry-access-token $CI_JOB_TOKEN
+   - go run cmd/internal/release-cli/main.go charts --charts-trigger-token $TARGET_TRIGGER_TOKEN --registry-access-token $CI_JOB_TOKEN
 
 version-bump:omnibus:
   <<: *version-bump
@@ -63,7 +63,7 @@ version-bump:omnibus:
   variables:
     TRIGGER_TOKEN: $BUMP_VERSION_TRIGGER_TOKEN_OMNIBUS
   script:
-   - go run cmd/internal/release-cli/main.go omnibus $TARGET_TRIGGER_TOKEN --registry-access-token $CI_JOB_TOKEN
+   - go run cmd/internal/release-cli/main.go omnibus --omnibus-trigger-token $TARGET_TRIGGER_TOKEN --registry-access-token $CI_JOB_TOKEN
 
 version-bump:k8s:gstgpre:
   <<: *version-bump
