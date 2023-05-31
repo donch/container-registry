@@ -98,14 +98,6 @@ api:conformance:
     PACKAGE: 'github.com/docker/distribution/registry/handlers'
   script: $GO_TEST -v -coverprofile=coverage.out -tags=$TAGS
 
-api:online-gc:
-  extends: .go-version-matrix
-  stage: integration
-  variables:
-    TAGS: 'integration,online_gc_test'
-    PACKAGE: 'github.com/docker/distribution/registry/handlers'
-  script: $GO_TEST -v -coverprofile=coverage.out -tags=$TAGS
-
 .database: &database
   extends: .go-version-matrix
   stage: integration
@@ -125,6 +117,14 @@ api:online-gc:
     - name: postgres:13-alpine
       alias: "db"
   script: $GO_TEST -v -timeout=25m -coverprofile=coverage.out -tags=$TAGS
+
+api:online-gc:
+  <<: *database
+  variables:
+    <<: *database-variables
+    TAGS: 'integration,online_gc_test'
+    PACKAGE: 'github.com/docker/distribution/registry/handlers'
+  script: $GO_TEST -v -coverprofile=coverage.out -tags=$TAGS -run=OnlineGC
 
 database:migrations:
   <<: *database
