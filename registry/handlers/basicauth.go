@@ -1,5 +1,3 @@
-//go:build go1.4
-
 package handlers
 
 import (
