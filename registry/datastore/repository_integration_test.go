@@ -1,5 +1,4 @@
 //go:build integration
-// +build integration
 
 package datastore_test
 
@@ -1482,13 +1481,13 @@ func TestRepositoryStore_ExistsBlobByDigest_NotFound(t *testing.T) {
 //
 // - `Ma` is tagged, so we need to account for the size of `La` and `Lb`. The repository size so far is `1*La + 1*Lb`;
 //
-// - `Mb` is tagged, so we need to account for the size of `Lc`. `La` and `Lb` were already accounted for once.
-//   Therefore, the repository size so far is `1*La + 1*Lb + 1*Lc`;
+//   - `Mb` is tagged, so we need to account for the size of `Lc`. `La` and `Lb` were already accounted for once.
+//     Therefore, the repository size so far is `1*La + 1*Lb + 1*Lc`;
 //
 // - `Mc` is not tagged, so `Ld` should not be accounted for, and `Lb` was already. The size formula remains unchanged;
 //
-// - `La` is tagged and references `Ma` and `Md`. The `Ma` layers were already accounted, so we should only sum the size
-//   of `Le` referenced by `Md`. The repository size is now `1*La + 1*Lb + 1*Lc + 1*Le`;
+//   - `La` is tagged and references `Ma` and `Md`. The `Ma` layers were already accounted, so we should only sum the size
+//     of `Le` referenced by `Md`. The repository size is now `1*La + 1*Lb + 1*Lc + 1*Le`;
 //
 // - `Lb` is tagged and references `Me` and `La`. `La` was already accounted for, so we ignore it. `Me` is "new", and
 // references `Lf` and `Lg`, which we haven't seen anywhere else. The final deduplicated repository size is threfore
@@ -1664,13 +1663,13 @@ func TestRepositoryStore_Size_WithCentralRepositoryCache(t *testing.T) {
 //
 // - `Ma` is tagged, so we need to account for the size of `La` and `Lb`. The repository size so far is `1*La + 1*Lb`;
 //
-// - `Mb` is tagged, so we need to account for the size of `Lc`. `La` and `Lb` were already accounted for once.
-//   Therefore, the repository size so far is `1*La + 1*Lb + 1*Lc`;
+//   - `Mb` is tagged, so we need to account for the size of `Lc`. `La` and `Lb` were already accounted for once.
+//     Therefore, the repository size so far is `1*La + 1*Lb + 1*Lc`;
 //
 // - `Mc` is not tagged, so `Ld` should not be accounted for, and `Lb` was already. The size formula remains unchanged;
 //
-// - `MLa` is tagged and references `Ma` and `Md`. The `Ma` layers were already accounted, so we should only sum the size
-//   of `Le` referenced by `Md`. The repository size is now `1*La + 1*Lb + 1*Lc + 1*Le`;
+//   - `MLa` is tagged and references `Ma` and `Md`. The `Ma` layers were already accounted, so we should only sum the size
+//     of `Le` referenced by `Md`. The repository size is now `1*La + 1*Lb + 1*Lc + 1*Le`;
 //
 // - `MLb` is tagged and references `Me` and `La`. `La` was already accounted for, so we ignore it. `Me` is "new", and
 // references `Lf` and `Lg`, which we haven't seen anywhere else. The repository size is now
