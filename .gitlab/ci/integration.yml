@@ -99,7 +99,9 @@ api:conformance:
   script: $GO_TEST -v -coverprofile=coverage.out -tags=$TAGS
 
 .database: &database
-  extends: .go-version-matrix
+  extends:
+    - .go-test
+    - .go-pg-version-matrix
   stage: integration
   variables: &database-variables
     FF_NETWORK_PER_BUILD: 1
@@ -114,7 +116,7 @@ api:conformance:
     REGISTRY_DATABASE_SSLMODE: "disable"
     TAGS: 'integration'
   services:
-    - name: postgres:13-alpine
+    - name: postgres:${PG_VERSION}-alpine
       alias: "db"
   script: $GO_TEST -v -timeout=25m -coverprofile=coverage.out -tags=$TAGS
 
@@ -171,8 +173,8 @@ database:api-fault-tolerance:
     TOXIPROXY_PORT: '8474'
     TAGS: 'integration,toxiproxy'
   services:
-    # `services` are not extended, so we have to redeclare `postgres:13-alpine` here.
-    - name: postgres:13-alpine
+    # `services` are not extended, so we have to redeclare `postgres` here.
+    - name: postgres:${PG_VERSION}-alpine
       alias: "db"
     - name: shopify/toxiproxy
       alias: "toxiproxy"
