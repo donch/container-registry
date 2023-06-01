@@ -23,7 +23,7 @@ func findAllGCReviewAfterDefaults(tb testing.TB, db datastore.Queryer) []*models
 	// the `value` column is of type `interval` so we read it in seconds into an int64
 	q := `SELECT
 			event,
-			EXTRACT(epoch FROM value)
+			EXTRACT(epoch FROM value)::bigint
 		FROM
 			gc_review_after_defaults
 		ORDER BY
