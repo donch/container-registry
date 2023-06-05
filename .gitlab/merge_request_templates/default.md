@@ -17,7 +17,6 @@
    - [ ] Manually run up and down migrations in a [postgres.ai](https://console.postgres.ai/gitlab/joe-instances/68) production database clone and post a screenshot of the result here.
    - [ ] If adding new queries, extract a query plan from [postgres.ai](https://console.postgres.ai/gitlab/joe-instances/68) and post the link here. If changing existing queries, also extract a query plan for the current version for comparison.
    - [ ] **Do not** include code that depends on the schema migrations in the same commit. Split the MR into two or more.
--  I'd suggest we remove this from here. In the MR templates we must add a checkbox to make us think about the safety for individual stage deployments and only merge them if they are OK.
 - [ ] Ensured this change is safe to deploy to individual stages in the same environment (`cny` -> `prod`). State-related changes can be troublesome due to having parts of the fleet processing (possibly related) requests in different ways.
 
 ## Reviewer checklist
