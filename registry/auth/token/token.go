@@ -37,6 +37,7 @@ type ResourceActions struct {
 	Class   string   `json:"class,omitempty"`
 	Name    string   `json:"name"`
 	Actions []string `json:"actions"`
+	Meta    *Meta    `json:"meta"`
 }
 
 // ClaimSet describes the main section of a JSON Web Token.
@@ -53,6 +54,12 @@ type ClaimSet struct {
 	// Private claims
 	Access   []*ResourceActions `json:"access"`
 	AuthType string             `json:"auth_type"`
+}
+
+// Meta stores extra metadata available in the JSON Web Token passed by rails.
+type Meta struct {
+	// ProjectPath contains the full path of the GitLab project of a repository that a token was issued for.
+	ProjectPath string `json:"project_path"`
 }
 
 // Header describes the header section of a JSON Web Token.
@@ -370,6 +377,9 @@ func (t *Token) resources() []auth.Resource {
 			Type:  resourceActions.Type,
 			Class: resourceActions.Class,
 			Name:  resourceActions.Name,
+		}
+		if resourceActions.Meta != nil {
+			resource.ProjectPath = resourceActions.Meta.ProjectPath
 		}
 		resourceSet[resource] = struct{}{}
 	}

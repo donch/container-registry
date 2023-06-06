@@ -1101,8 +1101,8 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 			return
 		}
 
-		// Add username and user-type to request logging
-		ctx.Context = dcontext.WithLogger(ctx.Context, dcontext.GetLogger(ctx.Context, auth.UserNameKey, auth.UserTypeKey))
+		// Add extra context to request logging
+		ctx.Context = dcontext.WithLogger(ctx.Context, dcontext.GetLogger(ctx.Context, auth.UserNameKey, auth.UserTypeKey, auth.ResourceProjectPathsKey))
 		// sync up context on the request.
 		r = r.WithContext(ctx)
 
@@ -1186,8 +1186,8 @@ func (app *App) dispatcherGitlab(dispatch dispatchFunc) http.Handler {
 			return
 		}
 
-		// Add username and user-type to request logging
-		ctx.Context = dcontext.WithLogger(ctx.Context, dcontext.GetLogger(ctx.Context, auth.UserNameKey, auth.UserTypeKey))
+		// Add extra context to request logging
+		ctx.Context = dcontext.WithLogger(ctx.Context, dcontext.GetLogger(ctx.Context, auth.UserNameKey, auth.UserTypeKey, auth.ResourceProjectPathsKey))
 		// sync up context on the request.
 		r = r.WithContext(ctx)
 
@@ -1356,7 +1356,7 @@ func (app *App) authorized(w http.ResponseWriter, r *http.Request, context *Cont
 		return err
 	}
 
-	dcontext.GetLogger(ctx, auth.UserNameKey, auth.UserTypeKey).Info("authorized request")
+	dcontext.GetLogger(ctx, auth.UserNameKey, auth.UserTypeKey, auth.ResourceProjectPathsKey).Info("authorized request")
 	// TODO(stevvooe): This pattern needs to be cleaned up a bit. One context
 	// should be replaced by another, rather than replacing the context on a
 	// mutable object.
