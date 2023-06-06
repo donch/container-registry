@@ -1,3 +1,11 @@
+# [3.76.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.75.0-gitlab...v3.76.0-gitlab) (2023-06-06)
+
+
+### Features
+
+* **api/gitlab/v1:** filter tags by name on List Repository Tags endpoint ([094db66](https://gitlab.com/gitlab-org/container-registry/commit/094db66344e47e06dd039cb3e3cb5ac856c9a244))
+* **auth:** parse and log JWT meta project path ([0fed8be](https://gitlab.com/gitlab-org/container-registry/commit/0fed8be2cddb836e38fffe91138bf032c11fa973))
+
 # [3.75.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.74.0-gitlab...v3.75.0-gitlab) (2023-05-24)
 
 
