@@ -20,6 +20,7 @@ import (
 	"github.com/docker/distribution/registry/api/errcode"
 	v1 "github.com/docker/distribution/registry/api/gitlab/v1"
 	v2 "github.com/docker/distribution/registry/api/v2"
+	"github.com/docker/distribution/registry/auth/token"
 	"github.com/docker/distribution/registry/handlers"
 	"github.com/docker/distribution/registry/internal/testutil"
 	"github.com/stretchr/testify/require"
@@ -979,6 +980,15 @@ func TestGitlabAPI_RenameRepository_WithBaseRepository(t *testing.T) {
 	baseRepoName, err := reference.WithName("foo/bar")
 	require.NoError(t, err)
 
+	// create one signing certificate and private key pair
+	certPath, privKey := testutil.CreateRootCertFile(t)
+	// generate one auth token
+	user := "test-user"
+	token := generateAuthToken(t, user, []*token.ResourceActions{
+		{Type: "repository", Name: baseRepoName.Name(), Actions: []string{"pull", "push"}},
+		{Type: "repository", Name: baseRepoName.Name() + "/*", Actions: []string{"pull"}},
+	}, defaultIssuerProps(), privKey)
+
 	tt := []struct {
 		name               string
 		queryParams        url.Values
@@ -1039,22 +1049,32 @@ func TestGitlabAPI_RenameRepository_WithBaseRepository(t *testing.T) {
 
 	for _, test := range tt {
 		t.Run(test.name, func(t *testing.T) {
-			srv := testutil.RedisServer(t)
-			env := newTestEnv(t, withRedisCache(srv.Addr()))
+
+			// apply base app config/setup (without authorization)
+			// to allow seeding repository with test data
+			env := newTestEnv(t)
 			env.requireDB(t)
 			t.Cleanup(env.Shutdown)
 
 			// seed repos
 			seedMultipleRepositoriesWithTaggedManifest(t, env, "latest", nestedRepos)
 
-			// create and execute test request
+			// override test config/setup to use token based
+			// authorization for all proceeding requests
+			srv := testutil.RedisServer(t)
+			env = newTestEnv(t, withRedisCache(srv.Addr()), withTokenAuth(certPath, defaultIssuerProps()))
+
+			// create request
 			u, err := env.builder.BuildGitlabV1RepositoryURL(baseRepoName, test.queryParams)
 			require.NoError(t, err)
 
 			req, err := http.NewRequest(http.MethodPatch, u, bytes.NewReader(test.requestBody))
 			require.NoError(t, err)
 
-			// make request
+			// attach authourization header to request
+			req.Header.Add("Authorization", "Bearer "+token)
+
+			// execute request
 			resp, err := http.DefaultClient.Do(req)
 			require.NoError(t, err)
 			defer resp.Body.Close()
