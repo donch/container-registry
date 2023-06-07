@@ -35,14 +35,14 @@ require (
 	github.com/prometheus/client_golang v1.14.0
 	github.com/redis/go-redis/v9 v9.0.2
 	github.com/rubenv/sql-migrate v1.2.0
-	github.com/sirupsen/logrus v1.9.0
+	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.14.0
 	github.com/stretchr/testify v1.8.1
 	github.com/trim21/go-redis-prometheus v0.0.0
 	github.com/vmihailenco/msgpack v4.0.4+incompatible
 	github.com/xanzy/go-gitlab v0.73.1
-	gitlab.com/gitlab-org/labkit v1.17.0
+	gitlab.com/gitlab-org/labkit v1.19.0
 	go.uber.org/automaxprocs v1.5.2
 	golang.org/x/crypto v0.0.0-20220926161630-eccd6366d1be
 	golang.org/x/oauth2 v0.0.0-20221014153046-6fdb5e3db783
