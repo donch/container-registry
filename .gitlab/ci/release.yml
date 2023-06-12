@@ -61,7 +61,7 @@ version-bump:omnibus:
   <<: *version-bump
   needs: [ "version-bump:cng"]
   variables:
-    TRIGGER_TOKEN: $BUMP_VERSION_TRIGGER_TOKEN_OMNIBUS
+    TARGET_TRIGGER_TOKEN: $BUMP_VERSION_TRIGGER_TOKEN_OMNIBUS
   script:
    - go run cmd/internal/release-cli/main.go omnibus --omnibus-trigger-token $TARGET_TRIGGER_TOKEN --registry-access-token $CI_JOB_TOKEN
 
