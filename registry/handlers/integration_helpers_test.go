@@ -1658,3 +1658,72 @@ func generateAuthToken(t *testing.T, user string, access []*token.ResourceAction
 func joseBase64UrlEncode(b []byte) string {
 	return strings.TrimRight(base64.URLEncoding.EncodeToString(b), "=")
 }
+
+// authTokenProvider manages the procurement of authorization tokens
+// by holding the necessary private key value and public cert path needed to generate/validate a token.
+type authTokenProvider struct {
+	t          *testing.T
+	certPath   string
+	privateKey libtrust.PrivateKey
+}
+
+// NewAuthTokenProvider creates an authTokenProvider that manages the procurement of authorization tokens
+// by holding the necessary private key value and cert path needed to generate/validate a token.
+func NewAuthTokenProvider(t *testing.T) *authTokenProvider {
+	t.Helper()
+
+	path, privKey, err := rtestutil.WriteTempRootCerts()
+	t.Cleanup(func() {
+		err := os.Remove(path)
+		require.NoError(t, err)
+	})
+	require.NoError(t, err)
+
+	return &authTokenProvider{
+		t:          t,
+		certPath:   path,
+		privateKey: privKey,
+	}
+}
+
+// TokenWithActions generates a token for a specified set of actions
+func (a *authTokenProvider) TokenWithActions(tra []*token.ResourceActions) string {
+	return generateAuthToken(a.t, "test-user", tra, defaultIssuerProps(), a.privateKey)
+}
+
+// RequestWithAuthActions wraps a request with a bearer authorization header
+// using a standard JWT generated from the provided resource actions
+func (a *authTokenProvider) RequestWithAuthActions(r *http.Request, tra []*token.ResourceActions) *http.Request {
+	clonedReq := r.Clone(r.Context())
+	clonedReq.Header.Add("Authorization", fmt.Sprintf("Bearer %s", a.TokenWithActions(tra)))
+	return clonedReq
+}
+
+// RequestWithAuthToken wraps a request with a bearer authorization header
+// using a provided token string
+func (a *authTokenProvider) RequestWithAuthToken(r *http.Request, token string) *http.Request {
+	clonedReq := r.Clone(r.Context())
+	clonedReq.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
+	return clonedReq
+}
+
+// CertPath returns the cert location for the token provider
+func (a *authTokenProvider) CertPath() string {
+	return a.certPath
+}
+
+// fullAccessToken grants a GitLab rails admin token for a specified repository
+func fullAccessToken(repositoryName string) []*token.ResourceActions {
+	return []*token.ResourceActions{
+		{Type: "repository", Name: repositoryName, Actions: []string{"pull", "push"}},
+		{Type: "repository", Name: repositoryName + "/*", Actions: []string{"pull"}},
+	}
+}
+
+// fullAccessTokenWithProjectMeta grants a GitLab rails admin token for a specified repository and project path
+func fullAccessTokenWithProjectMeta(projectPath, repositoryName string) []*token.ResourceActions {
+	return []*token.ResourceActions{
+		{Type: "repository", Name: repositoryName, Actions: []string{"pull", "push"}, Meta: &token.Meta{ProjectPath: projectPath}},
+		{Type: "repository", Name: repositoryName + "/*", Actions: []string{"pull"}},
+	}
+}

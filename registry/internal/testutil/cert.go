@@ -4,13 +4,11 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"os"
-	"testing"
 
 	"github.com/docker/libtrust"
-	"github.com/stretchr/testify/require"
 )
 
-func writeTempRootCerts() (certFilePath string, privateKey libtrust.PrivateKey, err error) {
+func WriteTempRootCerts() (certFilePath string, privateKey libtrust.PrivateKey, err error) {
 	rootKey, err := makeRootKey()
 	if err != nil {
 		return "", nil, err
@@ -52,16 +50,4 @@ func makeRootKey() (libtrust.PrivateKey, error) {
 	}
 
 	return key, nil
-}
-
-// CreateRootCertFile creates a root cert and returns the corresponding private key
-func CreateRootCertFile(t *testing.T) (string, libtrust.PrivateKey) {
-	t.Helper()
-	path, privKey, err := writeTempRootCerts()
-	t.Cleanup(func() {
-		err := os.Remove(path)
-		require.NoError(t, err)
-	})
-	require.NoError(t, err)
-	return path, privKey
 }
