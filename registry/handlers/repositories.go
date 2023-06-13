@@ -301,27 +301,25 @@ func tagNameQueryParamValue(r *http.Request) string {
 	return r.URL.Query().Get(tagNameQueryParamKey)
 }
 
-// GetTags retrieves a list of tag details for a given repository. This includes support for marker-based pagination
-// using limit (`n`) and last (`last`) query parameters, as in the Docker/OCI Distribution tags list API. `n` is capped
-// to 100 entries by default.
-func (h *repositoryTagsHandler) GetTags(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
+func filterParamsFromRequest(r *http.Request) (datastore.FilterParams, error) {
+	var filters datastore.FilterParams
 
+	q := r.URL.Query()
 	maxEntries := maximumReturnedEntries
 	if q.Has(nQueryParamKey) {
 		val, valid := isQueryParamTypeInt(q.Get(nQueryParamKey))
 		if !valid {
 			detail := v1.InvalidQueryParamTypeErrorDetail(nQueryParamKey, nQueryParamValidTypes)
-			h.Errors = append(h.Errors, v1.ErrorCodeInvalidQueryParamType.WithDetail(detail))
-			return
+			return filters, v1.ErrorCodeInvalidQueryParamType.WithDetail(detail)
 		}
 		if !isQueryParamIntValueInBetween(val, nQueryParamValueMin, nQueryParamValueMax) {
 			detail := v1.InvalidQueryParamValueRangeErrorDetail(nQueryParamKey, nQueryParamValueMin, nQueryParamValueMax)
-			h.Errors = append(h.Errors, v1.ErrorCodeInvalidQueryParamValue.WithDetail(detail))
-			return
+			return filters, v1.ErrorCodeInvalidQueryParamValue.WithDetail(detail)
 		}
+
 		maxEntries = val
 	}
+	filters.MaxEntries = maxEntries
 
 	// `lastEntry` must conform to the tag name regexp
 	var lastEntry string
@@ -329,18 +327,31 @@ func (h *repositoryTagsHandler) GetTags(w http.ResponseWriter, r *http.Request) 
 		lastEntry = q.Get(lastQueryParamKey)
 		if !queryParamValueMatchesPattern(lastEntry, lastTagQueryParamPattern) {
 			detail := v1.InvalidQueryParamValuePatternErrorDetail(lastQueryParamKey, lastTagQueryParamPattern)
-			h.Errors = append(h.Errors, v1.ErrorCodeInvalidQueryParamValue.WithDetail(detail))
-			return
+			return filters, v1.ErrorCodeInvalidQueryParamValue.WithDetail(detail)
 		}
 	}
+	filters.LastEntry = lastEntry
 
 	nameFilter := tagNameQueryParamValue(r)
 	if nameFilter != "" {
 		if !queryParamValueMatchesPattern(nameFilter, tagNameQueryParamPattern) {
 			detail := v1.InvalidQueryParamValuePatternErrorDetail(tagNameQueryParamKey, tagNameQueryParamPattern)
-			h.Errors = append(h.Errors, v1.ErrorCodeInvalidQueryParamValue.WithDetail(detail))
-			return
+			return filters, v1.ErrorCodeInvalidQueryParamValue.WithDetail(detail)
 		}
+	}
+	filters.Name = nameFilter
+
+	return filters, nil
+}
+
+// GetTags retrieves a list of tag details for a given repository. This includes support for marker-based pagination
+// using limit (`n`) and last (`last`) query parameters, as in the Docker/OCI Distribution tags list API. `n` is capped
+// to 100 entries by default.
+func (h *repositoryTagsHandler) GetTags(w http.ResponseWriter, r *http.Request) {
+	filters, err := filterParamsFromRequest(r)
+	if err != nil {
+		h.Errors = append(h.Errors, err)
+		return
 	}
 
 	path := h.Repository.Named().Name()
@@ -355,7 +366,7 @@ func (h *repositoryTagsHandler) GetTags(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	tagsList, err := rStore.TagsDetailPaginated(h.Context, repo, maxEntries, lastEntry, nameFilter)
+	tagsList, err := rStore.TagsDetailPaginated(h.Context, repo, filters)
 	if err != nil {
 		h.Errors = append(h.Errors, errcode.FromUnknownError(err))
 		return
@@ -363,19 +374,20 @@ func (h *repositoryTagsHandler) GetTags(w http.ResponseWriter, r *http.Request) 
 
 	// Add a link header if there are more entries to retrieve
 	if len(tagsList) > 0 {
-		n, err := rStore.TagsCountAfterName(h.Context, repo, tagsList[len(tagsList)-1].Name, nameFilter)
+		filters.LastEntry = tagsList[len(tagsList)-1].Name
+		n, err := rStore.TagsCountAfterName(h.Context, repo, filters)
 		if err != nil {
 			h.Errors = append(h.Errors, errcode.FromUnknownError(err))
 			return
 		}
 		if n > 0 {
-			lastEntry = tagsList[len(tagsList)-1].Name
+			filters.LastEntry = tagsList[len(tagsList)-1].Name
 			extra := url.Values{}
-			if nameFilter != "" {
-				extra.Add(tagNameQueryParamKey, nameFilter)
+			if filters.Name != "" {
+				extra.Add(tagNameQueryParamKey, filters.Name)
 			}
 
-			urlStr, err := createLinkEntry(r.URL.String(), maxEntries, lastEntry, extra)
+			urlStr, err := createLinkEntry(r.URL.String(), filters, extra)
 			if err != nil {
 				h.Errors = append(h.Errors, errcode.FromUnknownError(err))
 				return
@@ -429,33 +441,10 @@ func subRepositoriesDispatcher(ctx *Context, _ *http.Request) http.Handler {
 // using limit (`n`) and last (`last`) query parameters, as in the Docker/OCI Distribution catalog list API. `n` can not exceed 1000.
 // if no `n` query parameter is specified the default of `100` is used.
 func (h *subRepositoriesHandler) GetSubRepositories(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-
-	maxEntries := maximumReturnedEntries
-	if q.Has(nQueryParamKey) {
-		val, valid := isQueryParamTypeInt(q.Get(nQueryParamKey))
-		if !valid {
-			detail := v1.InvalidQueryParamTypeErrorDetail(nQueryParamKey, nQueryParamValidTypes)
-			h.Errors = append(h.Errors, v1.ErrorCodeInvalidQueryParamType.WithDetail(detail))
-			return
-		}
-		if !isQueryParamIntValueInBetween(val, nQueryParamValueMin, nQueryParamValueMax) {
-			detail := v1.InvalidQueryParamValueRangeErrorDetail(nQueryParamKey, nQueryParamValueMin, nQueryParamValueMax)
-			h.Errors = append(h.Errors, v1.ErrorCodeInvalidQueryParamValue.WithDetail(detail))
-			return
-		}
-		maxEntries = val
-	}
-
-	// `lastEntry` must conform to the repository name regexp
-	var lastEntry string
-	if q.Has(lastQueryParamKey) {
-		lastEntry = q.Get(lastQueryParamKey)
-		if !queryParamValueMatchesPattern(lastEntry, lastPathQueryParamPattern) {
-			detail := v1.InvalidQueryParamValuePatternErrorDetail(lastQueryParamKey, lastPathQueryParamPattern)
-			h.Errors = append(h.Errors, v1.ErrorCodeInvalidQueryParamValue.WithDetail(detail))
-			return
-		}
+	filters, err := filterParamsFromRequest(r)
+	if err != nil {
+		h.Errors = append(h.Errors, err)
+		return
 	}
 
 	// extract the repository name to create the a preliminary repository
@@ -481,16 +470,16 @@ func (h *subRepositoriesHandler) GetSubRepositories(w http.ResponseWriter, r *ht
 	repo.Name = repo.Path[strings.LastIndex(repo.Path, "/")+1:]
 
 	rStore := datastore.NewRepositoryStore(h.db)
-	repoList, err := rStore.FindPagingatedRepositoriesForPath(h.Context, repo, lastEntry, maxEntries)
+	repoList, err := rStore.FindPagingatedRepositoriesForPath(h.Context, repo, filters)
 	if err != nil {
 		h.Errors = append(h.Errors, errcode.FromUnknownError(err))
 		return
 	}
 
 	// Add a link header if there might be more entries to retrieve
-	if len(repoList) == maxEntries {
-		lastEntry = repoList[len(repoList)-1].Path
-		urlStr, err := createLinkEntry(r.URL.String(), maxEntries, lastEntry)
+	if len(repoList) == filters.MaxEntries {
+		filters.LastEntry = repoList[len(repoList)-1].Path
+		urlStr, err := createLinkEntry(r.URL.String(), filters)
 		if err != nil {
 			h.Errors = append(h.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
 			return

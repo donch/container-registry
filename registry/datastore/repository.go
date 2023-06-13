@@ -28,10 +28,18 @@ import (
 // cacheOpTimeout defines the timeout applied to cache operations against Redis
 const cacheOpTimeout = 500 * time.Millisecond
 
+// FilterParams contains the specific filters used to get
+// the request results from the repositoryStore.
+type FilterParams struct {
+	Name       string
+	LastEntry  string
+	MaxEntries int
+}
+
 // RepositoryReader is the interface that defines read operations for a repository store.
 type RepositoryReader interface {
 	FindAll(ctx context.Context) (models.Repositories, error)
-	FindAllPaginated(ctx context.Context, limit int, lastPath string) (models.Repositories, error)
+	FindAllPaginated(ctx context.Context, filters FilterParams) (models.Repositories, error)
 	FindByPath(ctx context.Context, path string) (*models.Repository, error)
 	FindDescendantsOf(ctx context.Context, id int64) (models.Repositories, error)
 	FindAncestorsOf(ctx context.Context, id int64) (models.Repositories, error)
@@ -41,8 +49,8 @@ type RepositoryReader interface {
 	CountPathSubRepositories(ctx context.Context, topLevelNamespaceID int64, path string) (int, error)
 	Manifests(ctx context.Context, r *models.Repository) (models.Manifests, error)
 	Tags(ctx context.Context, r *models.Repository) (models.Tags, error)
-	TagsPaginated(ctx context.Context, r *models.Repository, limit int, lastName string) (models.Tags, error)
-	TagsCountAfterName(ctx context.Context, r *models.Repository, lastName, nameFilter string) (int, error)
+	TagsPaginated(ctx context.Context, r *models.Repository, filters FilterParams) (models.Tags, error)
+	TagsCountAfterName(ctx context.Context, r *models.Repository, filters FilterParams) (int, error)
 	ManifestTags(ctx context.Context, r *models.Repository, m *models.Manifest) (models.Tags, error)
 	FindManifestByDigest(ctx context.Context, r *models.Repository, d digest.Digest) (*models.Manifest, error)
 	FindManifestByTagName(ctx context.Context, r *models.Repository, tagName string) (*models.Manifest, error)
@@ -53,8 +61,8 @@ type RepositoryReader interface {
 	Size(ctx context.Context, r *models.Repository) (int64, error)
 	SizeWithDescendants(ctx context.Context, r *models.Repository) (int64, error)
 	EstimatedSizeWithDescendants(ctx context.Context, r *models.Repository) (int64, error)
-	TagsDetailPaginated(ctx context.Context, r *models.Repository, limit int, lastName, nameFilter string) ([]*models.TagDetail, error)
-	FindPagingatedRepositoriesForPath(ctx context.Context, r *models.Repository, lastPath string, limit int) (models.Repositories, error)
+	TagsDetailPaginated(ctx context.Context, r *models.Repository, filters FilterParams) ([]*models.TagDetail, error)
+	FindPagingatedRepositoriesForPath(ctx context.Context, r *models.Repository, filters FilterParams) (models.Repositories, error)
 }
 
 // RepositoryWriter is the interface that defines write operations for a repository store.
@@ -460,13 +468,13 @@ func (s *repositoryStore) FindAll(ctx context.Context) (models.Repositories, err
 	return scanFullRepositories(rows)
 }
 
-// FindAllPaginated finds up to limit repositories with path lexicographically after lastPath. This is used exclusively
-// for the GET /v2/_catalog API route, where pagination is done with a marker (lastPath). Empty repositories (which do
-// not have at least a manifest) are ignored. Also, even if there is no repository with a path of lastPath, the returned
-// repositories will always be those with a path lexicographically after lastPath. Finally, repositories are
+// FindAllPaginated finds up to `filters.MaxEntries` repositories with path lexicographically after `filters.LastEntry`. This is used exclusively
+// for the GET /v2/_catalog API route, where pagination is done with a marker (`filters.LastEntry`). Empty repositories (which do
+// not have at least a manifest) are ignored. Also, even if there is no repository with a path of `filters.LastEntry`, the returned
+// repositories will always be those with a path lexicographically after `filters.LastEntry`. Finally, repositories are
 // lexicographically sorted. These constraints exists to preserve the existing API behavior (when doing a filesystem
 // walk based pagination).
-func (s *repositoryStore) FindAllPaginated(ctx context.Context, limit int, lastPath string) (models.Repositories, error) {
+func (s *repositoryStore) FindAllPaginated(ctx context.Context, filters FilterParams) (models.Repositories, error) {
 	defer metrics.InstrumentQuery("repository_find_all_paginated")()
 	q := `SELECT
 			r.id,
@@ -492,7 +500,7 @@ func (s *repositoryStore) FindAllPaginated(ctx context.Context, limit int, lastP
 		ORDER BY
 			r.path
 		LIMIT $2`
-	rows, err := s.db.QueryContext(ctx, q, lastPath, limit)
+	rows, err := s.db.QueryContext(ctx, q, filters.LastEntry, filters.MaxEntries)
 	if err != nil {
 		return nil, fmt.Errorf("finding repositories with pagination: %w", err)
 	}
@@ -648,12 +656,12 @@ func (s *repositoryStore) Tags(ctx context.Context, r *models.Repository) (model
 	return scanFullTags(rows)
 }
 
-// TagsPaginated finds up to limit tags of a given repository with name lexicographically after lastName. This is used
-// exclusively for the GET /v2/<name>/tags/list API route, where pagination is done with a marker (lastName). Even if
-// there is no tag with a name of lastName, the returned tags will always be those with a path lexicographically after
-// lastName. Finally, tags are lexicographically sorted. These constraints exists to preserve the existing API behavior
+// TagsPaginated finds up to `filters.MaxEntries` tags of a given repository with name lexicographically after `filters.LastEntry`. This is used
+// exclusively for the GET /v2/<name>/tags/list API route, where pagination is done with a marker (`filters.LastEntry`). Even if
+// there is no tag with a name of `filters.LastEntry`, the returned tags will always be those with a path lexicographically after
+// `filters.LastEntry`. Finally, tags are lexicographically sorted. These constraints exists to preserve the existing API behaviour
 // (when doing a filesystem walk based pagination).
-func (s *repositoryStore) TagsPaginated(ctx context.Context, r *models.Repository, limit int, lastName string) (models.Tags, error) {
+func (s *repositoryStore) TagsPaginated(ctx context.Context, r *models.Repository, filters FilterParams) (models.Tags, error) {
 	defer metrics.InstrumentQuery("repository_tags_paginated")()
 	q := `SELECT
 			id,
@@ -672,7 +680,7 @@ func (s *repositoryStore) TagsPaginated(ctx context.Context, r *models.Repositor
 		ORDER BY
 			name
 		LIMIT $4`
-	rows, err := s.db.QueryContext(ctx, q, r.NamespaceID, r.ID, lastName, limit)
+	rows, err := s.db.QueryContext(ctx, q, r.NamespaceID, r.ID, filters.LastEntry, filters.MaxEntries)
 	if err != nil {
 		return nil, fmt.Errorf("finding tags with pagination: %w", err)
 	}
@@ -729,12 +737,13 @@ func sqlPartialMatch(value string) string {
 	return fmt.Sprintf("%%%s%%", value)
 }
 
-// TagsDetailPaginated finds up to limit tags of a given repository with name lexicographically after lastName. This is
-// used exclusively for the GET /gitlab/v1/<name>/tags/list API, where pagination is done with a marker (lastName).
-// Even if there is no tag with a name of lastName, the returned tags will always be those with a path lexicographically
-// after lastName. Tags are lexicographically sorted. Optionally, it is possible to pass a string to be used as a
-// partial match filter for tag names. The search is not filtered if this value is an empty string.
-func (s *repositoryStore) TagsDetailPaginated(ctx context.Context, r *models.Repository, limit int, lastName, nameFilter string) ([]*models.TagDetail, error) {
+// TagsDetailPaginated finds up to `filters.MaxEntries` tags of a given repository with name lexicographically after `filters.LastEntry`. This is
+// used exclusively for the GET /gitlab/v1/<name>/tags/list API, where pagination is done with a marker (`filters.LastEntry`).
+// Even if there is no tag with a name of `filters.LastEntry`, the returned tags will always be those with a path lexicographically
+// after `filters.LastEntry`. Tags are lexicographically sorted.
+// Optionally, it is possible to pass a string to be used as a  partial match filter for tag names using `filters.Name`.
+// The search is not filtered if this value is an empty string.
+func (s *repositoryStore) TagsDetailPaginated(ctx context.Context, r *models.Repository, filters FilterParams) ([]*models.TagDetail, error) {
 	defer metrics.InstrumentQuery("repository_tags_detail_paginated")()
 	q := `SELECT
 			t.name,
@@ -759,7 +768,7 @@ func (s *repositoryStore) TagsDetailPaginated(ctx context.Context, r *models.Rep
 			t.name
 		LIMIT $5`
 
-	rows, err := s.db.QueryContext(ctx, q, r.NamespaceID, r.ID, sqlPartialMatch(nameFilter), lastName, limit)
+	rows, err := s.db.QueryContext(ctx, q, r.NamespaceID, r.ID, sqlPartialMatch(filters.Name), filters.LastEntry, filters.MaxEntries)
 	if err != nil {
 		return nil, fmt.Errorf("finding tags detail with pagination: %w", err)
 	}
@@ -767,13 +776,13 @@ func (s *repositoryStore) TagsDetailPaginated(ctx context.Context, r *models.Rep
 	return scanFullTagsDetail(rows)
 }
 
-// TagsCountAfterName counts all tags of a given repository with name lexicographically after lastName. This is used
-// exclusively for the GET /v2/<name>/tags/list API route, where pagination is done with a marker (lastName). Even if
-// there is no tag with a name of lastName, the counted tags will always be those with a path lexicographically after
-// lastName. This constraint exists to preserve the existing API behavior (when doing a filesystem walk based
-// pagination). Optionally, it is possible to pass a string to be used as a partial match filter for tag names. The
-// search is not filtered if this value is an empty string.
-func (s *repositoryStore) TagsCountAfterName(ctx context.Context, r *models.Repository, lastName, nameFilter string) (int, error) {
+// TagsCountAfterName counts all tags of a given repository with name lexicographically after `filters.LastEntry`. This is used
+// exclusively for the GET /v2/<name>/tags/list API route, where pagination is done with a marker (`filters.LastEntry`). Even if
+// there is no tag with a name of `filters.LastEntry`, the counted tags will always be those with a path lexicographically after
+// `filters.LastEntry`. This constraint exists to preserve the existing API behavior (when doing a filesystem walk based
+// pagination). Optionally, it is possible to pass a string to be used as a partial match filter for tag names using `filters.Name`.
+// The search is not filtered if this value is an empty string.
+func (s *repositoryStore) TagsCountAfterName(ctx context.Context, r *models.Repository, filters FilterParams) (int, error) {
 	defer metrics.InstrumentQuery("repository_tags_count_after_name")()
 	q := `SELECT
 			COUNT(id)
@@ -786,7 +795,7 @@ func (s *repositoryStore) TagsCountAfterName(ctx context.Context, r *models.Repo
 			AND name > $4`
 
 	var count int
-	if err := s.db.QueryRowContext(ctx, q, r.NamespaceID, r.ID, sqlPartialMatch(nameFilter), lastName).Scan(&count); err != nil {
+	if err := s.db.QueryRowContext(ctx, q, r.NamespaceID, r.ID, sqlPartialMatch(filters.Name), filters.LastEntry).Scan(&count); err != nil {
 		return count, fmt.Errorf("counting tags lexicographically after name: %w", err)
 	}
 
@@ -1589,16 +1598,16 @@ func (s *repositoryStore) DeleteManifest(ctx context.Context, r *models.Reposito
 	return count == 1, nil
 }
 
-// FindPagingatedRepositoriesForPath finds all repositories (up to `limit` repositories) that have a base path `path`.
-// The results are ordered lexicographically by repository path and only begin from `lastPath`.
-// Empty repositories (which do not have at least a tag) are ignored.
-// Also, even if there are no repository with a `path` of `lastPath`, the returned
-// repositories will still be those with a base path `path` and lexicographically after lastPath.
-func (s *repositoryStore) FindPagingatedRepositoriesForPath(ctx context.Context, r *models.Repository, lastPath string, limit int) (models.Repositories, error) {
+// FindPagingatedRepositoriesForPath finds all repositories (up to `filters.MaxEntries` repositories) that have the same base path as the requested repository.
+// The results are ordered lexicographically by repository path and only begin from `filters.LastEntry`.
+// Empty repositories (which do not have at least 1 tag) are ignored in the returned list.
+// Also, even if there is no repository with a path equivalent to `filters.LastEntry`, the returned
+// repositories will still be those with a base path of the requested repository and lexicographically after `filters.LastEntry`.
+func (s *repositoryStore) FindPagingatedRepositoriesForPath(ctx context.Context, r *models.Repository, filters FilterParams) (models.Repositories, error) {
 	// start from a path lexicographically before r.Path when no last path is availaible.
 	// this improves the query performance as we will not need to filter from `r.path > ""` in the query below.
-	if lastPath == "" {
-		lastPath = lexicographicallyBeforePath(r.Path)
+	if filters.LastEntry == "" {
+		filters.LastEntry = lexicographicallyBeforePath(r.Path)
 	}
 
 	defer metrics.InstrumentQuery("repository_find_paginated_repositories_for_path")()
@@ -1622,7 +1631,7 @@ func (s *repositoryStore) FindPagingatedRepositoriesForPath(ctx context.Context,
 		ORDER BY r.path
 		LIMIT $6`
 
-	rows, err := s.db.QueryContext(ctx, q, r.Path, r.Path+"/%", lastPath, lexicographicallyNextPath(r.Path), r.NamespaceID, limit)
+	rows, err := s.db.QueryContext(ctx, q, r.Path, r.Path+"/%", filters.LastEntry, lexicographicallyNextPath(r.Path), r.NamespaceID, filters.MaxEntries)
 	if err != nil {
 		return nil, fmt.Errorf("finding pagingated list of repository for path: %w", err)
 	}
