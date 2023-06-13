@@ -575,7 +575,12 @@ func TestRepositoryStore_FindAllPaginated(t *testing.T) {
 
 	for _, test := range tt {
 		t.Run(test.name, func(t *testing.T) {
-			rr, err := s.FindAllPaginated(suite.ctx, test.limit, test.lastPath)
+			filters := datastore.FilterParams{
+				MaxEntries: test.limit,
+				LastEntry:  test.lastPath,
+			}
+
+			rr, err := s.FindAllPaginated(suite.ctx, filters)
 
 			// reset created_at attributes for reproducible comparisons
 			for _, r := range rr {
@@ -594,7 +599,7 @@ func TestRepositoryStore_FindAllPaginated_NoRepositories(t *testing.T) {
 
 	s := datastore.NewRepositoryStore(suite.db)
 
-	rr, err := s.FindAllPaginated(suite.ctx, 100, "")
+	rr, err := s.FindAllPaginated(suite.ctx, datastore.FilterParams{MaxEntries: 100})
 	require.NoError(t, err)
 	require.Empty(t, rr)
 }
@@ -990,7 +995,12 @@ func TestRepositoryStore_TagsPaginated(t *testing.T) {
 
 	for _, test := range tt {
 		t.Run(test.name, func(t *testing.T) {
-			rr, err := s.TagsPaginated(suite.ctx, r, test.limit, test.lastName)
+			filters := datastore.FilterParams{
+				MaxEntries: test.limit,
+				LastEntry:  test.lastName,
+			}
+
+			rr, err := s.TagsPaginated(suite.ctx, r, filters)
 			// reset created_at and updated_at attributes for reproducible comparisons
 			for _, r := range rr {
 				r.CreatedAt = time.Time{}
@@ -1044,7 +1054,11 @@ func TestRepositoryStore_TagsCountAfterName(t *testing.T) {
 
 	for _, test := range tt {
 		t.Run(test.name, func(t *testing.T) {
-			c, err := s.TagsCountAfterName(suite.ctx, r, test.lastName, "")
+			filters := datastore.FilterParams{
+				LastEntry: test.lastName,
+			}
+
+			c, err := s.TagsCountAfterName(suite.ctx, r, filters)
 			require.NoError(t, err)
 			require.Equal(t, test.expectedCount, c)
 		})
@@ -2483,7 +2497,12 @@ func TestRepositoryStore_TagsDetailPaginated(t *testing.T) {
 
 	for _, test := range tt {
 		t.Run(test.name, func(t *testing.T) {
-			rr, err := s.TagsDetailPaginated(suite.ctx, r, test.limit, test.lastName, "")
+			filters := datastore.FilterParams{
+				LastEntry:  test.lastName,
+				MaxEntries: test.limit,
+			}
+
+			rr, err := s.TagsDetailPaginated(suite.ctx, r, filters)
 			// reset created_at and updated_at attributes for reproducible comparisons
 			for _, r := range rr {
 				r.CreatedAt = time.Time{}
@@ -2502,7 +2521,7 @@ func TestRepositoryStore_TagsDetailPaginated_None(t *testing.T) {
 	r := &models.Repository{NamespaceID: 1, ID: 1}
 
 	s := datastore.NewRepositoryStore(suite.db)
-	tt, err := s.TagsDetailPaginated(suite.ctx, r, 100, "", "")
+	tt, err := s.TagsDetailPaginated(suite.ctx, r, datastore.FilterParams{MaxEntries: 100})
 	require.NoError(t, err)
 	require.Empty(t, tt)
 }
@@ -2711,7 +2730,12 @@ func TestRepositoryStore_FindPagingatedRepositoriesForPath(t *testing.T) {
 
 	for _, test := range tt {
 		t.Run(test.name, func(t *testing.T) {
-			rr, err := s.FindPagingatedRepositoriesForPath(suite.ctx, test.baseRepo, test.lastPath, test.limit)
+			filters := datastore.FilterParams{
+				MaxEntries: test.limit,
+				LastEntry:  test.lastPath,
+			}
+
+			rr, err := s.FindPagingatedRepositoriesForPath(suite.ctx, test.baseRepo, filters)
 
 			// reset created_at attributes for reproducible comparisons
 			for _, r := range rr {
@@ -2733,7 +2757,7 @@ func TestRepositoryStore_FindPagingatedRepositoriesForPath_None(t *testing.T) {
 	rr, err := s.FindPagingatedRepositoriesForPath(suite.ctx, &models.Repository{
 		NamespaceID: 2,
 		Path:        "a-test-group",
-	}, "", 100)
+	}, datastore.FilterParams{MaxEntries: 100})
 	require.NoError(t, err)
 	require.Empty(t, rr)
 }

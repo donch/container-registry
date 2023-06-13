@@ -36,9 +36,9 @@ type catalogAPIResponse struct {
 	Repositories []string `json:"repositories"`
 }
 
-func dbGetCatalog(ctx context.Context, db datastore.Queryer, n int, last string) ([]string, bool, error) {
+func dbGetCatalog(ctx context.Context, db datastore.Queryer, filters datastore.FilterParams) ([]string, bool, error) {
 	rStore := datastore.NewRepositoryStore(db)
-	rr, err := rStore.FindAllPaginated(ctx, n, last)
+	rr, err := rStore.FindAllPaginated(ctx, filters)
 	if err != nil {
 		return nil, false, err
 	}
@@ -70,20 +70,25 @@ func (ch *catalogHandler) GetCatalog(w http.ResponseWriter, r *http.Request) {
 		maxEntries = maximumReturnedEntries
 	}
 
+	filters := datastore.FilterParams{
+		LastEntry:  lastEntry,
+		MaxEntries: maxEntries,
+	}
+
 	var filled int
 	var repos []string
 
 	if ch.useDatabase {
-		repos, moreEntries, err = dbGetCatalog(ch.Context, ch.db, maxEntries, lastEntry)
+		repos, moreEntries, err = dbGetCatalog(ch.Context, ch.db, filters)
 		if err != nil {
 			ch.Errors = append(ch.Errors, errcode.FromUnknownError(err))
 			return
 		}
 		filled = len(repos)
 	} else {
-		repos = make([]string, maxEntries)
+		repos = make([]string, filters.MaxEntries)
 
-		filled, err = ch.App.registry.Repositories(ch.Context, repos, lastEntry)
+		filled, err = ch.App.registry.Repositories(ch.Context, repos, filters.LastEntry)
 		_, pathNotFound := err.(driver.PathNotFoundError)
 
 		if err == io.EOF || pathNotFound {
@@ -98,8 +103,8 @@ func (ch *catalogHandler) GetCatalog(w http.ResponseWriter, r *http.Request) {
 
 	// Add a link header if there are more entries to retrieve
 	if moreEntries {
-		lastEntry = repos[len(repos)-1]
-		urlStr, err := createLinkEntry(r.URL.String(), maxEntries, lastEntry)
+		filters.LastEntry = repos[len(repos)-1]
+		urlStr, err := createLinkEntry(r.URL.String(), filters)
 		if err != nil {
 			ch.Errors = append(ch.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
 			return
@@ -118,15 +123,15 @@ func (ch *catalogHandler) GetCatalog(w http.ResponseWriter, r *http.Request) {
 
 // Use the original URL from the request to create a new URL for
 // the link header
-func createLinkEntry(origURL string, maxEntries int, lastEntry string, extra ...url.Values) (string, error) {
+func createLinkEntry(origURL string, filters datastore.FilterParams, extra ...url.Values) (string, error) {
 	calledURL, err := url.Parse(origURL)
 	if err != nil {
 		return "", err
 	}
 
 	v := url.Values{}
-	v.Add("n", strconv.Itoa(maxEntries))
-	v.Add("last", lastEntry)
+	v.Add("n", strconv.Itoa(filters.MaxEntries))
+	v.Add("last", filters.LastEntry)
 
 	for _, val := range extra {
 		for k, vv := range val {
