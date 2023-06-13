@@ -19,6 +19,7 @@ import (
 	"github.com/docker/distribution/registry/api/errcode"
 	v1 "github.com/docker/distribution/registry/api/gitlab/v1"
 	v2 "github.com/docker/distribution/registry/api/v2"
+	"github.com/docker/distribution/registry/auth"
 	"github.com/docker/distribution/registry/datastore"
 	"github.com/docker/distribution/registry/datastore/models"
 	"gitlab.com/gitlab-org/labkit/errortracking"
@@ -71,6 +72,7 @@ const (
 	tagNameQueryParamKey                   = "name"
 	defaultDryRunRenameOperationTimeout    = 5 * time.Second
 	maxRepositoriesToRename                = 1000
+	defaultProjectLeaseDuration            = 60 * time.Second
 )
 
 var (
@@ -525,6 +527,19 @@ func (h *repositoryHandler) RenameRepository(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// extract the repository projectPath from the Auth token resource
+	projectPath, err := findProjectPath(h.Repository.Named().Name(), auth.AuthorizedResources(h))
+	if err != nil {
+		h.Errors = append(h.Errors, errcode.FromUnknownError(err))
+		return
+	}
+
+	// validate the repository name starts with the project path
+	if !strings.HasPrefix(h.Repository.Named().Name(), projectPath) {
+		h.Errors = append(h.Errors, v1.ErrorCodeMismatchProjectPath)
+		return
+	}
+
 	// extract any necessary request parameters
 	dryRun, renameObject, err := extractRenameRequestParams(r)
 	if err != nil {
@@ -610,6 +625,25 @@ func (h *repositoryHandler) RenameRepository(w http.ResponseWriter, r *http.Requ
 			return
 		}
 
+	}
+
+	if !dryRun {
+		// enact a lease on the project path which will be used to block all
+		// write operations to the existing repositories in the given GitLab project.
+		plStore, err := datastore.NewProjectLeaseStore(datastore.NewCentralProjectLeaseCache(h.App.redisCache))
+		if err != nil {
+			h.Errors = append(h.Errors, errcode.FromUnknownError(err))
+			return
+		}
+		if err := plStore.Set(h.Context, projectPath, defaultProjectLeaseDuration); err != nil {
+			h.Errors = append(h.Errors, errcode.FromUnknownError(err))
+			return
+		}
+		defer func() {
+			if err := plStore.Invalidate(h.Context, projectPath); err != nil {
+				errortracking.Capture(err, errortracking.WithContext(h.Context))
+			}
+		}()
 	}
 
 	// start a transaction to rename the repository (and sub-repository attributes)
@@ -805,4 +839,19 @@ func isRepositoryNameTaken(ctx context.Context, rStore datastore.RepositoryStore
 		}
 	}
 	return false, nil
+}
+
+// findProjectPath extracts the project path from the auth token resource
+// for a repository that matches the resource repository name
+func findProjectPath(repoName string, resources []auth.Resource) (string, error) {
+	for _, r := range resources {
+		// once the repo name in the request url matches the one in the token, then extract the project path
+		if r.Name == repoName {
+			if r.ProjectPath != "" {
+				return r.ProjectPath, nil
+			}
+			return r.ProjectPath, v1.ErrorCodeUnknownProjectPath.WithDetail("project path not found")
+		}
+	}
+	return "", v1.ErrorCodeUnknownProjectPath.WithDetail("requested repository does not match authorized repository in token")
 }
