@@ -127,7 +127,7 @@ func (bh *blobHandler) GetBlob(w http.ResponseWriter, r *http.Request) {
 
 // dbDeleteBlob does not actually delete a blob from the database (that's GC's responsibility), it only unlinks it from
 // a repository.
-func dbDeleteBlob(ctx context.Context, config *configuration.Configuration, db datastore.Queryer, repoPath string, d digest.Digest) error {
+func dbDeleteBlob(ctx context.Context, config *configuration.Configuration, db datastore.Queryer, cache datastore.RepositoryCache, repoPath string, d digest.Digest) error {
 	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{"repository": repoPath, "digest": d})
 	l.Debug("deleting blob from repository in database")
 
@@ -135,7 +135,7 @@ func dbDeleteBlob(ctx context.Context, config *configuration.Configuration, db d
 		return distribution.ErrUnsupported
 	}
 
-	rStore := datastore.NewRepositoryStore(db)
+	rStore := datastore.NewRepositoryStore(db, datastore.WithRepositoryCache(cache))
 	r, err := rStore.FindByPath(ctx, repoPath)
 	if err != nil {
 		return err
@@ -208,7 +208,12 @@ func (bh *blobHandler) deleteBlob() error {
 	}
 
 	if bh.useDatabase {
-		return dbDeleteBlob(bh.Context, bh.App.Config, bh.db, bh.Repository.Named().Name(), bh.Digest)
+		// TODO: remove as part of https://gitlab.com/gitlab-org/container-registry/-/issues/1056
+		repoCache := bh.repoCache
+		if bh.App.redisCache != nil {
+			repoCache = datastore.NewCentralRepositoryCache(bh.App.redisCache)
+		}
+		return dbDeleteBlob(bh.Context, bh.App.Config, bh.db, repoCache, bh.Repository.Named().Name(), bh.Digest)
 	}
 
 	// If we reach this point, we should have failed on an invalid config already,

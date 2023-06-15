@@ -240,7 +240,7 @@ func (th *tagHandler) DeleteTag(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if th.useDatabase {
-		// To be removed on completion of: https://gitlab.com/groups/gitlab-org/-/epics/9050
+		// TODO: remove as part of https://gitlab.com/gitlab-org/container-registry/-/issues/1056
 		var repoCache datastore.RepositoryCache
 		if th.App.redisCache != nil {
 			repoCache = datastore.NewCentralRepositoryCache(th.App.redisCache)
