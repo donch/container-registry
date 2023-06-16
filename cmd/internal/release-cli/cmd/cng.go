@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"log"
+	"os"
 
 	"github.com/docker/distribution/cmd/internal/release-cli/client"
 	"github.com/spf13/cobra"
@@ -11,7 +12,6 @@ var cngCmd = &cobra.Command{
 	Use:   "cng",
 	Short: "Manage CNG release",
 	Run: func(cmd *cobra.Command, args []string) {
-
 		triggerToken, err := cmd.Flags().GetString("cng-trigger-token")
 		if err != nil {
 			log.Fatal(err)
@@ -22,7 +22,12 @@ var cngCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 
-		release, err := readConfig(cmd.Use)
+		version := os.Getenv("CI_COMMIT_TAG")
+		if version == "" {
+			log.Fatal("Version is empty. Aborting.")
+		}
+
+		release, err := readConfig(cmd.Use, version)
 		if err != nil {
 			log.Fatalf("Error reading config: %v", err)
 			return
