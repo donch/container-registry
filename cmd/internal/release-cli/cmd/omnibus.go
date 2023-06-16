@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/docker/distribution/cmd/internal/release-cli/client"
 	"github.com/spf13/cobra"
@@ -22,7 +23,12 @@ var omnibusCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 
-		release, err := readConfig(cmd.Use)
+		version := os.Getenv("CI_COMMIT_TAG")
+		if version == "" {
+			log.Fatal("Version is empty. Aborting.")
+		}
+
+		release, err := readConfig(cmd.Use, version)
 		if err != nil {
 			fmt.Println("Error reading config:", err)
 			return

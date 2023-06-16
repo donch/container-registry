@@ -36,7 +36,7 @@ var gdkCmd = &cobra.Command{
 			"devops::package",
 		}
 
-		release, err := readConfig(cmd.Use)
+		release, err := readConfig(cmd.Use, version)
 		if err != nil {
 			log.Fatalf("Error reading config: %v", err)
 			return

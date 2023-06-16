@@ -52,7 +52,7 @@ var k8sCmd = &cobra.Command{
 		}
 		newCmd := fmt.Sprintf("%s%s", cmd.Use, suffix)
 
-		release, err := readConfig(newCmd)
+		release, err := readConfig(newCmd, version)
 		if err != nil {
 			log.Fatalf("Error reading config: %v", err)
 			return
