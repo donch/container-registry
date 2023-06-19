@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/docker/distribution/cmd/internal/release-cli/client"
+	"github.com/docker/distribution/cmd/internal/release-cli/slack"
 	"github.com/spf13/cobra"
 )
 
@@ -34,12 +35,29 @@ var omnibusCmd = &cobra.Command{
 			return
 		}
 
+		webhookUrl, err := cmd.Flags().GetString("slack-webhook-url")
+		if err != nil {
+			log.Fatal(err)
+		}
+
 		gitlabClient := client.NewClient(accessToken)
 
-		err = gitlabClient.SendRequestToDeps(release.ProjectID, triggerToken, release.Ref)
+		pipelineURL, err := gitlabClient.SendRequestToDeps(release.ProjectID, triggerToken, release.Ref)
 		if err != nil {
-			log.Fatalf("Failed to trigger a pipeline in Omnibus: %v", err)
+			errMsg := "Failed to trigger a pipeline in Omnibus: " + err.Error()
+			err = slack.SendSlackNotification(webhookUrl, errMsg)
+			if err != nil {
+				log.Printf("Failed to send error notification to Slack: %v", err)
+			}
+			log.Fatalf(errMsg)
 		}
+		msg := "Omnibus trigger pipeline URL for version bump: " + pipelineURL
+		err = slack.SendSlackNotification(webhookUrl, msg)
+		if err != nil {
+			log.Printf("Failed to send notification to Slack: %v", err)
+		}
+
+		log.Println(msg)
 	},
 }
 

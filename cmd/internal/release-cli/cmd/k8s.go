@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/docker/distribution/cmd/internal/release-cli/client"
+	"github.com/docker/distribution/cmd/internal/release-cli/slack"
 	"github.com/docker/distribution/cmd/internal/release-cli/utils"
 	"github.com/spf13/cobra"
 	"github.com/xanzy/go-gitlab"
@@ -30,6 +31,11 @@ var k8sCmd = &cobra.Command{
 		}
 
 		accessTokenRegistry, err := cmd.Flags().GetString("registry-access-token")
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		webhookUrl, err := cmd.Flags().GetString("slack-webhook-url")
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -89,9 +95,21 @@ var k8sCmd = &cobra.Command{
 
 		mr, err := k8sClient.CreateMergeRequest(release.ProjectID, branch, desc, release.Ref, release.MRTitle, labels)
 		if err != nil {
-			log.Fatalf("Failed to create MR: %v", err)
+			errMsg := "Failed to create MR in K8s Workloads: " + err.Error()
+			err = slack.SendSlackNotification(webhookUrl, errMsg)
+			if err != nil {
+				log.Printf("Failed to send error notification to Slack: %v", err)
+			}
+			log.Fatalf(errMsg)
 		}
-		fmt.Printf("Created MR: %s\n", mr.WebURL)
+
+		msg := fmt.Sprintf("K8s Workloads MR %s version bump: %s", stage, mr.WebURL)
+		err = slack.SendSlackNotification(webhookUrl, msg)
+		if err != nil {
+			log.Printf("Failed to send notification to Slack: %v", err)
+		}
+
+		log.Println(msg)
 	},
 }
 
