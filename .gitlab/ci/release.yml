@@ -59,7 +59,6 @@ version-bump:charts:
 
 version-bump:omnibus:
   <<: *version-bump
-  needs: [ "version-bump:cng"]
   variables:
     TARGET_TRIGGER_TOKEN: $BUMP_VERSION_TRIGGER_TOKEN_OMNIBUS
   script:
@@ -94,7 +93,6 @@ version-bump:k8s:gprd:
 
 version-bump:gdk:
   <<: *version-bump
-  needs: [ "version-bump:cng"]
   variables:
     TARGET_AUTH_TOKEN: $BUMP_VERSION_AUTH_TOKEN_GDK
     SOURCE_AUTH_TOKEN: $RELEASE_PAT
