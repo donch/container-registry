@@ -1065,6 +1065,63 @@ func TestRepositoryStore_TagsCountAfterName(t *testing.T) {
 	}
 }
 
+func TestRepositoryStore_TagsCountBeforeName(t *testing.T) {
+	reloadTagFixtures(t)
+
+	// see testdata/fixtures/tags.sql (sorted):
+	// 1.0.0
+	// rc2
+	// stable-91ac07a9
+	// stable-9ede8db0
+	r := &models.Repository{NamespaceID: 1, ID: 4}
+
+	tt := []struct {
+		name          string
+		beforeName    string
+		expectedCount int
+	}{
+		{
+			name:          "empty",
+			beforeName:    "",
+			expectedCount: 0,
+		},
+		{
+			name:          "first",
+			beforeName:    "1.0.0",
+			expectedCount: 0,
+		},
+		{
+			name:          "nth",
+			beforeName:    "stable-91ac07a9",
+			expectedCount: 2,
+		},
+		{
+			name:          "last",
+			beforeName:    "stable-9ede8db0",
+			expectedCount: 3,
+		},
+		{
+			name:          "non existent",
+			beforeName:    "z-does-not-exist",
+			expectedCount: 4,
+		},
+	}
+
+	s := datastore.NewRepositoryStore(suite.db)
+
+	for _, test := range tt {
+		t.Run(test.name, func(t *testing.T) {
+			filters := datastore.FilterParams{
+				BeforeEntry: test.beforeName,
+			}
+
+			c, err := s.TagsCountBeforeName(suite.ctx, r, filters)
+			require.NoError(t, err)
+			require.Equal(t, test.expectedCount, c)
+		})
+	}
+}
+
 func TestRepositoryStore_ManifestTags(t *testing.T) {
 	reloadTagFixtures(t)
 
@@ -2362,134 +2419,113 @@ func TestRepositoryStore_TagsDetailPaginated(t *testing.T) {
 	// rc2
 	// stable-91ac07a9
 	// stable-9ede8db0
+
+	firstTag := &models.TagDetail{
+		Name:   "1.0.0",
+		Digest: digest.Digest("sha256:bca3c0bf2ca0cde987ad9cab2dac986047a0ccff282f1b23df282ef05e3a10a6"),
+		ConfigDigest: models.NullDigest{
+			Digest: "sha256:33f3ef3322b28ecfc368872e621ab715a04865471c47ca7426f3e93846157780",
+			Valid:  true,
+		},
+		MediaType: "application/vnd.docker.distribution.manifest.v2+json",
+		Size:      489234,
+	}
+	secondTag := &models.TagDetail{
+		Name:      "rc2",
+		Digest:    digest.Digest("sha256:45e85a20d32f249c323ed4085026b6b0ee264788276aa7c06cf4b5da1669067a"),
+		MediaType: "application/vnd.docker.distribution.manifest.list.v2+json",
+		Size:      0,
+	}
+	thirdTag := &models.TagDetail{
+		Name:      "stable-91ac07a9",
+		Digest:    digest.Digest("sha256:ea1650093606d9e76dfc78b986d57daea6108af2d5a9114a98d7198548bfdfc7"),
+		MediaType: "application/vnd.docker.distribution.manifest.v1+json",
+		Size:      23847,
+	}
+	fourthTag := &models.TagDetail{
+		Name:   "stable-9ede8db0",
+		Digest: digest.Digest("sha256:bca3c0bf2ca0cde987ad9cab2dac986047a0ccff282f1b23df282ef05e3a10a6"),
+		ConfigDigest: models.NullDigest{
+			Digest: "sha256:33f3ef3322b28ecfc368872e621ab715a04865471c47ca7426f3e93846157780",
+			Valid:  true,
+		},
+		MediaType: "application/vnd.docker.distribution.manifest.v2+json",
+		Size:      489234,
+	}
+
+	allTags := []*models.TagDetail{firstTag, secondTag, thirdTag, fourthTag}
+
 	r := &models.Repository{NamespaceID: 1, ID: 4}
 
 	tt := []struct {
 		name         string
 		limit        int
+		beforeName   string
 		lastName     string
 		expectedTags []*models.TagDetail
 	}{
 		{
-			name:     "no limit and no last name",
-			limit:    100, // there are only 4 tags in the DB for repository 4, so this is equivalent to no limit
-			lastName: "",  // this is the equivalent to no last name, as all tag names are non-empty
-			expectedTags: []*models.TagDetail{
-				{
-					Name:   "1.0.0",
-					Digest: digest.Digest("sha256:bca3c0bf2ca0cde987ad9cab2dac986047a0ccff282f1b23df282ef05e3a10a6"),
-					ConfigDigest: models.NullDigest{
-						Digest: "sha256:33f3ef3322b28ecfc368872e621ab715a04865471c47ca7426f3e93846157780",
-						Valid:  true,
-					},
-					MediaType: "application/vnd.docker.distribution.manifest.v2+json",
-					Size:      489234,
-				},
-				{
-					Name:      "rc2",
-					Digest:    digest.Digest("sha256:45e85a20d32f249c323ed4085026b6b0ee264788276aa7c06cf4b5da1669067a"),
-					MediaType: "application/vnd.docker.distribution.manifest.list.v2+json",
-					Size:      0,
-				},
-				{
-					Name:      "stable-91ac07a9",
-					Digest:    digest.Digest("sha256:ea1650093606d9e76dfc78b986d57daea6108af2d5a9114a98d7198548bfdfc7"),
-					MediaType: "application/vnd.docker.distribution.manifest.v1+json",
-					Size:      23847,
-				},
-				{
-					Name:   "stable-9ede8db0",
-					Digest: digest.Digest("sha256:bca3c0bf2ca0cde987ad9cab2dac986047a0ccff282f1b23df282ef05e3a10a6"),
-					ConfigDigest: models.NullDigest{
-						Digest: "sha256:33f3ef3322b28ecfc368872e621ab715a04865471c47ca7426f3e93846157780",
-						Valid:  true,
-					},
-					MediaType: "application/vnd.docker.distribution.manifest.v2+json",
-					Size:      489234,
-				},
-			},
+			name:         "no limit and no last name",
+			limit:        100, // there are only 4 tags in the DB for repository 4, so this is equivalent to no limit
+			lastName:     "",  // this is the equivalent to no last name, as all tag names are non-empty
+			expectedTags: allTags,
 		},
 		{
-			name:     "1st part",
-			limit:    2,
-			lastName: "",
-			expectedTags: []*models.TagDetail{
-				{
-					Name:   "1.0.0",
-					Digest: digest.Digest("sha256:bca3c0bf2ca0cde987ad9cab2dac986047a0ccff282f1b23df282ef05e3a10a6"),
-					ConfigDigest: models.NullDigest{
-						Digest: "sha256:33f3ef3322b28ecfc368872e621ab715a04865471c47ca7426f3e93846157780",
-						Valid:  true,
-					},
-					MediaType: "application/vnd.docker.distribution.manifest.v2+json",
-					Size:      489234,
-				},
-				{
-					Name:      "rc2",
-					Digest:    digest.Digest("sha256:45e85a20d32f249c323ed4085026b6b0ee264788276aa7c06cf4b5da1669067a"),
-					MediaType: "application/vnd.docker.distribution.manifest.list.v2+json",
-					Size:      0,
-				},
-			},
+			name:         "1st part",
+			limit:        2,
+			lastName:     "",
+			expectedTags: []*models.TagDetail{firstTag, secondTag},
 		},
 		{
-			name:     "nth part",
-			limit:    1,
-			lastName: "rc2",
-			expectedTags: []*models.TagDetail{
-				{
-					Name:      "stable-91ac07a9",
-					Digest:    digest.Digest("sha256:ea1650093606d9e76dfc78b986d57daea6108af2d5a9114a98d7198548bfdfc7"),
-					MediaType: "application/vnd.docker.distribution.manifest.v1+json",
-					Size:      23847,
-				},
-			},
+			name:         "nth part",
+			limit:        1,
+			lastName:     "rc2",
+			expectedTags: []*models.TagDetail{thirdTag},
 		},
 		{
-			name:     "last part",
-			limit:    100,
-			lastName: "stable-91ac07a9",
-			expectedTags: []*models.TagDetail{
-				{
-					Name:   "stable-9ede8db0",
-					Digest: digest.Digest("sha256:bca3c0bf2ca0cde987ad9cab2dac986047a0ccff282f1b23df282ef05e3a10a6"),
-					ConfigDigest: models.NullDigest{
-						Digest: "sha256:33f3ef3322b28ecfc368872e621ab715a04865471c47ca7426f3e93846157780",
-						Valid:  true,
-					},
-					MediaType: "application/vnd.docker.distribution.manifest.v2+json",
-					Size:      489234,
-				},
-			},
+			name:         "last part",
+			limit:        100,
+			lastName:     "stable-91ac07a9",
+			expectedTags: []*models.TagDetail{fourthTag},
 		},
 		{
-			name:     "non existent last name",
-			limit:    100,
-			lastName: "does-not-exist",
-			expectedTags: []*models.TagDetail{
-				{
-					Name:      "rc2",
-					Digest:    digest.Digest("sha256:45e85a20d32f249c323ed4085026b6b0ee264788276aa7c06cf4b5da1669067a"),
-					MediaType: "application/vnd.docker.distribution.manifest.list.v2+json",
-					Size:      0,
-				},
-				{
-					Name:      "stable-91ac07a9",
-					Digest:    digest.Digest("sha256:ea1650093606d9e76dfc78b986d57daea6108af2d5a9114a98d7198548bfdfc7"),
-					MediaType: "application/vnd.docker.distribution.manifest.v1+json",
-					Size:      23847,
-				},
-				{
-					Name:   "stable-9ede8db0",
-					Digest: digest.Digest("sha256:bca3c0bf2ca0cde987ad9cab2dac986047a0ccff282f1b23df282ef05e3a10a6"),
-					ConfigDigest: models.NullDigest{
-						Digest: "sha256:33f3ef3322b28ecfc368872e621ab715a04865471c47ca7426f3e93846157780",
-						Valid:  true,
-					},
-					MediaType: "application/vnd.docker.distribution.manifest.v2+json",
-					Size:      489234,
-				},
-			},
+			name:         "non existent last name",
+			limit:        100,
+			lastName:     "does-not-exist",
+			expectedTags: []*models.TagDetail{secondTag, thirdTag, fourthTag},
+		},
+		// beforeEntry tests
+		{
+			name:         "before and last defaults to lastName",
+			limit:        1,
+			beforeName:   "100",
+			lastName:     "1.0.0",
+			expectedTags: []*models.TagDetail{firstTag},
+		},
+		{
+			name:         "before 1st returns empty list",
+			limit:        1,
+			beforeName:   "1.0.0",
+			expectedTags: []*models.TagDetail{},
+		},
+		{
+			name:         "before nth",
+			limit:        2,
+			beforeName:   "stable-91ac07a9",
+			expectedTags: []*models.TagDetail{firstTag, secondTag},
+		},
+		{
+			name:         "before last",
+			limit:        2,
+			beforeName:   "stable-9ede8db0",
+			expectedTags: []*models.TagDetail{secondTag, thirdTag},
+		},
+		{
+			name:  "before non existent",
+			limit: 100,
+			// the tag needs to be bigger than the last one `stable-9ede8db0`
+			beforeName:   "z-does-not-exist",
+			expectedTags: allTags,
 		},
 	}
 
@@ -2498,8 +2534,9 @@ func TestRepositoryStore_TagsDetailPaginated(t *testing.T) {
 	for _, test := range tt {
 		t.Run(test.name, func(t *testing.T) {
 			filters := datastore.FilterParams{
-				LastEntry:  test.lastName,
-				MaxEntries: test.limit,
+				BeforeEntry: test.beforeName,
+				LastEntry:   test.lastName,
+				MaxEntries:  test.limit,
 			}
 
 			rr, err := s.TagsDetailPaginated(suite.ctx, r, filters)

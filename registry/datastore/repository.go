@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -31,9 +32,10 @@ const cacheOpTimeout = 500 * time.Millisecond
 // FilterParams contains the specific filters used to get
 // the request results from the repositoryStore.
 type FilterParams struct {
-	Name       string
-	LastEntry  string
-	MaxEntries int
+	Name        string
+	BeforeEntry string
+	LastEntry   string
+	MaxEntries  int
 }
 
 // RepositoryReader is the interface that defines read operations for a repository store.
@@ -51,6 +53,7 @@ type RepositoryReader interface {
 	Tags(ctx context.Context, r *models.Repository) (models.Tags, error)
 	TagsPaginated(ctx context.Context, r *models.Repository, filters FilterParams) (models.Tags, error)
 	TagsCountAfterName(ctx context.Context, r *models.Repository, filters FilterParams) (int, error)
+	TagsCountBeforeName(ctx context.Context, r *models.Repository, filters FilterParams) (int, error)
 	ManifestTags(ctx context.Context, r *models.Repository, m *models.Manifest) (models.Tags, error)
 	FindManifestByDigest(ctx context.Context, r *models.Repository, d digest.Digest) (*models.Manifest, error)
 	FindManifestByTagName(ctx context.Context, r *models.Repository, tagName string) (*models.Manifest, error)
@@ -726,6 +729,12 @@ func scanFullTagsDetail(rows *sql.Rows) ([]*models.TagDetail, error) {
 	return tt, nil
 }
 
+func sortTagsDesc(tags []*models.TagDetail) {
+	sort.SliceStable(tags, func(i int, j int) bool {
+		return tags[i].Name < tags[j].Name
+	})
+}
+
 // sqlPartialMatch builds a string that can be passed as value for a SQL `LIKE` expression. Besides surrounding the
 // input value with `%` wildcard characters for a partial match, this function also escapes the `_` and `%`
 // metacharacters supported in Postgres `LIKE` expressions.
@@ -745,7 +754,7 @@ func sqlPartialMatch(value string) string {
 // The search is not filtered if this value is an empty string.
 func (s *repositoryStore) TagsDetailPaginated(ctx context.Context, r *models.Repository, filters FilterParams) ([]*models.TagDetail, error) {
 	defer metrics.InstrumentQuery("repository_tags_detail_paginated")()
-	q := `SELECT
+	baseQuery := `SELECT
 			t.name,
 			encode(m.digest, 'hex') AS digest,
 			encode(m.configuration_blob_digest, 'hex') AS config_digest,
@@ -763,12 +772,32 @@ func (s *repositoryStore) TagsDetailPaginated(ctx context.Context, r *models.Rep
 			t.top_level_namespace_id = $1
 			AND t.repository_id = $2
 		  	AND t.name LIKE $3
-			AND t.name > $4
-		ORDER BY
-			t.name
+			%s
 		LIMIT $5`
 
-	rows, err := s.db.QueryContext(ctx, q, r.NamespaceID, r.ID, sqlPartialMatch(filters.Name), filters.LastEntry, filters.MaxEntries)
+	// TODO: consider using an SQL builder library as we move forward
+	// https://gitlab.com/gitlab-org/container-registry/-/issues/1054
+
+	entry := filters.LastEntry
+	tagFilter := `AND t.name > $4
+		ORDER BY
+			t.name`
+	q := fmt.Sprintf(baseQuery, tagFilter)
+
+	// if we are fetching by filters.BeforeEntry we need to sort in DESC order
+	if filters.BeforeEntry != "" {
+		entry = filters.BeforeEntry
+		tagFilter := `AND t.name < $4
+		ORDER BY
+			t.name DESC`
+
+		// The results will be reversed, so we need to wrap the query in a
+		// SELECT statement that sorts the tags in the correct order
+		subQuery := fmt.Sprintf(baseQuery, tagFilter)
+		q = fmt.Sprintf(`SElECT * FROM (%s) AS tags ORDER BY tags.name`, subQuery)
+	}
+
+	rows, err := s.db.QueryContext(ctx, q, r.NamespaceID, r.ID, sqlPartialMatch(filters.Name), entry, filters.MaxEntries)
 	if err != nil {
 		return nil, fmt.Errorf("finding tags detail with pagination: %w", err)
 	}
@@ -797,6 +826,38 @@ func (s *repositoryStore) TagsCountAfterName(ctx context.Context, r *models.Repo
 	var count int
 	if err := s.db.QueryRowContext(ctx, q, r.NamespaceID, r.ID, sqlPartialMatch(filters.Name), filters.LastEntry).Scan(&count); err != nil {
 		return count, fmt.Errorf("counting tags lexicographically after name: %w", err)
+	}
+
+	return count, nil
+}
+
+// TagsCountBeforeName counts all tags of a given repository with name lexicographically before `filters.BeforeEntry`. This is used
+// exclusively for the GET /v2/<name>/tags/list API route, where pagination is done with a marker (`filters.BeforeEntry`). Even if
+// there is no tag with a name of `filters.BeforeEntry`, the counted tags will always be those with a path lexicographically before
+// `filters.BeforeEntry`. This constraint exists to preserve the existing API behavior (when doing a filesystem walk based
+// pagination). Optionally, it is possible to pass a string to be used as a partial match filter for tag names using `filters.Name`.
+// The search is not filtered if this value is an empty string.
+func (s *repositoryStore) TagsCountBeforeName(ctx context.Context, r *models.Repository, filters FilterParams) (int, error) {
+	// There is no point in querying this as it would mean we need to count ALL the tags
+	if filters.BeforeEntry == "" {
+		return 0, nil
+	}
+
+	defer metrics.InstrumentQuery("repository_tags_count_before_name")()
+
+	q := `SELECT
+			COUNT(id)
+		FROM
+			tags
+		WHERE
+			top_level_namespace_id = $1
+			AND repository_id = $2
+			AND name LIKE $3
+			AND name < $4`
+
+	var count int
+	if err := s.db.QueryRowContext(ctx, q, r.NamespaceID, r.ID, sqlPartialMatch(filters.Name), filters.BeforeEntry).Scan(&count); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return count, fmt.Errorf("counting tags lexicographically before name: %w", err)
 	}
 
 	return count, nil
