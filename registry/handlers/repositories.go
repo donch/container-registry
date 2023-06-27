@@ -67,6 +67,7 @@ const (
 	nQueryParamKey                         = "n"
 	nQueryParamValueMin                    = 1
 	nQueryParamValueMax                    = 1000
+	beforeQueryParamKey                    = "before"
 	lastQueryParamKey                      = "last"
 	dryRunParamKey                         = "dry_run"
 	tagNameQueryParamKey                   = "name"
@@ -83,8 +84,7 @@ var (
 		sizeQueryParamSelfWithDescendantsValue,
 	}
 
-	lastTagQueryParamPattern  = reference.TagRegexp
-	lastPathQueryParamPattern = reference.NameRegexp
+	tagQueryParamPattern = reference.TagRegexp
 
 	// tagNameQueryParamPattern is a modified version of the OCI Distribution tag name regexp pattern (described in
 	// https://github.com/opencontainers/distribution-spec/blob/main/spec.md#pulling-manifests) to allow the tag name
@@ -324,12 +324,28 @@ func filterParamsFromRequest(r *http.Request) (datastore.FilterParams, error) {
 	}
 	filters.MaxEntries = maxEntries
 
+	// `last` and `before` are mutually exclusive
+	if q.Has(lastQueryParamKey) && q.Has(beforeQueryParamKey) {
+		detail := v1.MutuallyExclusiveParametersErrorDetail(lastQueryParamKey, beforeQueryParamKey)
+		return filters, v1.ErrorCodeInvalidQueryParamValue.WithDetail(detail)
+	}
+
+	var beforeEntry string
+	if q.Has(beforeQueryParamKey) {
+		beforeEntry = q.Get(beforeQueryParamKey)
+		if !queryParamValueMatchesPattern(beforeEntry, tagQueryParamPattern) {
+			detail := v1.InvalidQueryParamValuePatternErrorDetail(beforeQueryParamKey, tagQueryParamPattern)
+			return filters, v1.ErrorCodeInvalidQueryParamValue.WithDetail(detail)
+		}
+	}
+	filters.BeforeEntry = beforeEntry
+
 	// `lastEntry` must conform to the tag name regexp
 	var lastEntry string
 	if q.Has(lastQueryParamKey) {
 		lastEntry = q.Get(lastQueryParamKey)
-		if !queryParamValueMatchesPattern(lastEntry, lastTagQueryParamPattern) {
-			detail := v1.InvalidQueryParamValuePatternErrorDetail(lastQueryParamKey, lastTagQueryParamPattern)
+		if !queryParamValueMatchesPattern(lastEntry, tagQueryParamPattern) {
+			detail := v1.InvalidQueryParamValuePatternErrorDetail(lastQueryParamKey, tagQueryParamPattern)
 			return filters, v1.ErrorCodeInvalidQueryParamValue.WithDetail(detail)
 		}
 	}
@@ -378,25 +394,32 @@ func (h *repositoryTagsHandler) GetTags(w http.ResponseWriter, r *http.Request) 
 	// Add a link header if there are more entries to retrieve
 	if len(tagsList) > 0 {
 		filters.LastEntry = tagsList[len(tagsList)-1].Name
-		n, err := rStore.TagsCountAfterName(h.Context, repo, filters)
+		afterCount, err := rStore.TagsCountAfterName(h.Context, repo, filters)
 		if err != nil {
 			h.Errors = append(h.Errors, errcode.FromUnknownError(err))
 			return
 		}
-		if n > 0 {
-			filters.LastEntry = tagsList[len(tagsList)-1].Name
-			extra := url.Values{}
-			if filters.Name != "" {
-				extra.Add(tagNameQueryParamKey, filters.Name)
-			}
-
-			urlStr, err := createLinkEntry(r.URL.String(), filters, extra)
-			if err != nil {
-				h.Errors = append(h.Errors, errcode.FromUnknownError(err))
-				return
-			}
-			w.Header().Set("Link", urlStr)
+		if afterCount == 0 {
+			filters.LastEntry = ""
 		}
+
+		filters.BeforeEntry = tagsList[0].Name
+		beforeCount, err := rStore.TagsCountBeforeName(h.Context, repo, filters)
+		if err != nil {
+			h.Errors = append(h.Errors, errcode.FromUnknownError(err))
+			return
+		}
+
+		if beforeCount == 0 {
+			filters.BeforeEntry = ""
+		}
+
+		urlStr, err := createLinkEntry(r.URL.String(), filters)
+		if err != nil {
+			h.Errors = append(h.Errors, errcode.FromUnknownError(err))
+			return
+		}
+		w.Header().Set("Link", urlStr)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

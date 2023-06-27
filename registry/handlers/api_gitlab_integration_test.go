@@ -275,6 +275,18 @@ func TestGitlabAPI_RepositoryTagsList(t *testing.T) {
 			expectedError:  &v1.ErrorCodeInvalidQueryParamType,
 		},
 		{
+			name:           "empty before query parameter",
+			queryParams:    url.Values{"before": []string{""}},
+			expectedStatus: http.StatusBadRequest,
+			expectedError:  &v1.ErrorCodeInvalidQueryParamValue,
+		},
+		{
+			name:           "before and last mutually exclusive",
+			queryParams:    url.Values{"before": []string{"hpgkt"}, "last": []string{"dcsl6"}},
+			expectedStatus: http.StatusBadRequest,
+			expectedError:  &v1.ErrorCodeInvalidQueryParamValue,
+		},
+		{
 			name:           "non integer n query parameter",
 			queryParams:    url.Values{"n": []string{"foo"}},
 			expectedStatus: http.StatusBadRequest,
@@ -302,7 +314,7 @@ func TestGitlabAPI_RepositoryTagsList(t *testing.T) {
 				"kav2-jyi7b",
 				"kb0j5",
 			},
-			expectedLinkHeader: `</gitlab/v1/repositories/foo/bar/tags/list/?last=kb0j5&n=4>; rel="next"`,
+			expectedLinkHeader: `</gitlab/v1/repositories/foo/bar/tags/list/?before=jyi7b&n=4>; rel="previous", </gitlab/v1/repositories/foo/bar/tags/list/?last=kb0j5&n=4>; rel="next"`,
 		},
 		{
 			name:           "last page",
@@ -313,6 +325,7 @@ func TestGitlabAPI_RepositoryTagsList(t *testing.T) {
 				"sjyi7by",
 				"x_y_z",
 			},
+			expectedLinkHeader: `</gitlab/v1/repositories/foo/bar/tags/list/?before=n343n&n=4>; rel="previous"`,
 		},
 		{
 			name:           "zero page size",
@@ -341,6 +354,7 @@ func TestGitlabAPI_RepositoryTagsList(t *testing.T) {
 				"sjyi7by",
 				"x_y_z",
 			},
+			expectedLinkHeader: `</gitlab/v1/repositories/foo/bar/tags/list/?before=n343n&n=100>; rel="previous"`,
 		},
 		{
 			name:           "non existent marker",
@@ -356,12 +370,81 @@ func TestGitlabAPI_RepositoryTagsList(t *testing.T) {
 				"sjyi7by",
 				"x_y_z",
 			},
+			expectedLinkHeader: `</gitlab/v1/repositories/foo/bar/tags/list/?before=hpgkt&n=100>; rel="previous"`,
 		},
 		{
 			name:           "invalid marker",
 			queryParams:    url.Values{"last": []string{"-"}},
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  &v1.ErrorCodeInvalidQueryParamValue,
+		},
+		{
+			name:           "before marker",
+			queryParams:    url.Values{"before": []string{"dcsl6"}},
+			expectedStatus: http.StatusOK,
+			expectedOrderedTags: []string{
+				"2j2ar",
+				"asj9e",
+			},
+			expectedLinkHeader: `</gitlab/v1/repositories/foo/bar/tags/list/?last=asj9e&n=100>; rel="next"`,
+		},
+		{
+			name:           "before marker nth",
+			queryParams:    url.Values{"before": []string{"jyi7b"}, "n": []string{"2"}},
+			expectedStatus: http.StatusOK,
+			expectedOrderedTags: []string{
+				"dcsl6",
+				"hpgkt",
+			},
+			expectedLinkHeader: `</gitlab/v1/repositories/foo/bar/tags/list/?before=dcsl6&n=2>; rel="previous", </gitlab/v1/repositories/foo/bar/tags/list/?last=hpgkt&n=2>; rel="next"`,
+		},
+		{
+			name:           "before marker last page",
+			queryParams:    url.Values{"before": []string{"x_y_z"}},
+			expectedStatus: http.StatusOK,
+			expectedOrderedTags: []string{
+				"2j2ar",
+				"asj9e",
+				"dcsl6",
+				"hpgkt",
+				"jyi7b",
+				"jyi7b-fxt1v",
+				"kav2-jyi7b",
+				"kb0j5",
+				"n343n",
+				"sjyi7by",
+			},
+			expectedLinkHeader: `</gitlab/v1/repositories/foo/bar/tags/list/?last=sjyi7by&n=100>; rel="next"`,
+		},
+		{
+			name:           "before non-existent marker",
+			queryParams:    url.Values{"before": []string{"z"}},
+			expectedStatus: http.StatusOK,
+			expectedOrderedTags: []string{
+				"2j2ar",
+				"asj9e",
+				"dcsl6",
+				"hpgkt",
+				"jyi7b",
+				"jyi7b-fxt1v",
+				"kav2-jyi7b",
+				"kb0j5",
+				"n343n",
+				"sjyi7by",
+				"x_y_z",
+			},
+			expectedLinkHeader: ``,
+		},
+		{
+			name:           "before marker filtered by name",
+			queryParams:    url.Values{"before": []string{"sjyi7by"}, "name": []string{"jyi7b"}},
+			expectedStatus: http.StatusOK,
+			expectedOrderedTags: []string{
+				"jyi7b",
+				"jyi7b-fxt1v",
+				"kav2-jyi7b",
+			},
+			expectedLinkHeader: `</gitlab/v1/repositories/foo/bar/tags/list/?last=kav2-jyi7b&n=100&name=jyi7b>; rel="next"`,
 		},
 		{
 			name:           "filtered by name",
@@ -398,7 +481,7 @@ func TestGitlabAPI_RepositoryTagsList(t *testing.T) {
 			expectedOrderedTags: []string{
 				"jyi7b-fxt1v",
 			},
-			expectedLinkHeader: `</gitlab/v1/repositories/foo/bar/tags/list/?last=jyi7b-fxt1v&n=1&name=jyi7b>; rel="next"`,
+			expectedLinkHeader: `</gitlab/v1/repositories/foo/bar/tags/list/?before=jyi7b-fxt1v&n=1&name=jyi7b>; rel="previous", </gitlab/v1/repositories/foo/bar/tags/list/?last=jyi7b-fxt1v&n=1&name=jyi7b>; rel="next"`,
 		},
 		{
 			name:           "filtered by name last page",
@@ -408,6 +491,7 @@ func TestGitlabAPI_RepositoryTagsList(t *testing.T) {
 				"kav2-jyi7b",
 				"sjyi7by",
 			},
+			expectedLinkHeader: `</gitlab/v1/repositories/foo/bar/tags/list/?before=kav2-jyi7b&n=2&name=jyi7b>; rel="previous"`,
 		},
 		{
 			name:           "valid name filter value characters",
