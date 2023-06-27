@@ -33,6 +33,10 @@ func InvalidQueryParamValuePatternErrorDetail(key string, pattern *regexp.Regexp
 	return fmt.Sprintf("the '%s' query parameter value must match the pattern '%s'", key, pattern)
 }
 
+func MutuallyExclusiveParametersErrorDetail(keys ...string) string {
+	return fmt.Sprintf("keys: %+v are mutually exclusive", keys)
+}
+
 // ErrorCodeInvalidQueryParamType is returned when the value of a query parameter is of an invalid type.
 var ErrorCodeInvalidQueryParamType = errcode.Register(errGroup, errcode.ErrorDescriptor{
 	Value:          "INVALID_QUERY_PARAMETER_TYPE",

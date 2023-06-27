@@ -16,7 +16,12 @@ import (
 	"github.com/gorilla/handlers"
 )
 
-const maximumReturnedEntries = 100
+const (
+	linkPrevious = "previous"
+	linkNext     = "next"
+
+	maximumReturnedEntries = 100
+)
 
 func catalogDispatcher(ctx *Context, r *http.Request) http.Handler {
 	catalogHandler := &catalogHandler{
@@ -123,26 +128,59 @@ func (ch *catalogHandler) GetCatalog(w http.ResponseWriter, r *http.Request) {
 
 // Use the original URL from the request to create a new URL for
 // the link header
-func createLinkEntry(origURL string, filters datastore.FilterParams, extra ...url.Values) (string, error) {
-	calledURL, err := url.Parse(origURL)
+func createLinkEntry(origURL string, filters datastore.FilterParams) (string, error) {
+	var combinedURL string
+
+	if filters.BeforeEntry != "" {
+		beforeURL, err := generateLink(origURL, linkPrevious, filters)
+		if err != nil {
+			return "", err
+		}
+		combinedURL = beforeURL
+	}
+
+	if filters.LastEntry != "" {
+		lastURL, err := generateLink(origURL, linkNext, filters)
+		if err != nil {
+			return "", err
+		}
+
+		if filters.BeforeEntry == "" {
+			combinedURL = lastURL
+		} else {
+			// Put the "previous" URL first and then "next" as shown in the
+			// RFC5988 examples https://datatracker.ietf.org/doc/html/rfc5988#section-5.5
+			combinedURL = fmt.Sprintf("%s, %s", combinedURL, lastURL)
+		}
+	}
+
+	return combinedURL, nil
+}
+
+func generateLink(originalURL, rel string, filters datastore.FilterParams) (string, error) {
+	calledURL, err := url.Parse(originalURL)
 	if err != nil {
 		return "", err
 	}
 
-	v := url.Values{}
-	v.Add("n", strconv.Itoa(filters.MaxEntries))
-	v.Add("last", filters.LastEntry)
+	qValues := url.Values{}
+	qValues.Add(nQueryParamKey, strconv.Itoa(filters.MaxEntries))
 
-	for _, val := range extra {
-		for k, vv := range val {
-			v[k] = append(v[k], vv...)
-		}
+	switch rel {
+	case linkPrevious:
+		qValues.Add(beforeQueryParamKey, filters.BeforeEntry)
+	case linkNext:
+		qValues.Add(lastQueryParamKey, filters.LastEntry)
 	}
 
-	calledURL.RawQuery = v.Encode()
+	if filters.Name != "" {
+		qValues.Add(tagNameQueryParamKey, filters.Name)
+	}
+
+	calledURL.RawQuery = qValues.Encode()
 
 	calledURL.Fragment = ""
-	urlStr := fmt.Sprintf("<%s>; rel=\"next\"", calledURL.String())
+	urlStr := fmt.Sprintf("<%s>; rel=\"%s\"", calledURL.String(), rel)
 
 	return urlStr, nil
 }
