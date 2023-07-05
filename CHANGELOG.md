@@ -1,3 +1,16 @@
+# [3.78.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.77.0-gitlab...v3.78.0-gitlab) (2023-07-05)
+
+
+### Bug Fixes
+
+* upgrade github.com/miekg/dns to v1.1.15 ([8792ceb](https://gitlab.com/gitlab-org/container-registry/commit/8792ceb36d5da78f8428489888ca1d975a6b3412))
+
+
+### Features
+
+* **api/gitlab/v1:** support before query in repository tags list ([c3cda5e](https://gitlab.com/gitlab-org/container-registry/commit/c3cda5ee0ac385d52ab96fcfba4e9d49ee903ec4))
+* **handlers:** use Redis repository cache for OCI blob delete operation ([a841762](https://gitlab.com/gitlab-org/container-registry/commit/a841762e1666d3514ddb7d3296c9eb8b688902c0))
+
 # [3.77.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.76.0-gitlab...v3.77.0-gitlab) (2023-06-15)
 
 
