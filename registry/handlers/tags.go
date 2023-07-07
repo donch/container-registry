@@ -129,7 +129,9 @@ func (th *tagsHandler) GetTags(w http.ResponseWriter, r *http.Request) {
 			th.Errors = append(th.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
 			return
 		}
-		w.Header().Set("Link", urlStr)
+		if urlStr != "" {
+			w.Header().Set("Link", urlStr)
+		}
 	}
 
 	enc := json.NewEncoder(w)

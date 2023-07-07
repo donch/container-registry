@@ -555,7 +555,14 @@ func TestGitlabAPI_RepositoryTagsList(t *testing.T) {
 			}
 
 			require.Equal(t, expectedBody, body)
-			require.Equal(t, test.expectedLinkHeader, resp.Header.Get("Link"))
+
+			_, ok := resp.Header["Link"]
+			if test.expectedLinkHeader != "" {
+				require.True(t, ok)
+				require.Equal(t, test.expectedLinkHeader, resp.Header.Get("Link"))
+			} else {
+				require.False(t, ok, "Link header should not exist: %s", resp.Header.Get("Link"))
+			}
 		})
 	}
 }

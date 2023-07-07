@@ -419,7 +419,9 @@ func (h *repositoryTagsHandler) GetTags(w http.ResponseWriter, r *http.Request) 
 			h.Errors = append(h.Errors, errcode.FromUnknownError(err))
 			return
 		}
-		w.Header().Set("Link", urlStr)
+		if urlStr != "" {
+			w.Header().Set("Link", urlStr)
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -510,7 +512,10 @@ func (h *subRepositoriesHandler) GetSubRepositories(w http.ResponseWriter, r *ht
 			h.Errors = append(h.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
 			return
 		}
-		w.Header().Set("Link", urlStr)
+
+		if urlStr != "" {
+			w.Header().Set("Link", urlStr)
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

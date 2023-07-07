@@ -754,6 +754,19 @@ func sqlPartialMatch(value string) string {
 // The search is not filtered if this value is an empty string.
 func (s *repositoryStore) TagsDetailPaginated(ctx context.Context, r *models.Repository, filters FilterParams) ([]*models.TagDetail, error) {
 	defer metrics.InstrumentQuery("repository_tags_detail_paginated")()
+
+	// TODO: consider using an SQL builder library as we move forward
+	// https://gitlab.com/gitlab-org/container-registry/-/issues/1054
+	q, args := tagsDetailPaginatedQuery(r, filters)
+	rows, err := s.db.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, fmt.Errorf("finding tags detail with pagination: %w", err)
+	}
+
+	return scanFullTagsDetail(rows)
+}
+
+func tagsDetailPaginatedQuery(r *models.Repository, filters FilterParams) (string, []any) {
 	baseQuery := `SELECT
 			t.name,
 			encode(m.digest, 'hex') AS digest,
@@ -772,37 +785,43 @@ func (s *repositoryStore) TagsDetailPaginated(ctx context.Context, r *models.Rep
 			t.top_level_namespace_id = $1
 			AND t.repository_id = $2
 		  	AND t.name LIKE $3
-			%s
+			%s`
+
+	var q string
+	args := []any{r.NamespaceID, r.ID, sqlPartialMatch(filters.Name)}
+
+	// first page
+	if filters.LastEntry == "" && filters.BeforeEntry == "" {
+		tagFilter := `ORDER BY
+			t.name
+		LIMIT $4`
+
+		q = fmt.Sprintf(baseQuery, tagFilter)
+		args = append(args, filters.MaxEntries)
+	} else if filters.LastEntry != "" {
+		tagFilter := `AND t.name > $4
+		ORDER BY
+			t.name
 		LIMIT $5`
 
-	// TODO: consider using an SQL builder library as we move forward
-	// https://gitlab.com/gitlab-org/container-registry/-/issues/1054
-
-	entry := filters.LastEntry
-	tagFilter := `AND t.name > $4
-		ORDER BY
-			t.name`
-	q := fmt.Sprintf(baseQuery, tagFilter)
-
-	// if we are fetching by filters.BeforeEntry we need to sort in DESC order
-	if filters.BeforeEntry != "" {
-		entry = filters.BeforeEntry
+		q = fmt.Sprintf(baseQuery, tagFilter)
+		args = append(args, filters.LastEntry, filters.MaxEntries)
+	} else if filters.BeforeEntry != "" {
+		// if we are fetching by filters.BeforeEntry we need to sort in DESC order
 		tagFilter := `AND t.name < $4
 		ORDER BY
-			t.name DESC`
+			t.name DESC
+		LIMIT $5`
 
 		// The results will be reversed, so we need to wrap the query in a
 		// SELECT statement that sorts the tags in the correct order
 		subQuery := fmt.Sprintf(baseQuery, tagFilter)
 		q = fmt.Sprintf(`SElECT * FROM (%s) AS tags ORDER BY tags.name`, subQuery)
+
+		args = append(args, filters.BeforeEntry, filters.MaxEntries)
 	}
 
-	rows, err := s.db.QueryContext(ctx, q, r.NamespaceID, r.ID, sqlPartialMatch(filters.Name), entry, filters.MaxEntries)
-	if err != nil {
-		return nil, fmt.Errorf("finding tags detail with pagination: %w", err)
-	}
-
-	return scanFullTagsDetail(rows)
+	return q, args
 }
 
 // TagsCountAfterName counts all tags of a given repository with name lexicographically after `filters.LastEntry`. This is used
