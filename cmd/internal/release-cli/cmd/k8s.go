@@ -95,15 +95,15 @@ var k8sCmd = &cobra.Command{
 
 		mr, err := k8sClient.CreateMergeRequest(release.ProjectID, branch, desc, release.Ref, release.MRTitle, labels)
 		if err != nil {
-			errMsg := "Failed to create MR in K8s Workloads: " + err.Error()
-			err = slack.SendSlackNotification(webhookUrl, errMsg)
+			msg := fmt.Sprintf("%s release: Failed to create K8s Workloads version bump MR (%s): %s", version, stage, err.Error())
+			err = slack.SendSlackNotification(webhookUrl, msg)
 			if err != nil {
 				log.Printf("Failed to send error notification to Slack: %v", err)
 			}
-			log.Fatalf(errMsg)
+			log.Fatalf(msg)
 		}
 
-		msg := fmt.Sprintf("K8s Workloads MR %s version bump: %s", stage, mr.WebURL)
+		msg := fmt.Sprintf("%s release: K8s Workloads version bump MR (%s): %s", version, stage, mr.WebURL)
 		err = slack.SendSlackNotification(webhookUrl, msg)
 		if err != nil {
 			log.Printf("Failed to send notification to Slack: %v", err)

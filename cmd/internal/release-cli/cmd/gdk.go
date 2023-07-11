@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"log"
 	"os"
 
@@ -79,15 +80,15 @@ var gdkCmd = &cobra.Command{
 
 		mr, err := gdkClient.CreateMergeRequest(release.ProjectID, branch, desc, release.Ref, release.MRTitle, labels)
 		if err != nil {
-			errMsg := "Failed to create MR in GDK: " + err.Error()
-			err = slack.SendSlackNotification(webhookUrl, errMsg)
+			msg := fmt.Sprintf("%s release: Failed to create GDK version bump MR: %s", version, err.Error())
+			err = slack.SendSlackNotification(webhookUrl, msg)
 			if err != nil {
 				log.Printf("Failed to send error notification to Slack: %v", err)
 			}
-			log.Fatalf(errMsg)
+			log.Fatalf(msg)
 		}
 
-		msg := "GDK MR version bump: " + mr.WebURL
+		msg := fmt.Sprintf("%s release: GDK version bump MR: %s", version, mr.WebURL)
 		err = slack.SendSlackNotification(webhookUrl, msg)
 		if err != nil {
 			log.Printf("Failed to send notification to Slack: %v", err)
