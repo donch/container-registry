@@ -114,7 +114,9 @@ func (ch *catalogHandler) GetCatalog(w http.ResponseWriter, r *http.Request) {
 			ch.Errors = append(ch.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
 			return
 		}
-		w.Header().Set("Link", urlStr)
+		if urlStr != "" {
+			w.Header().Set("Link", urlStr)
+		}
 	}
 
 	enc := json.NewEncoder(w)

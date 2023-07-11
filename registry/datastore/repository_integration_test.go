@@ -2500,7 +2500,7 @@ func TestRepositoryStore_TagsDetailPaginated(t *testing.T) {
 			limit:        1,
 			beforeName:   "100",
 			lastName:     "1.0.0",
-			expectedTags: []*models.TagDetail{firstTag},
+			expectedTags: []*models.TagDetail{secondTag},
 		},
 		{
 			name:         "before 1st returns empty list",
