@@ -1727,3 +1727,13 @@ func fullAccessTokenWithProjectMeta(projectPath, repositoryName string) []*token
 		{Type: "repository", Name: repositoryName + "/*", Actions: []string{"pull"}},
 	}
 }
+
+// requireRenameTTLInRange makes sure that the rename operation TTL is within an acceptable range of an expected duration
+func requireRenameTTLInRange(t *testing.T, actualTTL time.Time, expectedTTLDuration time.Duration) {
+	t.Helper()
+	lowerBound := time.Now()
+	upperBound := time.Now().Add(expectedTTLDuration)
+	require.WithinRange(t, actualTTL, lowerBound, upperBound,
+		"rename TTL of %s should be between %s and %s",
+		actualTTL.String(), lowerBound.String(), upperBound.String())
+}
