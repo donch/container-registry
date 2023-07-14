@@ -22,15 +22,13 @@ The current `/v2/` and other `/vN/` prefixes are reserved for implementing the O
 
 A list of methods and URIs are covered in the table below:
 
-| Method   | Path                                       | Description                                                                        |
-|----------|--------------------------------------------|------------------------------------------------------------------------------------|
-| `GET`    | `/gitlab/v1/`                              | Check that the registry implements this API specification.                         |
-| `GET`    | `/gitlab/v1/repositories/<path>/`          | Obtain details about the repository identified by `path`.                          |
-| `PUT`    | `/gitlab/v1/import/<path>/`                | Move the repository identified by `path` from filesystem metadata to the database. |
-| `GET`    | `/gitlab/v1/import/<path>/`                | Query import status of the repository identified by `path`.                        |
-| `DELETE` | `/gitlab/v1/import/<path>/`                | Cancel import of the repository identified by `path`.                              |
-| `GET`    | `/gitlab/v1/repositories/<path>/tags/list/` | Obtain the list of tags for the repository identified by `path`.                   |
-| `GET`    | `/gitlab/v1/repository-paths/<path>/repositories/list/` | Obtain the list of of repositories under a base repository path identified by `path`.         |
+| Method   | Path                                                    | Description                                                                                     |
+|----------|---------------------------------------------------------|-------------------------------------------------------------------------------------------------|
+| `GET`    | `/gitlab/v1/`                                           | Check that the registry implements this API specification.                                      |
+| `GET`    | `/gitlab/v1/repositories/<path>/`                       | Obtain details about the repository identified by `path`.                                       |
+| `PATCH`  | `/gitlab/v1/repositories/<path>/`                       | Rename a repository base `path` (i.e a GitLab project path) and all sub repositories under it.  |
+| `GET`    | `/gitlab/v1/repositories/<path>/tags/list/`             | Obtain the list of tags for the repository identified by `path`.                                |
+| `GET`    | `/gitlab/v1/repository-paths/<path>/repositories/list/` | Obtain the list of repositories under a base repository path identified by `path`.              |
 
 By design, any feature that incurs additional processing time, such as query parameters that allow obtaining additional data, is opt-*in*.
 
@@ -361,6 +359,98 @@ The error codes encountered via this API are enumerated in the following table.
 `INVALID_QUERY_PARAMETER_VALUE` | `the value of a query parameter is invalid` | The value of a request query parameter is invalid. The error detail identifies the concerning parameter and the list of possible values.
 `INVALID_QUERY_PARAMETER_TYPE` | `the value of a query parameter is of an invalid type` | The value of a request query parameter is of an invalid type. The error detail identifies the concerning parameter and the list of possible types.
 
+## Rename Base Repository
+
+Rename a repository's base path (i.e a path corresponding to a GitLab project path) and all sub repositories under it. 
+
+For more information, see the in-depth [flow diagram `rename operation`](./rename-base-repository-request-flow.md).
+
+### Request
+
+```shell
+PATCH /gitlab/v1/repositories/<path>/
+```
+
+| Attribute | Type   | Required | Default | Description                                                                                                                             |
+|-----------|---------|----------|---------|----------------------------------------------------------------------------------------------------------------------------------------|
+| `path`    | String  | Yes      |         | This is the GitLab project path of the repository to be renamed (it is equivalent to the base repository of a project, if one exists). |
+| `dry_run` | Boolean | No       | `false` | When set to `true` this option will only; validate that a rename is indeed possible and (if possible) will acquire a rename lease on the suggested `name` in the request body for a fixed amount of time (60 seconds) without blocking writes to the existing base repository path or executing the rename.<br>When set to `false` (default) this option will; acquire a rename lease on the suggested `name` in the request body, prevent further writes to the existing base repository path for the duration of the rename operation and execute the rename operation on the necessary repositories on the spot. |
+
+#### Body
+
+The request body is an object with the following attributes:
+
+| Key          | Value                                                                   | Type   | Format                                                    | Condition                                                                                                          |
+|--------------|-------------------------------------------------------------------------|--------|-----------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------|
+| `name`       | The new name of the base repository (i.e. the new GitLab project name). | String |  `[a-z0-9]+([.-][a-z0-9]+)*(/[a-z0-9]+([.-][a-z0-9]+)*)` & `[a-z0-9]+(?:(?:(?:[._]|__|[-]*)[a-z0-9]+)+)?` | Must match the [GitLab project name formatting requirements](https://docs.gitlab.com/ee/user/project/) as well as the registry [`v2` OCI distribution spec requirements for repository names](https://github.com/distribution/distribution/blob/main/docs/spec/api.md#overview). |
+
+#### Authentication
+
+The authentication token must have `full-access` to the base-repository (project-path) that is referenced in the request `path` parameter. 
+
+For example, a rename request with `path` parameter `gitlab-org/build/cng` must have `pull` & `push` scopes on the project-path - `gitlab-org/build/cng` and `pull` scope on the project's sub-paths - `gitlab-org/build/cng/*`. 
+
+The request authentication token must also contain access claims with the following attributes:
+
+| Key | Description| Format | Condition | Example |
+|-----|------------|--------|-----------|---------|
+| `meta.project_path` | The path of the existing project to be renamed. | String | Must match the `path` parameter in the API request path. | `gitlab-org/build/cng` |
+
+#### Example
+
+```shell
+curl  --header "Authorization: Bearer <token>" -X PATCH https://registry.gitlab.com/gitlab/v1/repositories/gitlab-org/build/cng/ \
+   -H 'Content-Type: application/json' \
+   -d '{"name": "new-cng"}'  
+```
+
+### Response
+
+#### Header
+
+| Status Code                | Reason                                                                                                                                                                                                                                                                                                 |
+|----------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `202 Accepted`             | The new name was successfully leased to the `path` in the request. The response body contains an object with the `ttl` indicating the time left before the lease is released. This is returned only for successful requests with query parameter `dry_run` set to `true`. |
+| `201 No Content`           | The requested `path` was successfully renamed to the suggested new name. This is returned only for successful requests with query parameter `dry_run` set to `false` (default).                                                                                                                              |
+| `400 Bad Request`          | An invalid `path` parameter, request body or token claim was provided.                                                                                                                                                                                                                    |
+| `401 Unauthorized`         | The client should take action based on the contents of the `WWW-Authenticate` header and try the endpoint again.                                                                                                                                                                                       |
+| `404 Not Found`            | The namespace associated with the repository was not found or the rename operation is not implemented.                                                                                                                                                                                     |
+| `409 Conflict`             | The proposed base repository `name` in the body is already taken.                                                                                                                                                                                                                                      |
+| `422 Unprocessable Entity` | The base repository `path` contains too many sub-repositories for the operation to be executed.                                                                                                                                                                                                        |
+
+#### Body
+
+The response body is only returned for requests with the query parameter `dry_run` set to `true`. In the situation where the response body is returned; it is an object with the following attributes:
+
+| Key          | Value                                                                                  | Type         | Format                              | Condition                                                                                                |
+|--------------|----------------------------------------------------------------------------------------|--------------|-------------------------------------|----------------------------------------------------------------------------------------------------------|
+| `ttl`        | The UTC timestamp after which the leased/reserved target name is released. | String      |   UTC                       | Request must have the query parameter `dry_run` set to `true`.                       |
+
+#### Example
+
+```json
+{
+    "ttl": "2009-11-10T23:00:00.005Z"
+}
+```
+
+### Codes
+
+The error codes encountered via this API are enumerated in the following table.
+
+|Code                              | Message                                                                                                               | Description                                                                                                                                                                        |
+|--------------------------------- |-----------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `INVALID_QUERY_PARAMETER_VALUE`  | `the value of a query parameter is invalid`                                                                           | The value of a request query parameter is invalid. The error detail identifies the concerning parameter and the list of possible values.                                           |
+| `INVALID_QUERY_PARAMETER_TYPE`   | `the value of a query parameter is of an invalid type`                                                                | The value of a request query parameter is of an invalid type. The error detail identifies the concerning parameter and the list of possible types.                                 |
+| `INVALID_BODY_PARAMETER_TYPE`    | `a value of the request body parameter is of an invalid type`                                                         | The value of a request body parameter is of an invalid type. The error detail identifies the concerning parameter and the list of possible types.                                  |
+| `INVALID_JSON_BODY`              | `the body of the request is an invalid JSON`                                                                          | The body of a request is an invalid JSON.                                                                                                                                          |
+| `NAME_UNKNOWN`                   | `the repository namespace segment of the base repository path is not known to registry`                               | The namespace used in the base repository path is unknown to the registry.                                                                                                         |
+| `UNKNOWN_PROJECT_PATH_CLAIM`     | `the value of meta.project_path token claim is not found`                                                             | The value of any `access[x].meta.project_path` token claim is not found in the received token.                                                                                     |
+| `MISMATCH_PROJECT_PATH_CLAIM`    | `the value of meta.project_path token claim is not assigned to the repository that operation is attempting to rename` | The value of any `access[x].meta.project_path` token claim is not assigned to the repository that operation is attempting to rename.                                               |
+| `RENAME_CONFLICT`                | `the base repository name is already taken`                                                                           | The name requested (as the new name) for a base repository `path` is already in use within the registry.                                                                           |
+| `EXCEEDS_LIMITS`                 | `the base repository requested path contains too many sub-repositories for the operation to be executed`              | The base-repository to be used for the operation contains too many sub-repositories. The error detail identifies the maximum amount of sub-repositories the operation can service. |
+| `NOT_IMPLEMENTED`                | `the requested operation is not available`                                                                            | The operation is not available. The error detail identifies the reason why the operation is not implemented/available.                                                             |
+
 ## Errors
 
 In case of an error, the response body payload (if any) follows the format defined in the
@@ -395,6 +485,10 @@ error codes described in the
 `INVALID_QUERY_PARAMETER_TYPE` | `the value of a query parameter is of an invalid type` | The value of a request query parameter is of an invalid type. The error detail identifies the concerning parameter and the list of possible types.
 
 ## Changes
+
+### 2023-06-15
+
+- Add docs for renaming all repositories associated with a GitLab project.
 
 ### 2023-05-10
 

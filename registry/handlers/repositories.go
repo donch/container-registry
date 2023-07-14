@@ -53,7 +53,7 @@ type RepositoryAPIResponse struct {
 	UpdatedAt     string `json:"updated_at,omitempty"`
 }
 type RenameRepositoryAPIResponse struct {
-	TTL time.Duration `json:"ttl"`
+	TTL time.Time `json:"ttl"`
 }
 
 type RenameRepositoryAPIRequest struct {
@@ -73,7 +73,6 @@ const (
 	tagNameQueryParamKey                   = "name"
 	defaultDryRunRenameOperationTimeout    = 5 * time.Second
 	maxRepositoriesToRename                = 1000
-	defaultProjectLeaseDuration            = 60 * time.Second
 )
 
 var (
@@ -142,10 +141,9 @@ func replacePathName(originPath string, newName string) string {
 }
 
 // extractDryRunQueryParamValue extracts a valid `dry_run` query parameter value from `url`.
-// when no `dry_run` key is found it returns true by default, when a key is found the function
+// when no `dry_run` key is found it returns flase by default, when a key is found the function
 // returns the value of the key or returns an error if the vaues are neither "true" or "false".
 func extractDryRunQueryParamValue(url url.Values) (dryRun bool, err error) {
-	dryRun = true
 	if url.Has(dryRunParamKey) {
 		dryRun, err = queryParamDryRunValue(url.Get(dryRunParamKey))
 	}
@@ -544,7 +542,7 @@ func (h *subRepositoriesHandler) GetSubRepositories(w http.ResponseWriter, r *ht
 // RenameRepository renames a given base repository (name and path - if exist) and updates the paths of all sub-repositories originating
 // from the refrenced base repository path. If the query param: `dry_run` is set to true, then this operation
 // only attempts to verify that a rename is possible for a provided repository and name.
-// When no `dry_run` option is provided, this function defaults to `dry_run=true`.
+// When no `dry_run` option is provided, this function defaults to `dry_run=false`.
 func (h *repositoryHandler) RenameRepository(w http.ResponseWriter, r *http.Request) {
 	l := log.GetLogger(log.WithContext(h)).WithFields(log.Fields{"path": h.Repository.Named().Name()})
 
@@ -563,8 +561,8 @@ func (h *repositoryHandler) RenameRepository(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// validate the repository name starts with the project path
-	if !strings.HasPrefix(h.Repository.Named().Name(), projectPath) {
+	// validate the repository base path is the same as the token's project path
+	if h.Repository.Named().Name() != projectPath {
 		h.Errors = append(h.Errors, v1.ErrorCodeMismatchProjectPath)
 		return
 	}
@@ -578,8 +576,8 @@ func (h *repositoryHandler) RenameRepository(w http.ResponseWriter, r *http.Requ
 
 	// validate the name suggested for the rename operation
 	newName := renameObject.Name
-	if !reference.GitLabProjectNameRegex.MatchString(newName) {
-		detail := v1.InvalidPatchBodyTypeErrorDetail("name", reference.GitLabProjectNameRegex)
+	if !reference.GitLabProjectNameRegex.MatchString(newName) || !reference.NameComponentRegexp.MatchString(newName) {
+		detail := v1.InvalidPatchBodyTypeErrorDetail("name", reference.GitLabProjectNameRegex.String(), reference.NameComponentRegexp.String())
 		h.Errors = append(h.Errors, v1.ErrorCodeInvalidBodyParamType.WithDetail(detail))
 		return
 	}
@@ -595,14 +593,16 @@ func (h *repositoryHandler) RenameRepository(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// verify the repository path does not contain more than 1000 sub repositories.
-	// this is a pre-cautious limitation for scalability and performance reasons.
-	// https://gitlab.com/gitlab-org/gitlab/-/issues/357014s
+	// count number of repositories under the source path
 	repoCount, err := rStore.CountPathSubRepositories(h.Context, repo.NamespaceID, repo.Path)
 	if err != nil {
 		h.Errors = append(h.Errors, errcode.FromUnknownError(err))
 		return
 	}
+
+	// verify the source path does not contain more than 1000 sub repositories.
+	// this is a pre-cautious limitation for scalability and performance reasons.
+	// https://gitlab.com/gitlab-org/gitlab/-/issues/357014s
 	if repoCount > maxRepositoriesToRename {
 		l.WithError(err).WithFields(log.Fields{
 			"repository_count": repoCount,
@@ -612,9 +612,16 @@ func (h *repositoryHandler) RenameRepository(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// verify the source path has at least one sub-repository/repository
+	// or return an ErrorCodeNameUnknown.
+	if repoCount == 0 {
+		h.Errors = append(h.Errors, v2.ErrorCodeNameUnknown.WithDetail(map[string]string{"name": repo.Path}))
+		return
+	}
+
 	newPath := replacePathName(repo.Path, newName)
 
-	// check that no base repository or sub repository exists for the new path
+	// check that no base repository or sub repository exists for the new target path
 	nameTaken, err := isRepositoryNameTaken(h.Context, rStore, repo.NamespaceID, newName, newPath)
 	if nameTaken {
 		l.WithError(err).WithFields(log.Fields{
@@ -657,14 +664,16 @@ func (h *repositoryHandler) RenameRepository(w http.ResponseWriter, r *http.Requ
 	}
 
 	if !dryRun {
-		// enact a lease on the project path which will be used to block all
+		// enact a lease on the source project path which will be used to block all
 		// write operations to the existing repositories in the given GitLab project.
 		plStore, err := datastore.NewProjectLeaseStore(datastore.NewCentralProjectLeaseCache(h.App.redisCache))
 		if err != nil {
 			h.Errors = append(h.Errors, errcode.FromUnknownError(err))
 			return
 		}
-		if err := plStore.Set(h.Context, projectPath, defaultProjectLeaseDuration); err != nil {
+		// this lease expires in less than  repositoryRenameOperationTTL + 1 second.
+		// where repositoryRenameOperationTTL is at most 5 seconds.
+		if err := plStore.Set(h.Context, projectPath, (repositoryRenameOperationTTL + 1*time.Second)); err != nil {
 			h.Errors = append(h.Errors, errcode.FromUnknownError(err))
 			return
 		}
@@ -708,13 +717,15 @@ func (h *repositoryHandler) RenameRepository(w http.ResponseWriter, r *http.Requ
 			errortracking.Capture(err, errortracking.WithContext(h.Context))
 		}
 	} else {
+		w.WriteHeader(http.StatusAccepted)
 		w.Header().Set("Content-Type", "application/json")
+
 		repositoryRenameOperationTTL, err = rlstore.GetTTL(h.Context, lease)
 		if err != nil {
 			h.Errors = append(h.Errors, errcode.FromUnknownError(err))
 			return
 		}
-		if err := json.NewEncoder(w).Encode(&RenameRepositoryAPIResponse{TTL: repositoryRenameOperationTTL}); err != nil {
+		if err := json.NewEncoder(w).Encode(&RenameRepositoryAPIResponse{TTL: time.Now().Add(repositoryRenameOperationTTL).UTC()}); err != nil {
 			h.Errors = append(h.Errors, errcode.FromUnknownError(err))
 			return
 		}
