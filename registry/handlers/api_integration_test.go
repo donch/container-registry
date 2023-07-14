@@ -30,6 +30,7 @@ import (
 	v2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/docker/distribution/registry/datastore"
 	"github.com/docker/distribution/registry/datastore/models"
+	"github.com/docker/distribution/registry/internal/feature"
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
 	"github.com/docker/distribution/registry/storage/driver/factory"
 	"github.com/docker/distribution/testutil"
@@ -760,6 +761,196 @@ func TestManifestAPI_Put_Schema2WritesNoFilesystemBlobLinkMetadata(t *testing.T)
 	require.Equal(t, http.StatusNotFound, res.StatusCode)
 }
 
+func TestManifestAPI_Put_LayerMediaType(t *testing.T) {
+	env := newTestEnv(t)
+	defer env.Shutdown()
+
+	env.requireDB(t)
+
+	tagName := "schema2unknownlayermediatype"
+	repoPath := "schema2/layermediatype"
+
+	unknownMediaType := "fake/mediatype"
+	genericBlobMediaType := "application/octet-stream"
+
+	tt := []struct {
+		name                         string
+		unknownLayerMediaType        bool
+		failOnUnknownLayerMediaTypes bool
+		accurateLayerMediaTypes      bool
+
+		wantGenericBlobMediaType bool
+		wantError                bool
+	}{
+		{
+			name:                         "known layer media type accurate layer media types disabled and no fail on unknown media types",
+			unknownLayerMediaType:        false,
+			failOnUnknownLayerMediaTypes: false,
+			accurateLayerMediaTypes:      false,
+			wantGenericBlobMediaType:     true,
+			wantError:                    false,
+		},
+		{
+			name:                         "known layer media type accurate layer media types enabled and no fail on unknown media types",
+			unknownLayerMediaType:        false,
+			failOnUnknownLayerMediaTypes: false,
+			accurateLayerMediaTypes:      true,
+			wantGenericBlobMediaType:     false,
+			wantError:                    false,
+		},
+		{
+			name:                         "known layer media type accurate layer media types disabled and fail on unknown media types",
+			unknownLayerMediaType:        false,
+			failOnUnknownLayerMediaTypes: true,
+			accurateLayerMediaTypes:      false,
+			wantGenericBlobMediaType:     true,
+			wantError:                    false,
+		},
+		{
+			name:                         "known layer media type accurate layer media types enabled and fail on unknown media types",
+			unknownLayerMediaType:        false,
+			failOnUnknownLayerMediaTypes: true,
+			accurateLayerMediaTypes:      true,
+			wantGenericBlobMediaType:     false,
+			wantError:                    false,
+		},
+		{
+			name:                         "unknown layer media type accurate layer media types disabled and no fail on unknown media types",
+			unknownLayerMediaType:        true,
+			failOnUnknownLayerMediaTypes: false,
+			accurateLayerMediaTypes:      false,
+			wantGenericBlobMediaType:     true,
+			wantError:                    false,
+		},
+		{
+			name:                         "unknown layer media type accurate layer media types enabled and no fail on unknown media types",
+			unknownLayerMediaType:        true,
+			failOnUnknownLayerMediaTypes: false,
+			accurateLayerMediaTypes:      true,
+			wantGenericBlobMediaType:     true,
+			wantError:                    false,
+		},
+		{
+			name:                         "unknown layer media type accurate layer media types disabled and fail on unknown media types",
+			unknownLayerMediaType:        true,
+			failOnUnknownLayerMediaTypes: true,
+			accurateLayerMediaTypes:      false,
+			wantGenericBlobMediaType:     true,
+			wantError:                    false,
+		},
+		{
+			name:                         "unknown layer media type accurate layer media types enabled and fail on unknown media types",
+			unknownLayerMediaType:        true,
+			failOnUnknownLayerMediaTypes: true,
+			accurateLayerMediaTypes:      true,
+			wantGenericBlobMediaType:     false,
+			wantError:                    true,
+		},
+	}
+
+	for _, test := range tt {
+		t.Run(test.name, func(t *testing.T) {
+			repoRef, err := reference.WithName(repoPath)
+			require.NoError(t, err)
+
+			manifest := &schema2.Manifest{
+				Versioned: manifest.Versioned{
+					SchemaVersion: 2,
+					MediaType:     schema2.MediaTypeManifest,
+				},
+			}
+
+			// Create a manifest config and push up its content.
+			cfgPayload, cfgDesc := schema2Config()
+			uploadURLBase, _ := startPushLayer(t, env, repoRef)
+			pushLayer(t, env.builder, repoRef, cfgDesc.Digest, uploadURLBase, bytes.NewReader(cfgPayload))
+			manifest.Config = cfgDesc
+
+			manifest.Layers = make([]distribution.Descriptor, 1)
+
+			rs, dgst, size := createRandomSmallLayer()
+
+			// Save the layer content as pushLayer exhausts the io.ReadSeeker
+			layerBytes, err := io.ReadAll(rs)
+			require.NoError(t, err)
+
+			uploadURLBase, _ = startPushLayer(t, env, repoRef)
+			pushLayer(t, env.builder, repoRef, dgst, uploadURLBase, bytes.NewReader(layerBytes))
+
+			layerMT := schema2.MediaTypeLayer
+
+			if test.unknownLayerMediaType {
+				layerMT = unknownMediaType
+			}
+
+			manifest.Layers[0] = distribution.Descriptor{
+				Digest:    dgst,
+				MediaType: layerMT,
+				Size:      size,
+			}
+
+			deserializedManifest, err := schema2.FromStruct(*manifest)
+			require.NoError(t, err)
+
+			// Build URLs.
+			tagURL := buildManifestTagURL(t, env, repoPath, tagName)
+
+			// Enable envvars
+			t.Setenv(feature.AccurateLayerMediaTypes.EnvVariable, strconv.FormatBool(test.accurateLayerMediaTypes))
+			t.Setenv(feature.FailOnUnknownLayerMediaTypes.EnvVariable, strconv.FormatBool(test.failOnUnknownLayerMediaTypes))
+
+			resp := putManifest(t, "putting manifest", tagURL, schema2.MediaTypeManifest, deserializedManifest.Manifest)
+			defer resp.Body.Close()
+
+			if test.wantError {
+				require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+				checkBodyHasErrorCodes(t, "invalid manifest", resp, v2.ErrorCodeManifestInvalid)
+				return
+			}
+
+			require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+			// Check layer media type
+			ctx := context.Background()
+			rStore := datastore.NewRepositoryStore(env.db)
+			mStore := datastore.NewManifestStore(env.db)
+			bStore := datastore.NewBlobStore(env.db)
+
+			r, err := rStore.FindByPath(ctx, repoPath)
+			require.NoError(t, err)
+			require.NotNil(t, r)
+
+			dbMfst, err := rStore.FindManifestByTagName(ctx, r, tagName)
+			require.NoError(t, err)
+			require.NotNil(t, dbMfst)
+
+			dbLayers, err := mStore.LayerBlobs(ctx, dbMfst)
+			require.NoError(t, err)
+			require.NotNil(t, dbLayers)
+			require.Len(t, dbLayers, 1)
+
+			wantMT := layerMT
+
+			if test.wantGenericBlobMediaType {
+				wantMT = genericBlobMediaType
+			}
+
+			require.Equal(t, wantMT, dbLayers[0].MediaType)
+
+			// Ensure underlying blob media type is always generic.
+			rBlob, err := rStore.FindBlob(ctx, r, dgst)
+			require.NoError(t, err)
+			require.NotNil(t, rBlob)
+			require.Equal(t, genericBlobMediaType, rBlob.MediaType)
+
+			dbBlob, err := bStore.FindByDigest(ctx, dgst)
+			require.NoError(t, err)
+			require.NotNil(t, dbBlob)
+			require.Equal(t, genericBlobMediaType, dbBlob.MediaType)
+		})
+	}
+}
+
 func TestManifestAPI_Put_Schema2LayersNotAssociatedWithRepositoryButArePresentInDatabase(t *testing.T) {
 	env := newTestEnv(t)
 	defer env.Shutdown()
@@ -1206,52 +1397,6 @@ func TestManifestAPI_Put_DatabaseEnabled_InvalidConfigMediaType(t *testing.T) {
 	errc, ok := errs[0].(errcode.Error)
 	require.True(t, ok)
 	require.Equal(t, datastore.ErrUnknownMediaType{MediaType: unknownMediaType}.Error(), errc.Detail)
-}
-
-func TestManifestAPI_Put_UnknownLayerMediaType(t *testing.T) {
-	env := newTestEnv(t)
-	defer env.Shutdown()
-
-	if !env.config.Database.Enabled {
-		t.Skip("skipping test because the metadata database is not enabled")
-	}
-
-	tagName := "latest"
-	repoPath := "foo/bar"
-	unknownMediaType := "application/vnd.foo.layer.v1+json"
-
-	cfgPayload, cfgDesc := schema2Config()
-	assertBlobPutResponse(t, env, repoPath, cfgDesc.Digest, bytes.NewReader(cfgPayload), 201)
-
-	// Create and push 1 random layer with an unknown media type.
-	rs, dgst, size := createRandomSmallLayer()
-	assertBlobPutResponse(t, env, repoPath, dgst, rs, http.StatusCreated)
-	layerDesc := distribution.Descriptor{
-		MediaType: unknownMediaType,
-		Digest:    dgst,
-		Size:      size,
-	}
-
-	m := &schema2.Manifest{
-		Versioned: manifest.Versioned{
-			SchemaVersion: 2,
-			MediaType:     schema2.MediaTypeManifest,
-		},
-		Config: cfgDesc,
-		Layers: []distribution.Descriptor{layerDesc},
-	}
-
-	dm, err := schema2.FromStruct(*m)
-	require.NoError(t, err)
-
-	// Push manifest, for now we should not error out, but with
-	// https://gitlab.com/gitlab-org/container-registry/-/issues/990 we will
-	// expect to see the put operation fail.
-	u := buildManifestTagURL(t, env, repoPath, tagName)
-	resp := putManifest(t, "", u, schema2.MediaTypeManifest, dm.Manifest)
-	defer resp.Body.Close()
-
-	require.Equal(t, http.StatusCreated, resp.StatusCode)
 }
 
 func TestManifestAPI_Put_OCIImageIndexByTagManifestsNotPresentInDatabase(t *testing.T) {
