@@ -25,6 +25,7 @@ import (
 	"github.com/docker/distribution/registry/auth"
 	"github.com/docker/distribution/registry/datastore"
 	"github.com/docker/distribution/registry/datastore/models"
+	"github.com/docker/distribution/registry/internal/feature"
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
 	"github.com/docker/distribution/registry/storage/validation"
 	"github.com/gorilla/handlers"
@@ -922,7 +923,13 @@ func dbPutManifestSchema2(imh *manifestHandler, manifest *schema2.DeserializedMa
 func dbPutManifestV2(imh *manifestHandler, mfst distribution.ManifestV2, payload []byte, nonConformant bool) error {
 	repoPath := imh.Repository.Named().Name()
 
-	l := log.GetLogger(log.WithContext(imh)).WithFields(log.Fields{"repository": repoPath, "manifest_digest": imh.Digest, "schema_version": mfst.Version().SchemaVersion})
+	l := log.GetLogger(log.WithContext(imh)).WithFields(log.Fields{
+		"repository":      repoPath,
+		"manifest_digest": imh.Digest,
+		"schema_version":  mfst.Version().SchemaVersion,
+		feature.FailOnUnknownLayerMediaTypes.EnvVariable: feature.FailOnUnknownLayerMediaTypes.Enabled(),
+		feature.AccurateLayerMediaTypes.EnvVariable:      feature.AccurateLayerMediaTypes.Enabled(),
+	})
 
 	// create or find target repository
 	rStore := datastore.NewRepositoryStore(imh.App.db, datastore.WithRepositoryCache(imh.repoCache))
@@ -989,14 +996,31 @@ func dbPutManifestV2(imh *manifestHandler, mfst distribution.ManifestV2, payload
 
 		// find and associate distributable manifest layer blobs
 		for _, reqLayer := range mfst.DistributableLayers() {
-			// Monitor for unknown layer media types before implementing
-			// https://gitlab.com/gitlab-org/container-registry/-/issues/990
-			logUnknownLayerMediaType(imh, reqLayer.MediaType)
-
 			dbBlob, err := dbFindRepositoryBlob(imh.Context, rStore, reqLayer, dbRepo.Path)
 			if err != nil {
 				return err
 			}
+
+			// Overwrite the media type from common blob storage with the one
+			// specified in the manifest json for the layer entity. The layer entity
+			// has a 1-1 relationship with with the manifest, so we want to reflect
+			// the manifest's description of the layer. Multiple manifest can reference
+			// the same blob, so the common blob storage should remain generic.
+			ok, err := layerMediaTypeExists(imh, reqLayer.MediaType)
+			if feature.AccurateLayerMediaTypes.Enabled() {
+				if err != nil && feature.FailOnUnknownLayerMediaTypes.Enabled() {
+					return err
+				}
+
+				if ok {
+					dbBlob.MediaType = reqLayer.MediaType
+				}
+
+				if !ok && feature.FailOnUnknownLayerMediaTypes.Enabled() {
+					return datastore.ErrUnknownMediaType{MediaType: reqLayer.MediaType}
+				}
+			}
+
 			if err := mStore.AssociateLayerBlob(imh.Context, dbManifest, dbBlob); err != nil {
 				return err
 			}
@@ -1006,23 +1030,27 @@ func dbPutManifestV2(imh *manifestHandler, mfst distribution.ManifestV2, payload
 	return nil
 }
 
-func logUnknownLayerMediaType(imh *manifestHandler, mt string) {
+func layerMediaTypeExists(imh *manifestHandler, mt string) (bool, error) {
 	l := log.GetLogger(log.WithContext(imh)).WithFields(log.Fields{"media_type": mt})
 	mtStore := datastore.NewMediaTypeStore(imh.App.db)
 
 	exists, err := mtStore.Exists(imh.Context, mt)
 	if err != nil {
-		// Log error only. We should not introduce a possible failure in manifest
-		// uploads here since we are setting up temporary monitoring.
-		l.Error("error checking for existence of media type: %v", err)
-		return
+		if !feature.FailOnUnknownLayerMediaTypes.Enabled() {
+			// Log error if we aren't failing on unknown layer media types so that we
+			// have visibility into the error.
+			l.Error("error checking for existence of media type: %v", err)
+		}
+		return false, fmt.Errorf("checking for existence of layer media type: %v", err)
 	}
 
 	if exists {
-		return
+		return true, nil
 	}
 
 	l.Warn("unknown layer media type")
+
+	return false, nil
 }
 
 // dbFindRepositoryBlob finds a blob which is linked to the repository.
