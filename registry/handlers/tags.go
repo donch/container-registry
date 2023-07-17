@@ -237,15 +237,13 @@ func (th *tagHandler) DeleteTag(w http.ResponseWriter, r *http.Request) {
 	l := log.GetLogger(log.WithContext(th))
 	l.Debug("DeleteTag")
 
-	if th.writeFSMetadata {
+	if !th.useDatabase {
 		tagService := th.Repository.Tags(th)
 		if err := tagService.Untag(th.Context, th.Tag); err != nil {
 			th.appendDeleteTagError(err)
 			return
 		}
-	}
-
-	if th.useDatabase {
+	} else {
 		// TODO: remove as part of https://gitlab.com/gitlab-org/container-registry/-/issues/1056
 		var repoCache datastore.RepositoryCache
 		if th.App.redisCache != nil {

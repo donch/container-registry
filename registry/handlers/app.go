@@ -1109,8 +1109,6 @@ func (app *App) dispatcher(dispatch dispatchFunc) http.Handler {
 		// get all metadata either from the database or from the filesystem
 		if app.Config.Database.Enabled {
 			ctx.useDatabase = true
-		} else {
-			ctx.writeFSMetadata = true
 		}
 
 		if app.nameRequired(r) {
