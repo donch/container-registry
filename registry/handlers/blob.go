@@ -198,29 +198,15 @@ func (bh *blobHandler) DeleteBlob(w http.ResponseWriter, r *http.Request) {
 }
 
 func (bh *blobHandler) deleteBlob() error {
-	if bh.writeFSMetadata {
+	if !bh.useDatabase {
 		blobs := bh.Repository.Blobs(bh)
-		if err := blobs.Delete(bh, bh.Digest); err != nil {
-			return err
-		}
-
-		if !bh.useDatabase {
-			return nil
-		}
-
+		return blobs.Delete(bh, bh.Digest)
 	}
 
-	if bh.useDatabase {
-		// TODO: remove as part of https://gitlab.com/gitlab-org/container-registry/-/issues/1056
-		repoCache := bh.repoCache
-		if bh.App.redisCache != nil {
-			repoCache = datastore.NewCentralRepositoryCache(bh.App.redisCache)
-		}
-		return dbDeleteBlob(bh.Context, bh.App.Config, bh.db, repoCache, bh.Repository.Named().Name(), bh.Digest)
+	// TODO: remove as part of https://gitlab.com/gitlab-org/container-registry/-/issues/1056
+	repoCache := bh.repoCache
+	if bh.App.redisCache != nil {
+		repoCache = datastore.NewCentralRepositoryCache(bh.App.redisCache)
 	}
-
-	// If we reach this point, we should have failed on an invalid config already,
-	// but we'll write nominal response headers if neither of the above cases
-	// executes, so we should avoid that.
-	return errors.New("no metadata database and filesystem metadata is disabled")
+	return dbDeleteBlob(bh.Context, bh.App.Config, bh.db, repoCache, bh.Repository.Named().Name(), bh.Digest)
 }

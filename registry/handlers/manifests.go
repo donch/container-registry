@@ -309,20 +309,11 @@ func (imh *manifestHandler) newManifestGetter(req *http.Request) (manifestGetter
 }
 
 func (imh *manifestHandler) newManifestWriter() (manifestWriter, error) {
-	if imh.useDatabase && !imh.writeFSMetadata {
-		return &dbManifestWriter{}, nil
+	if !imh.useDatabase {
+		return newFSManifestWriter(imh)
 	}
 
-	fsWriter, err := newFSManifestWriter(imh)
-	if err != nil {
-		return nil, err
-	}
-
-	if !imh.useDatabase && imh.writeFSMetadata {
-		return fsWriter, nil
-	}
-
-	return &mirroringManifestWriter{fs: fsWriter, db: &dbManifestWriter{}}, nil
+	return &dbManifestWriter{}, nil
 }
 
 type manifestGetter interface {
@@ -548,27 +539,6 @@ func (p *dbManifestWriter) Tag(imh *manifestHandler, mfst distribution.Manifest,
 	}
 
 	return nil
-}
-
-type mirroringManifestWriter struct {
-	fs *fsManifestWriter
-	db *dbManifestWriter
-}
-
-func (p *mirroringManifestWriter) Put(imh *manifestHandler, mfst distribution.Manifest) error {
-	if err := p.fs.Put(imh, mfst); err != nil {
-		return err
-	}
-
-	return p.db.Put(imh, mfst)
-}
-
-func (p *mirroringManifestWriter) Tag(imh *manifestHandler, mfst distribution.Manifest, tag string, desc distribution.Descriptor) error {
-	if err := p.fs.Tag(imh, mfst, tag, desc); err != nil {
-		return err
-	}
-
-	return p.db.Tag(imh, mfst, tag, desc)
 }
 
 func dbManifestToManifest(dbm *models.Manifest) (distribution.Manifest, error) {
@@ -1413,7 +1383,7 @@ func (imh *manifestHandler) DeleteManifest(w http.ResponseWriter, r *http.Reques
 	l := log.GetLogger(log.WithContext(imh))
 	l.Debug("DeleteImageManifest")
 
-	if imh.writeFSMetadata {
+	if !imh.useDatabase {
 		manifests, err := imh.Repository.Manifests(imh)
 		if err != nil {
 			imh.Errors = append(imh.Errors, err)
@@ -1448,9 +1418,7 @@ func (imh *manifestHandler) DeleteManifest(w http.ResponseWriter, r *http.Reques
 				l.WithError(err).Error("queuing tag delete inside manifest delete handler")
 			}
 		}
-	}
-
-	if imh.useDatabase {
+	} else {
 		if !deleteEnabled(imh.App.Config) {
 			imh.Errors = append(imh.Errors, errcode.ErrorCodeUnsupported)
 			return
