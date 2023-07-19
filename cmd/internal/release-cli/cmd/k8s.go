@@ -25,6 +25,8 @@ var k8sCmd = &cobra.Command{
 			log.Fatal("Version is empty. Aborting.")
 		}
 
+		reviewerIDs := utils.ParseReviewerIDs(os.Getenv("MR_REVIWER_IDS"))
+
 		accessTokenK8s, err := cmd.Flags().GetString("k8s-access-token")
 		if err != nil {
 			log.Fatal(err)
@@ -93,7 +95,7 @@ var k8sCmd = &cobra.Command{
 			}
 		}
 
-		mr, err := k8sClient.CreateMergeRequest(release.ProjectID, branch, desc, release.Ref, release.MRTitle, labels)
+		mr, err := k8sClient.CreateMergeRequest(release.ProjectID, branch, desc, release.Ref, release.MRTitle, labels, reviewerIDs)
 		if err != nil {
 			msg := fmt.Sprintf("%s release: Failed to create K8s Workloads version bump MR (%s): %s", version, stage, err.Error())
 			err = slack.SendSlackNotification(webhookUrl, msg)
