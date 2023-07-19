@@ -42,6 +42,8 @@ var gdkCmd = &cobra.Command{
 			"devops::package",
 		}
 
+		reviewerIDs := utils.ParseReviewerIDs(os.Getenv("MR_REVIWER_IDS"))
+
 		release, err := readConfig(cmd.Use, version)
 		if err != nil {
 			log.Fatalf("Error reading config: %v", err)
@@ -78,7 +80,7 @@ var gdkCmd = &cobra.Command{
 			}
 		}
 
-		mr, err := gdkClient.CreateMergeRequest(release.ProjectID, branch, desc, release.Ref, release.MRTitle, labels)
+		mr, err := gdkClient.CreateMergeRequest(release.ProjectID, branch, desc, release.Ref, release.MRTitle, labels, reviewerIDs)
 		if err != nil {
 			msg := fmt.Sprintf("%s release: Failed to create GDK version bump MR: %s", version, err.Error())
 			err = slack.SendSlackNotification(webhookUrl, msg)
