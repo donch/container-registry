@@ -71,6 +71,7 @@ const (
 	lastQueryParamKey                      = "last"
 	dryRunParamKey                         = "dry_run"
 	tagNameQueryParamKey                   = "name"
+	sortQueryPAramKey                      = "sort"
 	defaultDryRunRenameOperationTimeout    = 5 * time.Second
 	maxRepositoriesToRename                = 1000
 )
@@ -81,6 +82,11 @@ var (
 	sizeQueryParamValidValues = []string{
 		sizeQueryParamSelfValue,
 		sizeQueryParamSelfWithDescendantsValue,
+	}
+
+	sortQueryParamValidValues = []string{
+		string(datastore.OrderAsc),
+		string(datastore.OrderDesc),
 	}
 
 	tagQueryParamPattern = reference.TagRegexp
@@ -357,6 +363,18 @@ func filterParamsFromRequest(r *http.Request) (datastore.FilterParams, error) {
 		}
 	}
 	filters.Name = nameFilter
+
+	var sort datastore.SortOrder
+	if q.Has(sortQueryPAramKey) {
+		// ensure we compare against the values of datastore.OrderDesc or datastore.OrderAsc
+		sort = datastore.SortOrder(strings.ToLower(q.Get(sortQueryPAramKey)))
+		if sort != datastore.OrderDesc && sort != datastore.OrderAsc {
+			detail := v1.InvalidQueryParamValueErrorDetail(sortQueryPAramKey, sortQueryParamValidValues)
+			return filters, v1.ErrorCodeInvalidQueryParamValue.WithDetail(detail)
+		}
+
+	}
+	filters.Sort = sort
 
 	return filters, nil
 }

@@ -133,13 +133,14 @@ information about each tag and not just their name.
 GET /gitlab/v1/repositories/<path>/tags/list/
 ```
 
-| Attribute | Type   | Required | Default | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-|-----------|--------|----------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `path`    | String | Yes      |         | The full path of the target repository. Equivalent to the `name` parameter in the `/v2/` API, described in the [OCI Distribution Spec](https://github.com/opencontainers/distribution-spec/blob/main/spec.md). The same pattern validation applies.                                                                                                                                                                                                                                                                                                         |
-| `before`  | String | No       |         | Query parameter used as marker for pagination. Set this to the tag name lexicographically _before_ which (exclusive) you want the requested page to start. The value of this query parameter must be a valid tag name. More precisely, it must respect the `[a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}` pattern as defined in the OCI Distribution spec [here](https://github.com/opencontainers/distribution-spec/blob/main/spec.md#pulling-manifests). Otherwise, an `INVALID_QUERY_PARAMETER_VALUE` error is returned. Cannot be used in conjunction with `last`. |
-| `last`    | String | No       |         | Query parameter used as marker for pagination. Set this to the tag name lexicographically after which (exclusive) you want the requested page to start. The value of this query parameter must be a valid tag name. More precisely, it must respect the `[a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}` pattern as defined in the OCI Distribution spec [here](https://github.com/opencontainers/distribution-spec/blob/main/spec.md#pulling-manifests). Otherwise, an `INVALID_QUERY_PARAMETER_VALUE` error is returned.                                               |
-| `n`       | String | No       | 100     | Query parameter used as limit for pagination. Defaults to 100. Must be a positive integer between `1` and `1000` (inclusive). If the value is not a valid integer, the `INVALID_QUERY_PARAMETER_TYPE` error is returned. If the value is a valid integer but is out of the rage then an `INVALID_QUERY_PARAMETER_VALUE` error is returned.                                                                                                                                                                                                                  |
-| `name`    | String | No       |         | Tag name filter. If set, tags are filtered using a partial match against its value. Does not support regular expressions. Only lowercase and uppercase letters, digits, underscores, periods, and hyphen characters are allowed. Maximum of 128 characters. It must respect the `[a-zA-Z0-9._-]{1,128}` pattern. If the value is not valid, the `INVALID_QUERY_PARAMETER_VALUE` error is returned.                                                                                                                                                          |
+| Attribute  | Type   | Required | Default | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+|------------|--------|----------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `path`     | String | Yes      |         | The full path of the target repository. Equivalent to the `name` parameter in the `/v2/` API, described in the [OCI Distribution Spec](https://github.com/opencontainers/distribution-spec/blob/main/spec.md). The same pattern validation applies.                                                                                                                                                                                                                                                                                                         |
+| `before`   | String | No       |         | Query parameter used as marker for pagination. Set this to the tag name lexicographically _before_ which (exclusive) you want the requested page to start. The value of this query parameter must be a valid tag name. More precisely, it must respect the `[a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}` pattern as defined in the OCI Distribution spec [here](https://github.com/opencontainers/distribution-spec/blob/main/spec.md#pulling-manifests). Otherwise, an `INVALID_QUERY_PARAMETER_VALUE` error is returned. Cannot be used in conjunction with `last`. |
+| `last`     | String | No       |         | Query parameter used as marker for pagination. Set this to the tag name lexicographically after which (exclusive) you want the requested page to start. The value of this query parameter must be a valid tag name. More precisely, it must respect the `[a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}` pattern as defined in the OCI Distribution spec [here](https://github.com/opencontainers/distribution-spec/blob/main/spec.md#pulling-manifests). Otherwise, an `INVALID_QUERY_PARAMETER_VALUE` error is returned.                                               |
+| `n`        | String | No       | 100     | Query parameter used as limit for pagination. Defaults to 100. Must be a positive integer between `1` and `1000` (inclusive). If the value is not a valid integer, the `INVALID_QUERY_PARAMETER_TYPE` error is returned. If the value is a valid integer but is out of the rage then an `INVALID_QUERY_PARAMETER_VALUE` error is returned.                                                                                                                                                                                                                  |
+| `name`     | String | No       |         | Tag name filter. If set, tags are filtered using a partial match against its value. Does not support regular expressions. Only lowercase and uppercase letters, digits, underscores, periods, and hyphen characters are allowed. Maximum of 128 characters. It must respect the `[a-zA-Z0-9._-]{1,128}` pattern. If the value is not valid, the `INVALID_QUERY_PARAMETER_VALUE` error is returned.                                                                                                                                                          |
+| `sort`     | String | No       | "asc"   | Sort tags by name in ascending or descending order. Use either `"asc"` or `"desc"`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 #### Pagination
 
@@ -202,6 +203,32 @@ curl --header "Authorization: Bearer <token>" "https://registry.gitlab.com/gitla
 ```
 
 Assuming there are 20 tags from `before=0.21.0` the response will include all 20 tags, for example ["0.1.0", "0.2.0",...,"0.20.0"].
+
+#### Sorting
+
+The endpoint can take a query parameter `sort` with either values `asc` (default) or `desc`.
+Tags are returned in lexicographical order as specified by the `sort` query parameter.
+If used in combination with the `before` or `last` query parameter, the tags are first filtered by these values
+and then sorted in the requested order.
+
+##### Sort examples with pagination
+
+Given a list of tags `["a", "b", "c", "d", "e", "f"]`:
+
+| n | before | last | sort | Expected Result                  |
+|---|--------|------|------|----------------------------------|
+|   |        |      | asc  | `["a", "b", "c", "d", "e", "f"]` |
+|   |        |      | desc | `["f", "e", "d", "c", "b", "a"]` |
+| 3 |        |      | asc  | `["a", "b", "c"]`                |
+| 3 |        |      | desc | `["f", "e", "d"]`                |
+|   | "c"    |      | asc  | `["a", "b"]`                     |
+|   | "c"    |      | desc | `["f", "e", "d"]`                |
+| 2 | "c"    |      | asc  | `["a", "b"]`                     |
+| 2 | "d"    |      | desc | `["f", "e"]`                     |
+|   |        | "c"  | asc  | `["d", "e", "f"]`                |
+|   |        | "c"  | desc | `["b", "a"]`                     |
+| 2 |        | "b"  | asc  | `["c", "d"]`                     |
+| 2 |        | "e"  | desc | `["d", "c"]`                     |
 
 ### Response
 
@@ -486,9 +513,14 @@ error codes described in the
 
 ## Changes
 
+### 2023-07-17
+
+- Add support to sort the response from the List Repository Tags endpoint by descending order.
+
 ### 2023-06-15
 
 - Add docs for renaming all repositories associated with a GitLab project.
+- Add support for backwards pagination for the List Repository Tags endpoint.
 
 ### 2023-05-10
 

@@ -234,6 +234,19 @@ func TestGitlabAPI_RepositoryTagsList(t *testing.T) {
 		"sjyi7by",
 		"x_y_z",
 	}
+	sortedTagsDesc := []string{
+		"x_y_z",
+		"sjyi7by",
+		"n343n",
+		"kb0j5",
+		"kav2-jyi7b",
+		"jyi7b-fxt1v",
+		"jyi7b",
+		"hpgkt",
+		"dcsl6",
+		"asj9e",
+		"2j2ar",
+	}
 
 	// shuffle tags before creation to make sure results are consistent regardless of creation order
 	shuffledTags := shuffledCopy(sortedTags)
@@ -277,6 +290,12 @@ func TestGitlabAPI_RepositoryTagsList(t *testing.T) {
 		{
 			name:           "empty before query parameter",
 			queryParams:    url.Values{"before": []string{""}},
+			expectedStatus: http.StatusBadRequest,
+			expectedError:  &v1.ErrorCodeInvalidQueryParamValue,
+		},
+		{
+			name:           "invalid sort value",
+			queryParams:    url.Values{"sort": []string{"bad"}},
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  &v1.ErrorCodeInvalidQueryParamValue,
 		},
@@ -328,6 +347,41 @@ func TestGitlabAPI_RepositoryTagsList(t *testing.T) {
 			expectedLinkHeader: `</gitlab/v1/repositories/foo/bar/tags/list/?before=n343n&n=4>; rel="previous"`,
 		},
 		{
+			name:           "1st page sort desc",
+			queryParams:    url.Values{"n": []string{"4"}, "sort": []string{"desc"}},
+			expectedStatus: http.StatusOK,
+			expectedOrderedTags: []string{
+				"x_y_z",
+				"sjyi7by",
+				"n343n",
+				"kb0j5",
+			},
+			expectedLinkHeader: `</gitlab/v1/repositories/foo/bar/tags/list/?last=kb0j5&n=4&sort=desc>; rel="next"`,
+		},
+		{
+			name:           "nth page sort desc",
+			queryParams:    url.Values{"last": []string{"kb0j5"}, "n": []string{"4"}, "sort": []string{"desc"}},
+			expectedStatus: http.StatusOK,
+			expectedOrderedTags: []string{
+				"kav2-jyi7b",
+				"jyi7b-fxt1v",
+				"jyi7b",
+				"hpgkt",
+			},
+			expectedLinkHeader: `</gitlab/v1/repositories/foo/bar/tags/list/?before=kav2-jyi7b&n=4&sort=desc>; rel="previous", </gitlab/v1/repositories/foo/bar/tags/list/?last=hpgkt&n=4&sort=desc>; rel="next"`,
+		},
+		{
+			name:           "last page sort desc",
+			queryParams:    url.Values{"last": []string{"hpgkt"}, "n": []string{"4"}, "sort": []string{"desc"}},
+			expectedStatus: http.StatusOK,
+			expectedOrderedTags: []string{
+				"dcsl6",
+				"asj9e",
+				"2j2ar",
+			},
+			expectedLinkHeader: `</gitlab/v1/repositories/foo/bar/tags/list/?before=dcsl6&n=4&sort=desc>; rel="previous"`,
+		},
+		{
 			name:           "zero page size",
 			queryParams:    url.Values{"n": []string{"0"}},
 			expectedStatus: http.StatusBadRequest,
@@ -344,6 +398,12 @@ func TestGitlabAPI_RepositoryTagsList(t *testing.T) {
 			queryParams:         url.Values{"n": []string{"1000"}},
 			expectedStatus:      http.StatusOK,
 			expectedOrderedTags: sortedTags,
+		},
+		{
+			name:                "page size bigger than full list sort desc",
+			queryParams:         url.Values{"n": []string{"1000"}, "sort": []string{"desc"}},
+			expectedStatus:      http.StatusOK,
+			expectedOrderedTags: sortedTagsDesc,
 		},
 		{
 			name:           "after marker",
