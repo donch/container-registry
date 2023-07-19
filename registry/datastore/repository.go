@@ -33,9 +33,9 @@ const (
 	cacheOpTimeout = 500 * time.Millisecond
 
 	// OrderDesc is the normalized string to be used for sorting results in descending order
-	OrderDesc SortOrder = "DESC"
+	OrderDesc SortOrder = "desc"
 	// OrderAsc is the normalized string to be used for sorting results in ascending order
-	OrderAsc SortOrder = "ASC"
+	OrderAsc SortOrder = "asc"
 )
 
 // FilterParams contains the specific filters used to get
