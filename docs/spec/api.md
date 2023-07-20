@@ -1175,6 +1175,7 @@ The error codes encountered via the API are enumerated in the following table:
  `UNAUTHORIZED` | authentication required | The access controller was unable to authenticate the client. Often this will be accompanied by a Www-Authenticate HTTP response header indicating how to authenticate.
  `DENIED` | requested access to the resource is denied | The access controller denied access for the operation on a resource.
  `UNSUPPORTED` | The operation is unsupported. | The operation was unsupported due to a missing implementation or invalid set of parameters.
+ `RENAME_IN_PROGRESS` | the base repository path is undergoing a rename. | This is returned when the path where a repository resides is undergoing a rename.
 
 
 
@@ -2002,6 +2003,31 @@ The error codes that may be included in the response body are enumerated below:
 
 
 
+###### On Failure: Repository Rename In Progress
+
+```
+409 Conflict
+Content-Type: application/json
+
+{
+	"errors:" [
+	    {
+            "code": <error code>,
+            "message": "<error message>",
+            "detail": ...
+        },
+        ...
+    ]
+}
+```
+
+The repository is undergoing a rename.
+
+The error codes that may be included in the response body are enumerated below:
+
+|Code|Message|Description|
+|----|-------|-----------|
+| `RENAME_IN_PROGRESS` | the base repository path is undergoing a rename | This is returned when the path where a repository resides is undergoing a rename. |
 
 
 ### Manifest
@@ -2549,6 +2575,31 @@ The error codes that may be included in the response body are enumerated below:
 
 
 
+###### On Failure: Repository Rename In Progress
+
+```
+409 Conflict
+Content-Type: application/json
+
+{
+	"errors:" [
+	    {
+            "code": <error code>,
+            "message": "<error message>",
+            "detail": ...
+        },
+        ...
+    ]
+}
+```
+
+The repository is undergoing a rename.
+
+The error codes that may be included in the response body are enumerated below:
+
+|Code|Message|Description|
+|----|-------|-----------|
+| `RENAME_IN_PROGRESS` | the base repository path is undergoing a rename | This is returned when the path where a repository resides is undergoing a rename. |
 
 #### DELETE Manifest
 
@@ -2818,6 +2869,31 @@ The error codes that may be included in the response body are enumerated below:
 
 
 
+###### On Failure: Repository Rename In Progress
+
+```
+409 Conflict
+Content-Type: application/json
+
+{
+	"errors:" [
+	    {
+            "code": <error code>,
+            "message": "<error message>",
+            "detail": ...
+        },
+        ...
+    ]
+}
+```
+
+The repository is undergoing a rename.
+
+The error codes that may be included in the response body are enumerated below:
+
+|Code|Message|Description|
+|----|-------|-----------|
+| `RENAME_IN_PROGRESS` | the base repository path is undergoing a rename | This is returned when the path where a repository resides is undergoing a rename. |
 
 
 ### Blob
@@ -3652,6 +3728,31 @@ The error codes that may be included in the response body are enumerated below:
 |----|-------|-----------|
 | `TOOMANYREQUESTS` | too many requests | Returned when a client attempts to contact a service too many times |
 
+###### On Failure: Repository Rename In Progress
+
+```
+409 Conflict
+Content-Type: application/json
+
+{
+	"errors:" [
+	    {
+            "code": <error code>,
+            "message": "<error message>",
+            "detail": ...
+        },
+        ...
+    ]
+}
+```
+
+The repository is undergoing a rename.
+
+The error codes that may be included in the response body are enumerated below:
+
+|Code|Message|Description|
+|----|-------|-----------|
+| `RENAME_IN_PROGRESS` | the base repository path is undergoing a rename | This is returned when the path where a repository resides is undergoing a rename. 
 
 
 
@@ -3902,6 +4003,31 @@ The error codes that may be included in the response body are enumerated below:
 |----|-------|-----------|
 | `TOOMANYREQUESTS` | too many requests | Returned when a client attempts to contact a service too many times |
 
+###### On Failure: Repository Rename In Progress
+
+```
+409 Conflict
+Content-Type: application/json
+
+{
+	"errors:" [
+	    {
+            "code": <error code>,
+            "message": "<error message>",
+            "detail": ...
+        },
+        ...
+    ]
+}
+```
+
+The repository is undergoing a rename.
+
+The error codes that may be included in the response body are enumerated below:
+
+|Code|Message|Description|
+|----|-------|-----------|
+| `RENAME_IN_PROGRESS` | the base repository path is undergoing a rename | This is returned when the path where a repository resides is undergoing a rename. |
 
 
 ##### Initiate Resumable Blob Upload
@@ -4119,6 +4245,31 @@ The error codes that may be included in the response body are enumerated below:
 |----|-------|-----------|
 | `TOOMANYREQUESTS` | too many requests | Returned when a client attempts to contact a service too many times |
 
+###### On Failure: Repository Rename In Progress
+
+```
+409 Conflict
+Content-Type: application/json
+
+{
+	"errors:" [
+	    {
+            "code": <error code>,
+            "message": "<error message>",
+            "detail": ...
+        },
+        ...
+    ]
+}
+```
+
+The repository is undergoing a rename.
+
+The error codes that may be included in the response body are enumerated below:
+
+|Code|Message|Description|
+|----|-------|-----------|
+| `RENAME_IN_PROGRESS` | the base repository path is undergoing a rename | This is returned when the path where a repository resides is undergoing a rename. |
 
 
 ##### Mount Blob
@@ -4354,6 +4505,31 @@ The error codes that may be included in the response body are enumerated below:
 |----|-------|-----------|
 | `TOOMANYREQUESTS` | too many requests | Returned when a client attempts to contact a service too many times |
 
+###### On Failure: Repository Rename In Progress
+
+```
+409 Conflict
+Content-Type: application/json
+
+{
+	"errors:" [
+	    {
+            "code": <error code>,
+            "message": "<error message>",
+            "detail": ...
+        },
+        ...
+    ]
+}
+```
+
+The repository is undergoing a rename.
+
+The error codes that may be included in the response body are enumerated below:
+
+|Code|Message|Description|
+|----|-------|-----------|
+| `RENAME_IN_PROGRESS` | the base repository path is undergoing a rename | This is returned when the path where a repository resides is undergoing a rename. |
 
 
 
@@ -4891,6 +5067,31 @@ The error codes that may be included in the response body are enumerated below:
 |----|-------|-----------|
 | `TOOMANYREQUESTS` | too many requests | Returned when a client attempts to contact a service too many times |
 
+###### On Failure: Repository Rename In Progress
+
+```
+409 Conflict
+Content-Type: application/json
+
+{
+	"errors:" [
+	    {
+            "code": <error code>,
+            "message": "<error message>",
+            "detail": ...
+        },
+        ...
+    ]
+}
+```
+
+The repository is undergoing a rename.
+
+The error codes that may be included in the response body are enumerated below:
+
+|Code|Message|Description|
+|----|-------|-----------|
+| `RENAME_IN_PROGRESS` | the base repository path is undergoing a rename | This is returned when the path where a repository resides is undergoing a rename. |
 
 
 ##### Chunked upload
@@ -5167,6 +5368,31 @@ The error codes that may be included in the response body are enumerated below:
 |----|-------|-----------|
 | `TOOMANYREQUESTS` | too many requests | Returned when a client attempts to contact a service too many times |
 
+###### On Failure: Repository Rename In Progress
+
+```
+409 Conflict
+Content-Type: application/json
+
+{
+	"errors:" [
+	    {
+            "code": <error code>,
+            "message": "<error message>",
+            "detail": ...
+        },
+        ...
+    ]
+}
+```
+
+The repository is undergoing a rename.
+
+The error codes that may be included in the response body are enumerated below:
+
+|Code|Message|Description|
+|----|-------|-----------|
+| `RENAME_IN_PROGRESS` | the base repository path is undergoing a rename | This is returned when the path where a repository resides is undergoing a rename. |
 
 
 
@@ -5438,6 +5664,31 @@ The error codes that may be included in the response body are enumerated below:
 |----|-------|-----------|
 | `TOOMANYREQUESTS` | too many requests | Returned when a client attempts to contact a service too many times |
 
+###### On Failure: Repository Rename In Progress
+
+```
+409 Conflict
+Content-Type: application/json
+
+{
+	"errors:" [
+	    {
+            "code": <error code>,
+            "message": "<error message>",
+            "detail": ...
+        },
+        ...
+    ]
+}
+```
+
+The repository is undergoing a rename.
+
+The error codes that may be included in the response body are enumerated below:
+
+|Code|Message|Description|
+|----|-------|-----------|
+| `RENAME_IN_PROGRESS` | the base repository path is undergoing a rename | This is returned when the path where a repository resides is undergoing a rename. |
 
 
 
@@ -5697,6 +5948,31 @@ The error codes that may be included in the response body are enumerated below:
 |----|-------|-----------|
 | `TOOMANYREQUESTS` | too many requests | Returned when a client attempts to contact a service too many times |
 
+###### On Failure: Repository Rename In Progress
+
+```
+409 Conflict
+Content-Type: application/json
+
+{
+	"errors:" [
+	    {
+            "code": <error code>,
+            "message": "<error message>",
+            "detail": ...
+        },
+        ...
+    ]
+}
+```
+
+The repository is undergoing a rename.
+
+The error codes that may be included in the response body are enumerated below:
+
+|Code|Message|Description|
+|----|-------|-----------|
+| `RENAME_IN_PROGRESS` | the base repository path is undergoing a rename | This is returned when the path where a repository resides is undergoing a rename. |
 
 
 
