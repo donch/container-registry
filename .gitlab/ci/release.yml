@@ -2,6 +2,8 @@ dry-run:
   image: node:lts
   stage: release
   needs: []
+  variables:
+    GIT_COMMITTER_EMAIL: $GITLAB_TOKEN_EMAIL
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   script:
@@ -12,6 +14,8 @@ cut:
   image: node:lts
   stage: release
   needs: [ "dry-run" ]
+  variables:
+    GIT_COMMITTER_EMAIL: $GITLAB_TOKEN_EMAIL
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: manual
