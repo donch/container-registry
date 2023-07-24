@@ -23,7 +23,7 @@ func tagsDispatcher(ctx *Context, r *http.Request) http.Handler {
 		Context: ctx,
 	}
 	h := handlers.MethodHandler{
-		"GET": http.HandlerFunc(tagsHandler.GetTags),
+		http.MethodGet: http.HandlerFunc(tagsHandler.GetTags),
 	}
 	return h
 }
@@ -154,7 +154,7 @@ func tagDispatcher(ctx *Context, r *http.Request) http.Handler {
 	}
 
 	if !ctx.readOnly {
-		thandler["DELETE"] = http.HandlerFunc(tagHandler.DeleteTag)
+		thandler[http.MethodDelete] = http.HandlerFunc(tagHandler.DeleteTag)
 	}
 
 	return thandler

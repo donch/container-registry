@@ -85,13 +85,13 @@ func manifestDispatcher(ctx *Context, r *http.Request) http.Handler {
 	}
 
 	mhandler := handlers.MethodHandler{
-		"GET":  http.HandlerFunc(manifestHandler.GetManifest),
-		"HEAD": http.HandlerFunc(manifestHandler.GetManifest),
+		http.MethodGet:  http.HandlerFunc(manifestHandler.GetManifest),
+		http.MethodHead: http.HandlerFunc(manifestHandler.GetManifest),
 	}
 
 	if !ctx.readOnly {
-		mhandler["PUT"] = http.HandlerFunc(manifestHandler.PutManifest)
-		mhandler["DELETE"] = http.HandlerFunc(manifestHandler.DeleteManifest)
+		mhandler[http.MethodPut] = http.HandlerFunc(manifestHandler.PutManifest)
+		mhandler[http.MethodDelete] = http.HandlerFunc(manifestHandler.DeleteManifest)
 	}
 
 	return mhandler
@@ -174,7 +174,7 @@ func (imh *manifestHandler) GetManifest(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if isManifestList {
-		logIfManifestListInvalid(imh, manifestList, "GET")
+		logIfManifestListInvalid(imh, manifestList, http.MethodGet)
 	}
 
 	// Only rewrite manifests lists when they are being fetched by tag. If they
@@ -668,7 +668,7 @@ func (imh *manifestHandler) PutManifest(w http.ResponseWriter, r *http.Request) 
 	manifestList, isManifestList := manifest.(*manifestlist.DeserializedManifestList)
 
 	if isManifestList {
-		logIfManifestListInvalid(imh, manifestList, "PUT")
+		logIfManifestListInvalid(imh, manifestList, http.MethodPut)
 	}
 
 	if err := imh.applyResourcePolicy(manifest); err != nil {
