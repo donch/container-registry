@@ -479,11 +479,11 @@ var systemClock internal.Clock = clock.New()
 // URLFor returns a URL which may be used to retrieve the content stored at the given path.
 // May return an UnsupportedMethodErr in certain StorageDriver implementations.
 func (d *driver) URLFor(ctx context.Context, path string, options map[string]interface{}) (string, error) {
-	methodString := http.MethodGet
+	methodString := "GET"
 	method, ok := options["method"]
 	if ok {
 		methodString, ok = method.(string)
-		if !ok || (methodString != http.MethodGet) {
+		if !ok || (methodString != "GET") {
 			return "", storagedriver.ErrUnsupportedMethod{}
 		}
 	}

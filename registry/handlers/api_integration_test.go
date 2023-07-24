@@ -212,7 +212,7 @@ func testBlobAPI(t *testing.T, env *testEnv, args blobArgs) *testEnv {
 		"Docker-Upload-UUID": []string{uploadUUID},
 	})
 
-	req, err := http.NewRequest(http.MethodDelete, uploadURLBase, nil)
+	req, err := http.NewRequest("DELETE", uploadURLBase, nil)
 	if err != nil {
 		t.Fatalf("unexpected error creating delete request: %v", err)
 	}
@@ -355,7 +355,7 @@ func testBlobAPI(t *testing.T, env *testEnv, args blobArgs) *testEnv {
 
 	// Matching etag, gives 304
 	etag := resp.Header.Get("Etag")
-	req, err = http.NewRequest(http.MethodGet, layerURL, nil)
+	req, err = http.NewRequest("GET", layerURL, nil)
 	if err != nil {
 		t.Fatalf("Error constructing request: %s", err)
 	}
@@ -370,7 +370,7 @@ func testBlobAPI(t *testing.T, env *testEnv, args blobArgs) *testEnv {
 	checkResponse(t, "fetching layer with etag", resp, http.StatusNotModified)
 
 	// Non-matching etag, gives 200
-	req, err = http.NewRequest(http.MethodGet, layerURL, nil)
+	req, err = http.NewRequest("GET", layerURL, nil)
 	if err != nil {
 		t.Fatalf("Error constructing request: %s", err)
 	}
@@ -708,7 +708,7 @@ func TestManifestAPI_Get_Schema2NotInDatabase(t *testing.T) {
 
 	for _, test := range tt {
 		t.Run(test.name, func(t *testing.T) {
-			req, err := http.NewRequest(http.MethodGet, test.manifestURL, nil)
+			req, err := http.NewRequest("GET", test.manifestURL, nil)
 			require.NoError(t, err)
 
 			req.Header.Set("Accept", schema2.MediaTypeManifest)
@@ -1081,7 +1081,7 @@ func TestManifestAPI_BuildkitIndex(t *testing.T) {
 
 	// Get index
 	u := buildManifestTagURL(t, env, repoPath, tagName)
-	req, err := http.NewRequest(http.MethodGet, u, nil)
+	req, err := http.NewRequest("GET", u, nil)
 	require.NoError(t, err)
 
 	req.Header.Set("Accept", v1.MediaTypeImageIndex)
@@ -1121,7 +1121,7 @@ func TestManifestAPI_OCIIndexNoMediaType(t *testing.T) {
 	manifestURL, err := env.builder.BuildManifestURL(tagRef)
 	require.NoError(t, err)
 
-	req, err := http.NewRequest(http.MethodGet, manifestURL, nil)
+	req, err := http.NewRequest("GET", manifestURL, nil)
 	require.NoError(t, err)
 
 	// v1.MediaTypeImageIndex would be enough, but this replicates the behavior of the Docker client and others
@@ -1271,7 +1271,7 @@ func TestManifestAPI_Get_Schema1(t *testing.T) {
 
 	for _, test := range tt {
 		t.Run(test.name, func(t *testing.T) {
-			req, err := http.NewRequest(http.MethodGet, test.manifestURL, nil)
+			req, err := http.NewRequest("GET", test.manifestURL, nil)
 			require.NoError(t, err)
 
 			resp, err := http.DefaultClient.Do(req)
@@ -1841,7 +1841,7 @@ func testManifestAPIManifestList(t *testing.T, env *testEnv, args manifestArgs) 
 
 	// ------------------
 	// Fetch by tag name
-	req, err := http.NewRequest(http.MethodGet, manifestURL, nil)
+	req, err := http.NewRequest("GET", manifestURL, nil)
 	if err != nil {
 		t.Fatalf("Error constructing request: %s", err)
 	}
@@ -1878,7 +1878,7 @@ func testManifestAPIManifestList(t *testing.T, env *testEnv, args manifestArgs) 
 
 	// ---------------
 	// Fetch by digest
-	req, err = http.NewRequest(http.MethodGet, manifestDigestURL, nil)
+	req, err = http.NewRequest("GET", manifestDigestURL, nil)
 	if err != nil {
 		t.Fatalf("Error constructing request: %s", err)
 	}
@@ -1910,7 +1910,7 @@ func testManifestAPIManifestList(t *testing.T, env *testEnv, args manifestArgs) 
 
 	// Get by name with etag, gives 304
 	etag := resp.Header.Get("Etag")
-	req, err = http.NewRequest(http.MethodGet, manifestURL, nil)
+	req, err = http.NewRequest("GET", manifestURL, nil)
 	if err != nil {
 		t.Fatalf("Error constructing request: %s", err)
 	}
@@ -1924,7 +1924,7 @@ func testManifestAPIManifestList(t *testing.T, env *testEnv, args manifestArgs) 
 	checkResponse(t, "fetching manifest by name with etag", resp, http.StatusNotModified)
 
 	// Get by digest with etag, gives 304
-	req, err = http.NewRequest(http.MethodGet, manifestDigestURL, nil)
+	req, err = http.NewRequest("GET", manifestDigestURL, nil)
 	if err != nil {
 		t.Fatalf("Error constructing request: %s", err)
 	}

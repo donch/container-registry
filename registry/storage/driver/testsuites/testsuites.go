@@ -841,7 +841,7 @@ func (suite *DriverSuite) TestURLFor(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Assert(read, check.DeepEquals, contents)
 
-	url, err = suite.StorageDriver.URLFor(suite.ctx, filename, map[string]interface{}{"method": http.MethodHead})
+	url, err = suite.StorageDriver.URLFor(suite.ctx, filename, map[string]interface{}{"method": "HEAD"})
 	if _, ok := err.(storagedriver.ErrUnsupportedMethod); ok {
 		return
 	}

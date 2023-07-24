@@ -1068,11 +1068,11 @@ var systemClock internal.Clock = clock.New()
 // URLFor returns a URL which may be used to retrieve the content stored at the given path.
 // May return an UnsupportedMethodErr in certain StorageDriver implementations.
 func (d *driver) URLFor(ctx context.Context, path string, options map[string]interface{}) (string, error) {
-	methodString := http.MethodGet
+	methodString := "GET"
 	method, ok := options["method"]
 	if ok {
 		methodString, ok = method.(string)
-		if !ok || (methodString != http.MethodGet && methodString != http.MethodHead) {
+		if !ok || (methodString != "GET" && methodString != "HEAD") {
 			return "", storagedriver.ErrUnsupportedMethod{}
 		}
 	}
@@ -1089,12 +1089,12 @@ func (d *driver) URLFor(ctx context.Context, path string, options map[string]int
 	var req *request.Request
 
 	switch methodString {
-	case http.MethodGet:
+	case "GET":
 		req, _ = d.S3.GetObjectRequest(&s3.GetObjectInput{
 			Bucket: aws.String(d.Bucket),
 			Key:    aws.String(d.s3Path(path)),
 		})
-	case http.MethodHead:
+	case "HEAD":
 		req, _ = d.S3.HeadObjectRequest(&s3.HeadObjectInput{
 			Bucket: aws.String(d.Bucket),
 			Key:    aws.String(d.s3Path(path)),

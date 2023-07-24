@@ -1313,7 +1313,7 @@ func (app *App) authorized(w http.ResponseWriter, r *http.Request, context *Cont
 		if fromRepo := r.FormValue("from"); fromRepo != "" {
 			// mounting a blob from one repository to another requires pull (GET)
 			// access to the source repository.
-			accessRecords = appendAccessRecords(accessRecords, http.MethodGet, fromRepo)
+			accessRecords = appendAccessRecords(accessRecords, "GET", fromRepo)
 		}
 	} else {
 		// Only allow the name not to be set on the base route.
@@ -1430,13 +1430,13 @@ func appendAccessRecords(records []auth.Access, method string, repo string) []au
 	}
 
 	switch method {
-	case http.MethodGet, http.MethodHead:
+	case "GET", "HEAD":
 		records = append(records,
 			auth.Access{
 				Resource: resource,
 				Action:   "pull",
 			})
-	case http.MethodPost, http.MethodPut, http.MethodPatch:
+	case "POST", "PUT", "PATCH":
 		records = append(records,
 			auth.Access{
 				Resource: resource,
@@ -1446,7 +1446,7 @@ func appendAccessRecords(records []auth.Access, method string, repo string) []au
 				Resource: resource,
 				Action:   "push",
 			})
-	case http.MethodDelete:
+	case "DELETE":
 		records = append(records,
 			auth.Access{
 				Resource: resource,
