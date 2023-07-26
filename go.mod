@@ -17,7 +17,7 @@ require (
 	github.com/eko/gocache/lib/v4 v4.1.3
 	github.com/eko/gocache/store/redis/v4 v4.2.0
 	github.com/getsentry/sentry-go v0.18.0
-	github.com/go-redis/redismock/v9 v9.0.2
+	github.com/go-redis/redismock/v9 v9.0.3
 	github.com/golang/mock v1.6.0
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
@@ -33,7 +33,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.0.2
 	github.com/prometheus/client_golang v1.14.0
-	github.com/redis/go-redis/v9 v9.0.2
+	github.com/redis/go-redis/v9 v9.0.3
 	github.com/rubenv/sql-migrate v1.2.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.5.0
