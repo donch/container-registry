@@ -460,9 +460,14 @@ func (buh *blobUploadHandler) createBlobMountOption(fromRepo, mountDigest string
 		return storage.WithMountFrom(canonical), nil
 	}
 
+	var opts []datastore.RepositoryStoreOption
+	if buh.App.redisCache != nil {
+		opts = append(opts, datastore.WithRepositoryCache(datastore.NewCentralRepositoryCache(buh.App.redisCache)))
+	}
+
 	// Check for blob access on the database and pass that information via the
 	// BlobCreateOption.
-	rStore := datastore.NewRepositoryStore(buh.db)
+	rStore := datastore.NewRepositoryStore(buh.db, opts...)
 	b, err := dbFindRepositoryBlob(buh, rStore, distribution.Descriptor{Digest: dgst}, ref.Name())
 	if err != nil {
 		return nil, err
