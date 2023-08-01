@@ -157,7 +157,7 @@ func tagDispatcher(ctx *Context, r *http.Request) http.Handler {
 		thandler[http.MethodDelete] = http.HandlerFunc(tagHandler.DeleteTag)
 	}
 
-	return thandler
+	return checkOngoingRename(thandler, ctx)
 }
 
 // tagHandler handles requests for a specific tag under a repository name.

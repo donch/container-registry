@@ -39,6 +39,8 @@ import (
 	"github.com/docker/distribution/registry/datastore/migrations"
 	datastoretestutil "github.com/docker/distribution/registry/datastore/testutil"
 	registryhandlers "github.com/docker/distribution/registry/handlers"
+	"github.com/docker/distribution/registry/internal/feature"
+	internaltestutil "github.com/docker/distribution/registry/internal/testutil"
 	rtestutil "github.com/docker/distribution/registry/internal/testutil"
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
 	"github.com/docker/distribution/registry/storage/driver/factory"
@@ -46,8 +48,9 @@ import (
 	"github.com/docker/distribution/registry/storage/driver/inmemory"
 	_ "github.com/docker/distribution/registry/storage/driver/testdriver"
 	"github.com/docker/distribution/testutil"
-
 	"github.com/docker/libtrust"
+
+	gocache "github.com/eko/gocache/lib/v4/cache"
 	gorillahandlers "github.com/gorilla/handlers"
 	"github.com/opencontainers/go-digest"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
@@ -457,6 +460,7 @@ type manifestOpts struct {
 	putManifest        bool
 	assertNotification bool
 	withoutMediaType   bool
+	authToken          string
 	// Non-optional values which be passed through by the testing func for ease of use.
 	repoPath string
 }
@@ -480,6 +484,12 @@ func withAssertNotification(t *testing.T, env *testEnv, opts *manifestOpts) {
 
 func withoutMediaType(_ *testing.T, _ *testEnv, opts *manifestOpts) {
 	opts.withoutMediaType = true
+}
+
+func withAuthToken(token string) manifestOptsFunc {
+	return func(t *testing.T, env *testEnv, opts *manifestOpts) {
+		opts.authToken = token
+	}
 }
 
 func schema2Config() ([]byte, distribution.Descriptor) {
@@ -527,6 +537,11 @@ func seedRandomSchema2Manifest(t *testing.T, env *testEnv, repoPath string, opts
 		o(t, env, config)
 	}
 
+	var requestOpts []requestOpt
+	if config.authToken != "" {
+		requestOpts = append(requestOpts, witAuthToken(config.authToken))
+	}
+
 	repoRef, err := reference.WithName(repoPath)
 	require.NoError(t, err)
 
@@ -539,8 +554,8 @@ func seedRandomSchema2Manifest(t *testing.T, env *testEnv, repoPath string, opts
 
 	// Create a manifest config and push up its content.
 	cfgPayload, cfgDesc := schema2Config()
-	uploadURLBase, _ := startPushLayer(t, env, repoRef)
-	pushLayer(t, env.builder, repoRef, cfgDesc.Digest, uploadURLBase, bytes.NewReader(cfgPayload))
+	uploadURLBase, _ := startPushLayer(t, env, repoRef, requestOpts...)
+	pushLayer(t, env.builder, repoRef, cfgDesc.Digest, uploadURLBase, bytes.NewReader(cfgPayload), requestOpts...)
 	manifest.Config = cfgDesc
 
 	// Create and push up 2 random layers.
@@ -549,8 +564,8 @@ func seedRandomSchema2Manifest(t *testing.T, env *testEnv, repoPath string, opts
 	for i := range manifest.Layers {
 		rs, dgst, size := createRandomSmallLayer()
 
-		uploadURLBase, _ := startPushLayer(t, env, repoRef)
-		pushLayer(t, env.builder, repoRef, dgst, uploadURLBase, rs)
+		uploadURLBase, _ := startPushLayer(t, env, repoRef, requestOpts...)
+		pushLayer(t, env.builder, repoRef, dgst, uploadURLBase, rs, requestOpts...)
 
 		manifest.Layers[i] = distribution.Descriptor{
 			Digest:    dgst,
@@ -569,7 +584,7 @@ func seedRandomSchema2Manifest(t *testing.T, env *testEnv, repoPath string, opts
 			config.manifestURL = manifestDigestURL
 		}
 
-		resp := putManifest(t, "putting manifest no error", config.manifestURL, schema2.MediaTypeManifest, deserializedManifest.Manifest)
+		resp := putManifest(t, "putting manifest no error", config.manifestURL, schema2.MediaTypeManifest, deserializedManifest.Manifest, requestOpts...)
 		defer resp.Body.Close()
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 		require.Equal(t, "nosniff", resp.Header.Get("X-Content-Type-Options"))
@@ -596,7 +611,6 @@ func createRandomSmallLayer() (io.ReadSeeker, digest.Digest, int64) {
 
 	dgst := digest.FromBytes(b)
 	rs := bytes.NewReader(b)
-
 	return rs, dgst, size
 }
 
@@ -933,7 +947,7 @@ func shuffledCopy(s []string) []string {
 	return shuffled
 }
 
-func putManifest(t *testing.T, msg, url, contentType string, v interface{}) *http.Response {
+func putManifestRequest(t *testing.T, msg, url, contentType string, v interface{}) *http.Request {
 	var body []byte
 
 	switch m := v.(type) {
@@ -966,6 +980,13 @@ func putManifest(t *testing.T, msg, url, contentType string, v interface{}) *htt
 		req.Header.Set("Content-Type", contentType)
 	}
 
+	return req
+}
+
+func putManifest(t *testing.T, msg, url, contentType string, v interface{}, requestopts ...requestOpt) *http.Response {
+	req := putManifestRequest(t, msg, url, contentType, v)
+	req = newRequest(req, requestopts...)
+
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("error doing put request while %s: %v", msg, err)
@@ -974,7 +995,7 @@ func putManifest(t *testing.T, msg, url, contentType string, v interface{}) *htt
 	return resp
 }
 
-func startPushLayer(t *testing.T, env *testEnv, name reference.Named) (location string, uuid string) {
+func startPushLayerRequest(t *testing.T, env *testEnv, name reference.Named) *http.Request {
 	t.Helper()
 
 	layerUploadURL, err := env.builder.BuildBlobUploadURL(name)
@@ -993,7 +1014,22 @@ func startPushLayer(t *testing.T, env *testEnv, name reference.Named) (location 
 	}
 
 	layerUploadURL = base.ResolveReference(u).String()
-	resp, err := http.Post(layerUploadURL, "", nil)
+	req, err := http.NewRequest(http.MethodPost, layerUploadURL, nil)
+	if err != nil {
+		t.Fatalf("unexpected error creating new request: %v", err)
+	}
+	req.Header.Set("Content-Type", "")
+
+	return req
+}
+
+func startPushLayer(t *testing.T, env *testEnv, name reference.Named, requestopts ...requestOpt) (location string, uuid string) {
+	t.Helper()
+
+	req := startPushLayerRequest(t, env, name)
+	req = newRequest(req, requestopts...)
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("unexpected error starting layer push: %v", err)
 	}
@@ -1002,7 +1038,7 @@ func startPushLayer(t *testing.T, env *testEnv, name reference.Named) (location 
 
 	checkResponse(t, fmt.Sprintf("pushing starting layer push %v", name.String()), resp, http.StatusAccepted)
 
-	u, err = url.Parse(resp.Header.Get("Location"))
+	u, err := url.Parse(resp.Header.Get("Location"))
 	if err != nil {
 		t.Fatalf("error parsing location header: %v", err)
 	}
@@ -1017,9 +1053,7 @@ func startPushLayer(t *testing.T, env *testEnv, name reference.Named) (location 
 	return resp.Header.Get("Location"), uuid
 }
 
-// doPushLayer pushes the layer content returning the url on success returning
-// the response. If you're only expecting a successful response, use pushLayer.
-func doPushLayer(t *testing.T, ub *urls.Builder, name reference.Named, dgst digest.Digest, uploadURLBase string, body io.Reader) (*http.Response, error) {
+func doPushLayerRequest(t *testing.T, ub *urls.Builder, name reference.Named, dgst digest.Digest, uploadURLBase string, body io.Reader) *http.Request {
 	u, err := url.Parse(uploadURLBase)
 	if err != nil {
 		t.Fatalf("unexpected error parsing pushLayer url: %v", err)
@@ -1037,15 +1071,22 @@ func doPushLayer(t *testing.T, ub *urls.Builder, name reference.Named, dgst dige
 	if err != nil {
 		t.Fatalf("unexpected error creating new request: %v", err)
 	}
+	return req
+}
 
+// doPushLayer pushes the layer content returning the url on success returning
+// the response. If you're only expecting a successful response, use pushLayer.
+func doPushLayer(t *testing.T, ub *urls.Builder, name reference.Named, dgst digest.Digest, uploadURLBase string, body io.Reader, requestopts ...requestOpt) (*http.Response, error) {
+	req := doPushLayerRequest(t, ub, name, dgst, uploadURLBase, body)
+	req = newRequest(req, requestopts...)
 	return http.DefaultClient.Do(req)
 }
 
 // pushLayer pushes the layer content returning the url on success.
-func pushLayer(t *testing.T, ub *urls.Builder, name reference.Named, dgst digest.Digest, uploadURLBase string, body io.Reader) string {
+func pushLayer(t *testing.T, ub *urls.Builder, name reference.Named, dgst digest.Digest, uploadURLBase string, body io.Reader, requestopts ...requestOpt) string {
 	digester := digest.Canonical.Digester()
 
-	resp, err := doPushLayer(t, ub, name, dgst, uploadURLBase, io.TeeReader(body, digester.Hash()))
+	resp, err := doPushLayer(t, ub, name, dgst, uploadURLBase, io.TeeReader(body, digester.Hash()), requestopts...)
 	if err != nil {
 		t.Fatalf("unexpected error doing push layer request: %v", err)
 	}
@@ -1074,8 +1115,8 @@ func pushLayer(t *testing.T, ub *urls.Builder, name reference.Named, dgst digest
 	return resp.Header.Get("Location")
 }
 
-func finishUpload(t *testing.T, ub *urls.Builder, name reference.Named, uploadURLBase string, dgst digest.Digest) string {
-	resp, err := doPushLayer(t, ub, name, dgst, uploadURLBase, nil)
+func finishUpload(t *testing.T, ub *urls.Builder, name reference.Named, uploadURLBase string, dgst digest.Digest, requestopts ...requestOpt) string {
+	resp, err := doPushLayer(t, ub, name, dgst, uploadURLBase, nil, requestopts...)
 	if err != nil {
 		t.Fatalf("unexpected error doing push layer request: %v", err)
 	}
@@ -1098,7 +1139,7 @@ func finishUpload(t *testing.T, ub *urls.Builder, name reference.Named, uploadUR
 	return resp.Header.Get("Location")
 }
 
-func doPushChunk(t *testing.T, uploadURLBase string, body io.Reader) (*http.Response, digest.Digest, error) {
+func doPushChunkRequest(t *testing.T, uploadURLBase string, body io.Reader) (*http.Request, digest.Digester) {
 	u, err := url.Parse(uploadURLBase)
 	if err != nil {
 		t.Fatalf("unexpected error parsing pushLayer url: %v", err)
@@ -1117,14 +1158,19 @@ func doPushChunk(t *testing.T, uploadURLBase string, body io.Reader) (*http.Resp
 		t.Fatalf("unexpected error creating new request: %v", err)
 	}
 	req.Header.Set("Content-Type", "application/octet-stream")
+	return req, digester
+}
 
+func doPushChunk(t *testing.T, uploadURLBase string, body io.Reader, requestopts ...requestOpt) (*http.Response, digest.Digest, error) {
+	req, digester := doPushChunkRequest(t, uploadURLBase, body)
+	req = newRequest(req, requestopts...)
 	resp, err := http.DefaultClient.Do(req)
 
 	return resp, digester.Digest(), err
 }
 
-func pushChunk(t *testing.T, ub *urls.Builder, name reference.Named, uploadURLBase string, body io.Reader, length int64) (string, digest.Digest) {
-	resp, dgst, err := doPushChunk(t, uploadURLBase, body)
+func pushChunk(t *testing.T, ub *urls.Builder, name reference.Named, uploadURLBase string, body io.Reader, length int64, requestopts ...requestOpt) (string, digest.Digest) {
+	resp, dgst, err := doPushChunk(t, uploadURLBase, body, requestopts...)
 	if err != nil {
 		t.Fatalf("unexpected error doing push layer request: %v", err)
 	}
@@ -1392,20 +1438,30 @@ func createNamedRepoWithBlob(t *testing.T, env *testEnv, repoName string) (blobA
 	return args, blobURL
 }
 
-func assertGetResponse(t *testing.T, url string, expectedStatus int) {
+func assertGetResponse(t *testing.T, url string, expectedStatus int, opts ...requestOpt) {
 	t.Helper()
 
-	resp, err := http.Get(url)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	require.NoError(t, err)
+	for _, o := range opts {
+		o(req)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
 	require.Equal(t, expectedStatus, resp.StatusCode)
 }
 
-func assertHeadResponse(t *testing.T, url string, expectedStatus int) {
+func assertHeadResponse(t *testing.T, url string, expectedStatus int, opts ...requestOpt) {
 	t.Helper()
 
-	resp, err := http.Head(url)
+	req, err := http.NewRequest(http.MethodHead, url, nil)
+	require.NoError(t, err)
+	for _, o := range opts {
+		o(req)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
@@ -1467,7 +1523,7 @@ func assertTagDeleteResponse(t *testing.T, env *testEnv, repoName, tagName strin
 	assertDeleteResponse(t, u, expectedStatus)
 }
 
-func assertBlobGetResponse(t *testing.T, env *testEnv, repoName string, dgst digest.Digest, expectedStatus int) {
+func assertBlobGetResponse(t *testing.T, env *testEnv, repoName string, dgst digest.Digest, expectedStatus int, opts ...requestOpt) {
 	t.Helper()
 
 	tmp, err := reference.WithName(repoName)
@@ -1477,10 +1533,10 @@ func assertBlobGetResponse(t *testing.T, env *testEnv, repoName string, dgst dig
 	u, err := env.builder.BuildBlobURL(ref)
 	require.NoError(t, err)
 
-	assertGetResponse(t, u, expectedStatus)
+	assertGetResponse(t, u, expectedStatus, opts...)
 }
 
-func assertBlobHeadResponse(t *testing.T, env *testEnv, repoName string, dgst digest.Digest, expectedStatus int) {
+func assertBlobHeadResponse(t *testing.T, env *testEnv, repoName string, dgst digest.Digest, expectedStatus int, opts ...requestOpt) {
 	t.Helper()
 
 	tmp, err := reference.WithName(repoName)
@@ -1490,7 +1546,7 @@ func assertBlobHeadResponse(t *testing.T, env *testEnv, repoName string, dgst di
 	u, err := env.builder.BuildBlobURL(ref)
 	require.NoError(t, err)
 
-	assertHeadResponse(t, u, expectedStatus)
+	assertHeadResponse(t, u, expectedStatus, opts...)
 }
 
 func assertBlobDeleteResponse(t *testing.T, env *testEnv, repoName string, dgst digest.Digest, expectedStatus int) {
@@ -1537,32 +1593,32 @@ func assertBlobPostMountResponse(t *testing.T, env *testEnv, srcRepoName, destRe
 	assertPostResponse(t, u, nil, nil, expectedStatus)
 }
 
-func assertManifestGetByDigestResponse(t *testing.T, env *testEnv, repoName string, m distribution.Manifest, expectedStatus int) {
+func assertManifestGetByDigestResponse(t *testing.T, env *testEnv, repoName string, m distribution.Manifest, expectedStatus int, opts ...requestOpt) {
 	t.Helper()
 
 	u := buildManifestDigestURL(t, env, repoName, m)
-	assertGetResponse(t, u, expectedStatus)
+	assertGetResponse(t, u, expectedStatus, opts...)
 }
 
-func assertManifestGetByTagResponse(t *testing.T, env *testEnv, repoName, tagName string, expectedStatus int) {
+func assertManifestGetByTagResponse(t *testing.T, env *testEnv, repoName, tagName string, expectedStatus int, opts ...requestOpt) {
 	t.Helper()
 
 	u := buildManifestTagURL(t, env, repoName, tagName)
-	assertGetResponse(t, u, expectedStatus)
+	assertGetResponse(t, u, expectedStatus, opts...)
 }
 
-func assertManifestHeadByDigestResponse(t *testing.T, env *testEnv, repoName string, m distribution.Manifest, expectedStatus int) {
+func assertManifestHeadByDigestResponse(t *testing.T, env *testEnv, repoName string, m distribution.Manifest, expectedStatus int, opts ...requestOpt) {
 	t.Helper()
 
 	u := buildManifestDigestURL(t, env, repoName, m)
-	assertHeadResponse(t, u, expectedStatus)
+	assertHeadResponse(t, u, expectedStatus, opts...)
 }
 
-func assertManifestHeadByTagResponse(t *testing.T, env *testEnv, repoName, tagName string, expectedStatus int) {
+func assertManifestHeadByTagResponse(t *testing.T, env *testEnv, repoName, tagName string, expectedStatus int, opts ...requestOpt) {
 	t.Helper()
 
 	u := buildManifestTagURL(t, env, repoName, tagName)
-	assertHeadResponse(t, u, expectedStatus)
+	assertHeadResponse(t, u, expectedStatus, opts...)
 }
 
 func assertManifestPutByDigestResponse(t *testing.T, env *testEnv, repoName string, m distribution.Manifest, mediaType string, expectedStatus int) {
@@ -1728,6 +1784,13 @@ func fullAccessTokenWithProjectMeta(projectPath, repositoryName string) []*token
 	}
 }
 
+// deleteAccessTokenWithProjectMeta grants a delete action scope token for the specified repository and project path
+func deleteAccessTokenWithProjectMeta(projectPath, repositoryName string) []*token.ResourceActions {
+	return []*token.ResourceActions{
+		{Type: "repository", Name: repositoryName, Actions: []string{"delete"}, Meta: &token.Meta{ProjectPath: projectPath}},
+	}
+}
+
 // requireRenameTTLInRange makes sure that the rename operation TTL is within an acceptable range of an expected duration
 func requireRenameTTLInRange(t *testing.T, actualTTL time.Time, expectedTTLDuration time.Duration) {
 	t.Helper()
@@ -1736,4 +1799,61 @@ func requireRenameTTLInRange(t *testing.T, actualTTL time.Time, expectedTTLDurat
 	require.WithinRange(t, actualTTL, lowerBound, upperBound,
 		"rename TTL of %s should be between %s and %s",
 		actualTTL.String(), lowerBound.String(), upperBound.String())
+}
+
+// acquireProjectLease enacts a project lease for `projectPath` in the `redisCache` for time `TTL` duration
+func acquireProjectLease(t *testing.T, redisCache *gocache.Cache[any], projectPath string, TTL time.Duration) {
+	t.Helper()
+	// enact a lease on the project path which will be used to block all
+	// write operations to the existing repositories in the given GitLab project.
+
+	// create the lease store
+	plStore, err := datastore.NewProjectLeaseStore(datastore.NewCentralProjectLeaseCache(redisCache))
+	require.NoError(t, err)
+
+	// invalidate the key if it already exists
+	err = plStore.Invalidate(context.Background(), projectPath)
+	require.NoError(t, err)
+
+	// create a lease that expires in less than TTL duration .
+	err = plStore.Set(context.Background(), projectPath, TTL)
+	require.NoError(t, err)
+
+}
+
+// releaseProjectLease releases an existing project lease for `projectPath` in the `redisCache`
+func releaseProjectLease(t *testing.T, redisCache *gocache.Cache[any], projectPath string) {
+	t.Helper()
+	plStore, err := datastore.NewProjectLeaseStore(datastore.NewCentralProjectLeaseCache(redisCache))
+	require.NoError(t, err)
+	err = plStore.Invalidate(context.Background(), projectPath)
+	require.NoError(t, err)
+}
+
+type requestOpt func(r *http.Request)
+
+func witAuthToken(token string) requestOpt {
+	return func(r *http.Request) {
+		r.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
+	}
+}
+
+func newRequest(request *http.Request, opts ...requestOpt) *http.Request {
+	for _, o := range opts {
+		o(request)
+	}
+	return request
+}
+
+// setupValidRenameEnv will setup redis & use token based authorization for all proceeding requests.
+// Redis & token based authorization are the two main registry configurations required to use any rename functionality
+// (i.e enacting a rename or checking for an ongoing rename) when operating with the metadata database.
+// This function will also set the OngoingRenameCheck FF to true
+func setupValidRenameEnv(t *testing.T, opts ...configOpt) (*testEnv, internaltestutil.RedisCacheController, *authTokenProvider) {
+	redisController := internaltestutil.NewRedisCacheController(t, 0)
+	tokenProvider := NewAuthTokenProvider(t)
+	env := newTestEnv(t, append(opts, withRedisCache(redisController.Addr()), withTokenAuth(tokenProvider.CertPath(), defaultIssuerProps()))...)
+	// Enable the rename lease check environment variable
+	t.Setenv(feature.OngoingRenameCheck.EnvVariable, "true")
+	return env, redisController, tokenProvider
 }

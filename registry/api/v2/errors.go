@@ -163,4 +163,12 @@ var (
 		proceed.`,
 		HTTPStatusCode: http.StatusConflict,
 	})
+
+	// ErrorCodeRenameInProgress when a repository base path is undergoing a rename.
+	ErrorCodeRenameInProgress = errcode.Register(errGroup, errcode.ErrorDescriptor{
+		Value:          "RENAME_IN_PROGRESS",
+		Message:        "the base repository path is undergoing a rename",
+		Description:    "The GitLab project associated with the repository is undergoing a rename",
+		HTTPStatusCode: http.StatusConflict,
+	})
 )

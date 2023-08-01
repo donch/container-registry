@@ -44,15 +44,14 @@ func blobUploadDispatcher(ctx *Context, r *http.Request) http.Handler {
 func (buh *blobUploadHandler) validateUpload(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if buh.UUID != "" {
-			if h := buh.ResumeBlobUpload(buh.Context, r); h != nil {
-				h.ServeHTTP(w, r)
-			} else {
-				h := closeResources(handler, buh.Upload)
-				h.ServeHTTP(w, r)
+			h := buh.ResumeBlobUpload(buh.Context, r)
+			if h == nil {
+				h = closeResources(handler, buh.Upload)
 			}
+			checkOngoingRename(h, buh.Context).ServeHTTP(w, r)
 			return
 		}
-		handler.ServeHTTP(w, r)
+		checkOngoingRename(handler, buh.Context).ServeHTTP(w, r)
 	})
 }
 
