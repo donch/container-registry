@@ -94,7 +94,7 @@ func manifestDispatcher(ctx *Context, r *http.Request) http.Handler {
 		mhandler["DELETE"] = http.HandlerFunc(manifestHandler.DeleteManifest)
 	}
 
-	return mhandler
+	return checkOngoingRename(mhandler, ctx)
 }
 
 // manifestHandler handles http operations on image manifests.

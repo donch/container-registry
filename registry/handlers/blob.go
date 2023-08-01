@@ -45,8 +45,7 @@ func blobDispatcher(ctx *Context, r *http.Request) http.Handler {
 	if !ctx.readOnly {
 		mhandler["DELETE"] = http.HandlerFunc(blobHandler.DeleteBlob)
 	}
-
-	return mhandler
+	return checkOngoingRename(mhandler, ctx)
 }
 
 // blobHandler serves http blob requests.
