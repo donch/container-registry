@@ -83,7 +83,7 @@ func (th *tagsHandler) GetTags(w http.ResponseWriter, r *http.Request) {
 	lastEntry := q.Get("last")
 	maxEntries, err := strconv.Atoi(q.Get("n"))
 	if err != nil || maxEntries <= 0 {
-		maxEntries = maximumReturnedEntries
+		maxEntries = defaultMaximumReturnedEntries
 	}
 
 	filters := datastore.FilterParams{

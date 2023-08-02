@@ -115,6 +115,7 @@ func TestAPIConformance(t *testing.T) {
 
 		catalog_Get,
 		catalog_Get_Empty,
+		catalog_Get_TooLarge,
 	}
 
 	type envOpt struct {
@@ -3320,4 +3321,19 @@ func catalog_Get_Empty(t *testing.T, opts ...configOpt) {
 
 	require.Len(t, body.Repositories, 0)
 	require.Empty(t, resp.Header.Get("Link"))
+}
+
+func catalog_Get_TooLarge(t *testing.T, opts ...configOpt) {
+	env := newTestEnv(t, opts...)
+	defer env.Shutdown()
+
+	catalogURL, err := env.builder.BuildCatalogURL(url.Values{"n": []string{"500000000000"}})
+	require.NoError(t, err)
+
+	resp, err := http.Get(catalogURL)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	checkBodyHasErrorCodes(t, "requesting too many repos", resp, v2.ErrorCodePaginationNumberInvalid)
 }
