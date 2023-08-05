@@ -25,7 +25,7 @@ require (
 	github.com/jackc/pgconn v1.14.1
 	github.com/jackc/pgerrcode v0.0.0-20220416144525-469b46aa5efa
 	github.com/jackc/pgx/v4 v4.17.2
-	github.com/jszwec/csvutil v1.7.1
+	github.com/jszwec/csvutil v1.8.0
 	github.com/miekg/dns v1.1.55
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/ncw/swift v1.0.53
