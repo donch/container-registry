@@ -24,7 +24,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jackc/pgconn v1.14.1
 	github.com/jackc/pgerrcode v0.0.0-20220416144525-469b46aa5efa
-	github.com/jackc/pgx/v4 v4.17.2
+	github.com/jackc/pgx/v4 v4.18.1
 	github.com/jszwec/csvutil v1.8.0
 	github.com/miekg/dns v1.1.55
 	github.com/mitchellh/mapstructure v1.5.0
@@ -97,7 +97,7 @@ require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgproto3/v2 v2.3.2 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
-	github.com/jackc/pgtype v1.12.0 // indirect
+	github.com/jackc/pgtype v1.14.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
