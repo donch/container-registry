@@ -29,11 +29,10 @@ BEGIN
         SELECT
             1
         FROM
-            information_schema.constraint_column_usage
+            pg_constraint
         WHERE
-            table_name = 'repositories'
-            AND column_name = 'path'
-            AND constraint_name = 'uq_repositories_path') THEN
+            conrelid = 'public.repositories'::regclass
+            AND conname = 'uq_repositories_path') THEN
         ALTER TABLE public.repositories
             ADD CONSTRAINT uq_repositories_path UNIQUE (path);
     END IF;
