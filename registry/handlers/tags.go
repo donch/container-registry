@@ -238,6 +238,9 @@ func dbDeleteTag(ctx context.Context, db datastore.Handler, cache datastore.Repo
 func (th *tagHandler) DeleteTag(w http.ResponseWriter, r *http.Request) {
 	l := log.GetLogger(log.WithContext(th))
 	l.Debug("DeleteTag")
+	l.Warn("The DELETE /v2/<name>/tags/reference/<tag> API endpoint is deprecated and will be removed in " +
+		"GitLab 17.0. Please use the new DELETE /v2/<name>/manifests/<tag> endpoint to delete tags. " +
+		"See https://gitlab.com/gitlab-org/container-registry/-/issues/1094 for more details")
 
 	if !th.useDatabase {
 		tagService := th.Repository.Tags(th)
