@@ -1737,6 +1737,12 @@ Delete tags.
 
 #### DELETE Tag
 
+> **DEPRECATED:** This endpoint is deprecated and will be removed in GitLab 17.0. Please use the new 
+> `DELETE /v2/<name>/manifests/<tag>` endpoint instead, which is documented in the
+> [OCI Distribution Spec](https://github.com/opencontainers/distribution-spec/blob/6bc87156eacf3b73362db343eb6b63d7abeedf7e/spec.md#deleting-tags).
+> See [gitlab-org/container-registry#1094](https://gitlab.com/gitlab-org/container-registry/-/issues/1094) for more
+> details.
+
 Delete a tag identified by `name` and `reference`, where reference can be the tag name. This method never deletes a manifest the tag references.
 
 
