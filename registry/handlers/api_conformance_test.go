@@ -70,8 +70,12 @@ func TestAPIConformance(t *testing.T) {
 		manifest_Delete_Schema2_MissingManifest,
 		manifest_Delete_Schema2_ClearsTags,
 		manifest_Delete_Schema2_DeleteDisabled,
-		manifest_Put_Schema2_WithNonDistributableLayers,
 
+		manifest_Delete_Tag,
+		manifest_Delete_Tag_Unknown,
+		manifest_Delete_Tag_DeleteDisabled,
+
+		manifest_Put_Schema2_WithNonDistributableLayers,
 		manifest_Put_OCI_ByDigest,
 		manifest_Put_OCI_ByTag,
 		manifest_Get_OCI_MatchingEtag,
@@ -1808,6 +1812,87 @@ func manifest_Delete_Schema2_DeleteDisabled(t *testing.T, opts ...configOpt) {
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
+	require.Equal(t, http.StatusMethodNotAllowed, resp.StatusCode)
+}
+
+func manifest_Delete_Tag(t *testing.T, opts ...configOpt) {
+	opts = append(opts, withDelete)
+	env := newTestEnv(t, opts...)
+	defer env.Shutdown()
+
+	imageName, err := reference.WithName("foo/bar")
+	require.NoError(t, err)
+
+	tag := "latest"
+	dgst := createRepository(t, env, imageName.Name(), tag)
+
+	ref, err := reference.WithTag(imageName, tag)
+	require.NoError(t, err)
+
+	u, err := env.builder.BuildManifestURL(ref)
+	require.NoError(t, err)
+
+	resp, err := httpDelete(u)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	resp, err = http.Get(u)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+
+	digestRef, err := reference.WithDigest(imageName, dgst)
+	require.NoError(t, err)
+
+	u, err = env.builder.BuildManifestURL(digestRef)
+	require.NoError(t, err)
+
+	resp, err = http.Head(u)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
+func manifest_Delete_Tag_Unknown(t *testing.T, opts ...configOpt) {
+	opts = append(opts, withDelete)
+	env := newTestEnv(t, opts...)
+	defer env.Shutdown()
+
+	imageName, err := reference.WithName("foo/bar")
+	require.NoError(t, err)
+
+	// create repo with another tag so that we don't hit a repository unknown error
+	createRepository(t, env, imageName.Name(), "1.2.3")
+
+	ref, err := reference.WithTag(imageName, "3.2.1")
+	require.NoError(t, err)
+
+	u, err := env.builder.BuildManifestURL(ref)
+	require.NoError(t, err)
+
+	resp, err := httpDelete(u)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+	checkBodyHasErrorCodes(t, "deleting unknown tag", resp, v2.ErrorCodeManifestUnknown)
+}
+
+func manifest_Delete_Tag_DeleteDisabled(t *testing.T, opts ...configOpt) {
+	env := newTestEnv(t, opts...)
+	defer env.Shutdown()
+
+	imageName, err := reference.WithName("foo/bar")
+	require.NoError(t, err)
+	ref, err := reference.WithTag(imageName, "latest")
+	require.NoError(t, err)
+
+	u, err := env.builder.BuildManifestURL(ref)
+	require.NoError(t, err)
+
+	resp, err := httpDelete(u)
+	require.NoError(t, err)
+	defer resp.Body.Close()
 	require.Equal(t, http.StatusMethodNotAllowed, resp.StatusCode)
 }
 

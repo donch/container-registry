@@ -1378,29 +1378,67 @@ func dbDeleteManifest(ctx context.Context, db datastore.Handler, cache datastore
 	return nil
 }
 
-// DeleteManifest removes the manifest with the given digest from the registry.
-func (imh *manifestHandler) DeleteManifest(w http.ResponseWriter, r *http.Request) {
+func (imh *manifestHandler) appendTagDeleteError(err error) {
+	switch err.(type) {
+	case distribution.ErrRepositoryUnknown:
+		imh.Errors = append(imh.Errors, v2.ErrorCodeNameUnknown)
+	case distribution.ErrTagUnknown, storagedriver.PathNotFoundError:
+		imh.Errors = append(imh.Errors, v2.ErrorCodeManifestUnknown)
+	default:
+		imh.Errors = append(imh.Errors, errcode.FromUnknownError(err))
+	}
+}
+
+// DeleteTag deletes a tag for a specific image name.
+func (imh *manifestHandler) deleteTag() error {
+	l := log.GetLogger(log.WithContext(imh))
+	l.Debug("DeleteImageTag")
+
+	if !imh.useDatabase {
+		tagService := imh.Repository.Tags(imh)
+		if err := tagService.Untag(imh.Context, imh.Tag); err != nil {
+			return err
+		}
+	} else {
+		// TODO: remove as part of https://gitlab.com/gitlab-org/container-registry/-/issues/1056
+		var repoCache datastore.RepositoryCache
+		if imh.App.redisCache != nil {
+			repoCache = datastore.NewCentralRepositoryCache(imh.App.redisCache)
+		} else {
+			repoCache = imh.repoCache
+		}
+
+		if err := dbDeleteTag(imh.Context, imh.db, repoCache, imh.Repository.Named().Name(), imh.Tag); err != nil {
+			return err
+		}
+	}
+
+	if err := imh.queueBridge.TagDeleted(imh.Repository.Named(), imh.Tag); err != nil {
+		l.WithError(err).Error("dispatching tag delete to queue")
+	}
+
+	return nil
+}
+
+func (imh *manifestHandler) deleteManifest() error {
 	l := log.GetLogger(log.WithContext(imh))
 	l.Debug("DeleteImageManifest")
 
 	if !imh.useDatabase {
 		manifests, err := imh.Repository.Manifests(imh)
 		if err != nil {
-			imh.Errors = append(imh.Errors, err)
-			return
+			return err
 		}
 
 		err = manifests.Delete(imh, imh.Digest)
 		if err != nil {
-			imh.appendManifestDeleteError(err)
-			return
+			return err
 		}
 
 		tagService := imh.Repository.Tags(imh)
 		referencedTags, err := tagService.Lookup(imh, distribution.Descriptor{Digest: imh.Digest})
 		if err != nil {
-			imh.Errors = append(imh.Errors, err)
-			return
+			return err
 		}
 
 		for _, tag := range referencedTags {
@@ -1409,8 +1447,7 @@ func (imh *manifestHandler) DeleteManifest(w http.ResponseWriter, r *http.Reques
 				if errors.As(err, &storagedriver.PathNotFoundError{}) {
 					continue
 				}
-				imh.Errors = append(imh.Errors, err)
-				return
+				return err
 			}
 
 			// we also need to send the event here since we decoupled the events from the storage drivers
@@ -1419,11 +1456,6 @@ func (imh *manifestHandler) DeleteManifest(w http.ResponseWriter, r *http.Reques
 			}
 		}
 	} else {
-		if !deleteEnabled(imh.App.Config) {
-			imh.Errors = append(imh.Errors, errcode.ErrorCodeUnsupported)
-			return
-		}
-
 		// To be removed on completion of: https://gitlab.com/groups/gitlab-org/-/epics/9050
 		var repoCache datastore.RepositoryCache
 		if imh.App.redisCache != nil {
@@ -1433,13 +1465,34 @@ func (imh *manifestHandler) DeleteManifest(w http.ResponseWriter, r *http.Reques
 		}
 
 		if err := dbDeleteManifest(imh.Context, imh.db, repoCache, imh.Repository.Named().String(), imh.Digest); err != nil {
-			imh.appendManifestDeleteError(err)
-			return
+			return err
 		}
 	}
 
 	if err := imh.queueBridge.ManifestDeleted(imh.Repository.Named(), imh.Digest); err != nil {
 		l.WithError(err).Error("queuing manifest delete")
+	}
+
+	return nil
+}
+
+// DeleteManifest removes the manifest with the given digest or the tag with the given name from the registry.
+func (imh *manifestHandler) DeleteManifest(w http.ResponseWriter, _ *http.Request) {
+	if !deleteEnabled(imh.App.Config) {
+		imh.Errors = append(imh.Errors, errcode.ErrorCodeUnsupported)
+		return
+	}
+
+	if imh.Tag != "" {
+		if err := imh.deleteTag(); err != nil {
+			imh.appendTagDeleteError(err)
+			return
+		}
+	} else {
+		if err := imh.deleteManifest(); err != nil {
+			imh.appendManifestDeleteError(err)
+			return
+		}
 	}
 
 	w.WriteHeader(http.StatusAccepted)

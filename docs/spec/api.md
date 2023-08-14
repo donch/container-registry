@@ -1141,7 +1141,7 @@ A list of methods and URIs are covered in the table below:
 | DELETE | `/v2/<name>/tags/reference/<tag>` | Tag | Delete a tag identified by `name` and `reference`, where reference can be the tag name. This method never deletes a manifest the tag references. |
 | GET | `/v2/<name>/manifests/<reference>` | Manifest | Fetch the manifest identified by `name` and `reference` where `reference` can be a tag or digest. A `HEAD` request can also be issued to this endpoint to obtain resource information without receiving all data. |
 | PUT | `/v2/<name>/manifests/<reference>` | Manifest | Put the manifest identified by `name` and `reference` where `reference` can be a tag or digest. |
-| DELETE | `/v2/<name>/manifests/<reference>` | Manifest | Delete the manifest identified by `name` and `reference`. Note that a manifest can _only_ be deleted by `digest`. |
+| DELETE | `/v2/<name>/manifests/<reference>` | Manifest | Delete the manifest or tag identified by `name` and `reference` where `reference` can be a tag or digest. Note that a manifest can _only_ be deleted by digest. |
 | GET | `/v2/<name>/blobs/<digest>` | Blob | Retrieve the blob from the registry identified by `digest`. A `HEAD` request can also be issued to this endpoint to obtain resource information without receiving all data. |
 | DELETE | `/v2/<name>/blobs/<digest>` | Blob | Delete the blob identified by `name` and `digest` |
 | POST | `/v2/<name>/blobs/uploads/` | Initiate Blob Upload | Initiate a resumable blob upload. If successful, an upload location will be provided to complete the upload. Optionally, if the `digest` parameter is present, the request body will be used to complete the upload in a single request. |
@@ -2603,7 +2603,7 @@ The error codes that may be included in the response body are enumerated below:
 
 #### DELETE Manifest
 
-Delete the manifest identified by `name` and `reference`. Note that a manifest can _only_ be deleted by `digest`.
+Delete the manifest or tag identified by `name` and `reference` where `reference` can be a tag or digest. Note that a manifest can _only_ be deleted by digest.
 
 
 
@@ -2838,7 +2838,7 @@ Content-Type: application/json
 }
 ```
 
-The specified `name` or `reference` are unknown to the registry and the delete was unable to proceed. Clients can assume the manifest was already deleted if this response is returned.
+The specified `name` or `reference` are unknown to the registry and the delete was unable to proceed. Clients can assume the manifest or tag was already deleted if this response is returned.
 
 
 
@@ -2857,7 +2857,7 @@ The error codes that may be included in the response body are enumerated below:
 405 Method Not Allowed
 ```
 
-Manifest delete is not allowed because the registry is configured as a pull-through cache or `delete` has been disabled.
+Manifest or tag delete is not allowed because the registry is configured as a pull-through cache or `delete` has been disabled.
 
 
 
