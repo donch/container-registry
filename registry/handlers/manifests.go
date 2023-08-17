@@ -897,8 +897,7 @@ func dbPutManifestV2(imh *manifestHandler, mfst distribution.ManifestV2, payload
 		"repository":      repoPath,
 		"manifest_digest": imh.Digest,
 		"schema_version":  mfst.Version().SchemaVersion,
-		feature.FailOnUnknownLayerMediaTypes.EnvVariable: feature.FailOnUnknownLayerMediaTypes.Enabled(),
-		feature.AccurateLayerMediaTypes.EnvVariable:      feature.AccurateLayerMediaTypes.Enabled(),
+		feature.AccurateLayerMediaTypes.EnvVariable: feature.AccurateLayerMediaTypes.Enabled(),
 	})
 
 	// create or find target repository
@@ -976,19 +975,8 @@ func dbPutManifestV2(imh *manifestHandler, mfst distribution.ManifestV2, payload
 			// has a 1-1 relationship with with the manifest, so we want to reflect
 			// the manifest's description of the layer. Multiple manifest can reference
 			// the same blob, so the common blob storage should remain generic.
-			ok, err := layerMediaTypeExists(imh, reqLayer.MediaType)
-			if feature.AccurateLayerMediaTypes.Enabled() {
-				if err != nil && feature.FailOnUnknownLayerMediaTypes.Enabled() {
-					return err
-				}
-
-				if ok {
-					dbBlob.MediaType = reqLayer.MediaType
-				}
-
-				if !ok && feature.FailOnUnknownLayerMediaTypes.Enabled() {
-					return datastore.ErrUnknownMediaType{MediaType: reqLayer.MediaType}
-				}
+			if ok := layerMediaTypeExists(imh, reqLayer.MediaType); ok && feature.AccurateLayerMediaTypes.Enabled() {
+				dbBlob.MediaType = reqLayer.MediaType
 			}
 
 			if err := mStore.AssociateLayerBlob(imh.Context, dbManifest, dbBlob); err != nil {
@@ -1000,27 +988,23 @@ func dbPutManifestV2(imh *manifestHandler, mfst distribution.ManifestV2, payload
 	return nil
 }
 
-func layerMediaTypeExists(imh *manifestHandler, mt string) (bool, error) {
+func layerMediaTypeExists(imh *manifestHandler, mt string) bool {
 	l := log.GetLogger(log.WithContext(imh)).WithFields(log.Fields{"media_type": mt})
 	mtStore := datastore.NewMediaTypeStore(imh.App.db)
 
 	exists, err := mtStore.Exists(imh.Context, mt)
 	if err != nil {
-		if !feature.FailOnUnknownLayerMediaTypes.Enabled() {
-			// Log error if we aren't failing on unknown layer media types so that we
-			// have visibility into the error.
-			l.Error("error checking for existence of media type: %v", err)
-		}
-		return false, fmt.Errorf("checking for existence of layer media type: %v", err)
+		l.Error("error checking for existence of media type: %v", err)
+		return false
 	}
 
 	if exists {
-		return true, nil
+		return true
 	}
 
 	l.Warn("unknown layer media type")
 
-	return false, nil
+	return false
 }
 
 // dbFindRepositoryBlob finds a blob which is linked to the repository.
