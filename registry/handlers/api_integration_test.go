@@ -292,6 +292,19 @@ func testBlobAPI(t *testing.T, env *testEnv, args blobArgs) *testEnv {
 	uploadURLBase, dgst := pushChunk(t, env.builder, imageName, uploadURLBase, layerFile, layerLength)
 	finishUpload(t, env.builder, imageName, uploadURLBase, dgst)
 
+	// -----------------------------------------
+	// Push a chunk with unordered content range
+
+	layerFile.Seek(0, io.SeekStart)
+
+	uploadURLBase, _ = startPushLayer(t, env, imageName)
+	resp, _, err = doPushChunk(t, uploadURLBase, layerFile, witContentRangeHeader("8-30"))
+	if err != nil {
+		t.Fatalf("unexpected error on pushing layer: %v", err)
+	}
+	defer resp.Body.Close()
+	checkResponse(t, "uploading out of order chunk", resp, http.StatusRequestedRangeNotSatisfiable)
+
 	// ------------------------
 	// Use a head request to see if the layer exists.
 	resp, err = http.Head(layerURL)

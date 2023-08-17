@@ -1176,6 +1176,7 @@ The error codes encountered via the API are enumerated in the following table:
  `DENIED` | requested access to the resource is denied | The access controller denied access for the operation on a resource.
  `UNSUPPORTED` | The operation is unsupported. | The operation was unsupported due to a missing implementation or invalid set of parameters.
  `RENAME_IN_PROGRESS` | the base repository path is undergoing a rename. | This is returned when the path where a repository resides is undergoing a rename.
+ `CONTENT_RANGE_INVALID` | invalid content range | A layer chunked upload is checked against the pre-uploaded chunks - using the content range header, this error code is returned when a layer chunk is uploaded out of order.
 
 
 
@@ -5220,9 +5221,29 @@ The error codes that may be included in the response body are enumerated below:
 
 ```
 416 Requested Range Not Satisfiable
+Content-Type: application/json
+
+{
+	"errors:" [
+	    {
+            "code": <error code>,
+            "message": "<error message>",
+            "detail": ...
+        },
+        ...
+    ]
+}
 ```
 
 The `Content-Range` specification cannot be accepted, either because it does not overlap with the current progress or it is invalid.
+
+
+
+The error codes that may be included in the response body are enumerated below:
+
+|Code|Message|Description|
+|----|-------|-----------|
+| `CONTENT_RANGE_INVALID` | invalid content range | If a layer chunk is uploaded with the content range out of order, this error will be returned. |
 
 
 

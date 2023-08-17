@@ -171,4 +171,13 @@ var (
 		Description:    "The GitLab project associated with the repository is undergoing a rename",
 		HTTPStatusCode: http.StatusConflict,
 	})
+
+	// ErrorCodeInvalidContentRange is returned when uploading a blob if the provided
+	// content range is invalid.
+	ErrorCodeInvalidContentRange = errcode.Register(errGroup, errcode.ErrorDescriptor{
+		Value:          "CONTENT_RANGE_INVALID",
+		Message:        "invalid content range",
+		Description:    "If a layer chunk is uploaded with the range out of order, this error will be returned",
+		HTTPStatusCode: http.StatusRequestedRangeNotSatisfiable,
+	})
 )
