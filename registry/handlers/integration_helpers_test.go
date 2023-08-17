@@ -1838,6 +1838,12 @@ func witAuthToken(token string) requestOpt {
 	}
 }
 
+func witContentRangeHeader(contentRange string) requestOpt {
+	return func(r *http.Request) {
+		r.Header.Add("Content-Range", contentRange)
+	}
+}
+
 func newRequest(request *http.Request, opts ...requestOpt) *http.Request {
 	for _, o := range opts {
 		o(request)

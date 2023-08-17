@@ -175,7 +175,21 @@ func (buh *blobUploadHandler) PatchBlobData(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// TODO(dmcgowan): support Content-Range header to seek and write range
+	chunkRange := r.Header.Get("Content-Range")
+
+	if chunkRange != "" {
+		startRange, _, err := parseContentRange(chunkRange)
+		if err != nil {
+			buh.Errors = append(buh.Errors, errcode.ErrorCodeUnknown.WithDetail(err.Error()))
+			return
+		}
+		// chunks MUST be uploaded in order, with the first byte of a chunk
+		// being the last chunk's end offset + 1 (which is equivalent to ` buh.State.Offset`)
+		if startRange != buh.State.Offset {
+			buh.Errors = append(buh.Errors, v2.ErrorCodeInvalidContentRange)
+			return
+		}
+	}
 
 	if err := copyFullPayload(buh, w, r, buh.Upload, -1, "blob PATCH"); err != nil {
 		buh.Errors = append(buh.Errors, errcode.FromUnknownError(err))
