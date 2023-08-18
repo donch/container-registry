@@ -788,77 +788,35 @@ func TestManifestAPI_Put_LayerMediaType(t *testing.T) {
 	genericBlobMediaType := "application/octet-stream"
 
 	tt := []struct {
-		name                         string
-		unknownLayerMediaType        bool
-		failOnUnknownLayerMediaTypes bool
-		accurateLayerMediaTypes      bool
+		name                    string
+		unknownLayerMediaType   bool
+		accurateLayerMediaTypes bool
 
 		wantGenericBlobMediaType bool
-		wantError                bool
 	}{
 		{
-			name:                         "known layer media type accurate layer media types disabled and no fail on unknown media types",
-			unknownLayerMediaType:        false,
-			failOnUnknownLayerMediaTypes: false,
-			accurateLayerMediaTypes:      false,
-			wantGenericBlobMediaType:     true,
-			wantError:                    false,
+			name:                     "known layer media type and accurate layer media types disabled",
+			unknownLayerMediaType:    false,
+			accurateLayerMediaTypes:  false,
+			wantGenericBlobMediaType: true,
 		},
 		{
-			name:                         "known layer media type accurate layer media types enabled and no fail on unknown media types",
-			unknownLayerMediaType:        false,
-			failOnUnknownLayerMediaTypes: false,
-			accurateLayerMediaTypes:      true,
-			wantGenericBlobMediaType:     false,
-			wantError:                    false,
+			name:                     "known layer media type and accurate layer media types enabled",
+			unknownLayerMediaType:    false,
+			accurateLayerMediaTypes:  true,
+			wantGenericBlobMediaType: false,
 		},
 		{
-			name:                         "known layer media type accurate layer media types disabled and fail on unknown media types",
-			unknownLayerMediaType:        false,
-			failOnUnknownLayerMediaTypes: true,
-			accurateLayerMediaTypes:      false,
-			wantGenericBlobMediaType:     true,
-			wantError:                    false,
+			name:                     "unknown layer media type and accurate layer media types disabled",
+			unknownLayerMediaType:    true,
+			accurateLayerMediaTypes:  false,
+			wantGenericBlobMediaType: true,
 		},
 		{
-			name:                         "known layer media type accurate layer media types enabled and fail on unknown media types",
-			unknownLayerMediaType:        false,
-			failOnUnknownLayerMediaTypes: true,
-			accurateLayerMediaTypes:      true,
-			wantGenericBlobMediaType:     false,
-			wantError:                    false,
-		},
-		{
-			name:                         "unknown layer media type accurate layer media types disabled and no fail on unknown media types",
-			unknownLayerMediaType:        true,
-			failOnUnknownLayerMediaTypes: false,
-			accurateLayerMediaTypes:      false,
-			wantGenericBlobMediaType:     true,
-			wantError:                    false,
-		},
-		{
-			name:                         "unknown layer media type accurate layer media types enabled and no fail on unknown media types",
-			unknownLayerMediaType:        true,
-			failOnUnknownLayerMediaTypes: false,
-			accurateLayerMediaTypes:      true,
-			wantGenericBlobMediaType:     true,
-			wantError:                    false,
-		},
-		{
-			name:                         "unknown layer media type accurate layer media types disabled and fail on unknown media types",
-			unknownLayerMediaType:        true,
-			failOnUnknownLayerMediaTypes: true,
-			accurateLayerMediaTypes:      false,
-			wantGenericBlobMediaType:     true,
-			wantError:                    false,
-		},
-		{
-			name:                         "unknown layer media type accurate layer media types enabled and fail on unknown media types",
-			unknownLayerMediaType:        true,
-			failOnUnknownLayerMediaTypes: true,
-			accurateLayerMediaTypes:      true,
-			wantGenericBlobMediaType:     false,
-			wantError:                    true,
+			name:                     "unknown layer media type and accurate layer media types enabled",
+			unknownLayerMediaType:    true,
+			accurateLayerMediaTypes:  true,
+			wantGenericBlobMediaType: true,
 		},
 	}
 
@@ -911,16 +869,9 @@ func TestManifestAPI_Put_LayerMediaType(t *testing.T) {
 
 			// Enable envvars
 			t.Setenv(feature.AccurateLayerMediaTypes.EnvVariable, strconv.FormatBool(test.accurateLayerMediaTypes))
-			t.Setenv(feature.FailOnUnknownLayerMediaTypes.EnvVariable, strconv.FormatBool(test.failOnUnknownLayerMediaTypes))
 
 			resp := putManifest(t, "putting manifest", tagURL, schema2.MediaTypeManifest, deserializedManifest.Manifest)
 			defer resp.Body.Close()
-
-			if test.wantError {
-				require.Equal(t, http.StatusBadRequest, resp.StatusCode)
-				checkBodyHasErrorCodes(t, "invalid manifest", resp, v2.ErrorCodeManifestInvalid)
-				return
-			}
 
 			require.Equal(t, http.StatusCreated, resp.StatusCode)
 
