@@ -14,7 +14,7 @@ require (
 	github.com/denverdino/aliyungo v0.0.0-20230411124812-ab98a9173ace
 	github.com/docker/go-metrics v0.0.1
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7
-	github.com/eko/gocache/lib/v4 v4.1.3
+	github.com/eko/gocache/lib/v4 v4.1.4
 	github.com/eko/gocache/store/redis/v4 v4.2.0
 	github.com/getsentry/sentry-go v0.23.0
 	github.com/go-redis/redismock/v9 v9.0.3
