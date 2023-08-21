@@ -347,7 +347,7 @@ func (g *dbManifestGetter) GetByTag(ctx context.Context, tagName string) (distri
 		return nil, "", distribution.ErrTagUnknown{Tag: tagName}
 	}
 
-	l.WithFields(log.Fields{"db_migration_status": dbRepo.MigrationStatus}).Info("getting manifest by tag from database")
+	l.Info("getting manifest by tag from database")
 	dbManifest, err := g.FindManifestByTagName(ctx, dbRepo, tagName)
 	if err != nil {
 		return nil, "", err
@@ -389,7 +389,7 @@ func (g *dbManifestGetter) GetByDigest(ctx context.Context, dgst digest.Digest) 
 			Revision: dgst,
 		}
 	}
-	l.WithFields(log.Fields{"db_migration_status": dbRepo.MigrationStatus}).Info("getting manifest by digest from database")
+	l.Info("getting manifest by digest from database")
 
 	// Find manifest by its digest
 	dbManifest, err := g.FindManifestByDigest(ctx, dbRepo, dgst)
@@ -906,7 +906,7 @@ func dbPutManifestV2(imh *manifestHandler, mfst distribution.ManifestV2, payload
 	if err != nil {
 		return err
 	}
-	l.WithFields(log.Fields{"db_migration_status": dbRepo.MigrationStatus}).Info("putting manifest")
+	l.Info("putting manifest")
 
 	// Find the config now to ensure that the config's blob is associated with the repository.
 	dbCfgBlob, err := dbFindRepositoryBlob(imh.Context, rStore, mfst.Config(), dbRepo.Path)
