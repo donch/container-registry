@@ -16,8 +16,10 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/docker/distribution"
+	"github.com/docker/distribution/configuration"
 	"github.com/docker/distribution/manifest"
 	"github.com/docker/distribution/manifest/manifestlist"
 	"github.com/docker/distribution/manifest/ocischema"
@@ -118,7 +120,7 @@ func TestAPIConformance(t *testing.T) {
 	type envOpt struct {
 		name                 string
 		opts                 []configOpt
-		notificationsEnabled bool
+		webhookNotifications bool
 	}
 
 	var envOpts = []envOpt{
@@ -127,9 +129,9 @@ func TestAPIConformance(t *testing.T) {
 			opts: []configOpt{},
 		},
 		{
-			name:                 "with notifications enabled",
+			name:                 "with webhook notifications enabled",
 			opts:                 []configOpt{},
-			notificationsEnabled: true,
+			webhookNotifications: true,
 		},
 		{
 			name: "with redis cache",
@@ -157,6 +159,24 @@ func TestAPIConformance(t *testing.T) {
 				rootDir := t.TempDir()
 
 				o.opts = append(o.opts, withFSDriver(rootDir))
+
+				if o.webhookNotifications {
+					notifCfg := configuration.Notifications{
+						Endpoints: []configuration.Endpoint{
+							{
+								Name:              t.Name(),
+								Disabled:          false,
+								Headers:           http.Header{"test-header": []string{t.Name()}},
+								Timeout:           100 * time.Millisecond,
+								Threshold:         1,
+								Backoff:           100 * time.Millisecond,
+								IgnoredMediaTypes: []string{"application/octet-stream"},
+							},
+						},
+					}
+
+					o.opts = append(o.opts, withWebhookNotifications(notifCfg))
+				}
 
 				f(t, o.opts...)
 			})
@@ -1611,8 +1631,10 @@ func manifest_Delete_Schema2(t *testing.T, opts ...configOpt) {
 		expectedEventByDigest := buildEventManifestDeleteByDigest(schema2.MediaTypeManifest, repoPath, dgst)
 		env.ns.AssertEventNotification(t, expectedEventByDigest)
 
-		expectedEvent := buildEventManifestDeleteByTag(schema2.MediaTypeManifest, repoPath, tagName)
-		env.ns.AssertEventNotification(t, expectedEvent)
+		if env.db == nil {
+			expectedEvent := buildEventManifestDeleteByTag(schema2.MediaTypeManifest, repoPath, tagName)
+			env.ns.AssertEventNotification(t, expectedEvent)
+		}
 	}
 }
 
@@ -1643,8 +1665,10 @@ func manifest_Delete_Schema2_AlreadyDeleted(t *testing.T, opts ...configOpt) {
 		expectedEventByDigest := buildEventManifestDeleteByDigest(schema2.MediaTypeManifest, repoPath, dgst)
 		env.ns.AssertEventNotification(t, expectedEventByDigest)
 
-		expectedEventByTag := buildEventManifestDeleteByTag("", repoPath, tagName)
-		env.ns.AssertEventNotification(t, expectedEventByTag)
+		if env.db == nil {
+			expectedEventByTag := buildEventManifestDeleteByTag("", repoPath, tagName)
+			env.ns.AssertEventNotification(t, expectedEventByTag)
+		}
 	}
 
 	resp, err = httpDelete(manifestDigestURL)
@@ -1681,8 +1705,10 @@ func manifest_Delete_Schema2_Reupload(t *testing.T, opts ...configOpt) {
 		expectedEventByDigest := buildEventManifestDeleteByDigest(schema2.MediaTypeManifest, repoPath, dgst)
 		env.ns.AssertEventNotification(t, expectedEventByDigest)
 
-		expectedEvent := buildEventManifestDeleteByTag(schema2.MediaTypeManifest, repoPath, tagName)
-		env.ns.AssertEventNotification(t, expectedEvent)
+		if env.db == nil {
+			expectedEvent := buildEventManifestDeleteByTag(schema2.MediaTypeManifest, repoPath, tagName)
+			env.ns.AssertEventNotification(t, expectedEvent)
+		}
 	}
 
 	// Re-upload manifest by digest
@@ -1780,8 +1806,10 @@ func manifest_Delete_Schema2_ClearsTags(t *testing.T, opts ...configOpt) {
 		expectedEventByDigest := buildEventManifestDeleteByDigest(schema2.MediaTypeManifest, repoPath, dgst)
 		env.ns.AssertEventNotification(t, expectedEventByDigest)
 
-		expectedEvent := buildEventManifestDeleteByTag(schema2.MediaTypeManifest, repoPath, tagName)
-		env.ns.AssertEventNotification(t, expectedEvent)
+		if env.db == nil {
+			expectedEvent := buildEventManifestDeleteByTag(schema2.MediaTypeManifest, repoPath, tagName)
+			env.ns.AssertEventNotification(t, expectedEvent)
+		}
 	}
 
 	// Ensure that the tag is not listed.

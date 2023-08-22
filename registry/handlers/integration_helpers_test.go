@@ -161,6 +161,12 @@ func withRedisCache(srvAddr string) configOpt {
 	}
 }
 
+func withWebhookNotifications(notifCfg configuration.Notifications) configOpt {
+	return func(config *configuration.Configuration) {
+		config.Notifications = notifCfg
+	}
+}
+
 type issuerProps struct {
 	Realm      string
 	Service    string
