@@ -14,7 +14,7 @@ import (
 	"github.com/opencontainers/go-digest"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
-	"github.com/vmihailenco/msgpack"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 func TestCentralRepositoryLeaseCache(t *testing.T) {
