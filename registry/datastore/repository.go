@@ -1687,7 +1687,7 @@ func (s *repositoryStore) DeleteManifest(ctx context.Context, r *models.Reposito
 // Also, even if there is no repository with a path equivalent to `filters.LastEntry`, the returned
 // repositories will still be those with a base path of the requested repository and lexicographically after `filters.LastEntry`.
 func (s *repositoryStore) FindPagingatedRepositoriesForPath(ctx context.Context, r *models.Repository, filters FilterParams) (models.Repositories, error) {
-	// start from a path lexicographically before r.Path when no last path is availaible.
+	// start from a path lexicographically before r.Path when no last path is available.
 	// this improves the query performance as we will not need to filter from `r.path > ""` in the query below.
 	if filters.LastEntry == "" {
 		filters.LastEntry = lexicographicallyBeforePath(r.Path)
@@ -1783,7 +1783,7 @@ func lexicographicallyNextPath(path string) string {
 // lexicographicallyBeforePath takes a path string and returns the lexicographical path just before the provided path.
 // e.g gitlab-con => gitlab-com , gitlab-com/  => gitlab-com.
 // In the event that an empty string is provided as a path it returns 'z'.
-// In the event where only "a's" exist in the path; the last 'a' carachter of the path is converted to a "z".
+// In the event where only "a's" exist in the path; the last 'a' character of the path is converted to a "z".
 // This function serves primarily as a helper for optimizing paginated db queries used in `FindPagingatedRepositoriesForPath.
 func lexicographicallyBeforePath(path string) string {
 	// this shouldn't be possible but to be safe we return a z on empty path

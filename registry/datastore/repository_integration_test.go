@@ -1632,7 +1632,7 @@ func TestRepositoryStore_Size_SingleRepositoryCache(t *testing.T) {
 	require.NotNil(t, c.Get(ctx, path)) // see testdata/fixtures/repositories.sql
 
 	// the size of an existing repo is initially nil in the cache
-	// if no preceeding calls to `Size` have been made to populate
+	// if no preceding calls to `Size` have been made to populate
 	// the calculated size attribute from the db into the cache.
 	require.Nil(t, c.Get(ctx, path).Size)
 
@@ -1672,7 +1672,7 @@ func TestRepositoryStore_Size_WithCentralRepositoryCache(t *testing.T) {
 	// Verify the repo object in the cache is identical to the one in the db:
 	require.Equal(t, expectedRepoFromDB, cache.Get(suite.ctx, path))
 
-	// The size of an existing repo is initially nil in the cache if no preceeding calls to `Size`
+	// The size of an existing repo is initially nil in the cache if no preceding calls to `Size`
 	// have been made to populate the calculated size attribute from the db into the cache
 	// (after the cache was attatched to the store). Verify that the size attribute was not cached:
 	require.Equal(t, expectedRepoFromDB.Size, cache.Get(suite.ctx, path).Size)

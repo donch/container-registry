@@ -322,7 +322,7 @@ func manifest_Put_Schema2_ReuseTagManifestToManifest(t *testing.T, opts ...confi
 	// Ensure that we pulled down the new manifest by the same tag.
 	require.Equal(t, *newManifest, fetchedNewManifest)
 
-	// Ensure that the tag refered to different manifests over time.
+	// Ensure that the tag referred to different manifests over time.
 	require.NotEqual(t, fetchedOriginalManifest, fetchedNewManifest)
 
 	_, newPayload, err := fetchedNewManifest.Payload()
@@ -928,7 +928,7 @@ func manifest_Put_Schema2_MissingConfigAndLayers(t *testing.T, opts ...configOpt
 	_, cfgDesc := schema2Config()
 	manifest.Config = cfgDesc
 
-	// Create and push up 2 random layers, but do not push thier content.
+	// Create and push up 2 random layers, but do not push their content.
 	manifest.Layers = make([]distribution.Descriptor, 2)
 
 	for i := range manifest.Layers {
@@ -1185,7 +1185,7 @@ func manifest_Get_Schema2_ByDigest_MissingRepository(t *testing.T, opts ...confi
 	repoPath := "schema2/missingrepository"
 
 	// Push up a manifest so that it exists within the registry. We'll attempt to
-	// get the manifest by digest from a non-existant repository, which should fail.
+	// get the manifest by digest from a non-existent repository, which should fail.
 	deserializedManifest := seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName))
 
 	manifestDigestURL := buildManifestDigestURL(t, env, "fake/repo", deserializedManifest)
@@ -1210,7 +1210,7 @@ func manifest_Get_Schema2_ByTag_MissingRepository(t *testing.T, opts ...configOp
 	repoPath := "schema2/missingrepository"
 
 	// Push up a manifest so that it exists within the registry. We'll attempt to
-	// get the manifest by tag from a non-existant repository, which should fail.
+	// get the manifest by tag from a non-existent repository, which should fail.
 	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName))
 
 	manifestURL := buildManifestTagURL(t, env, "fake/repo", tagName)
@@ -1235,7 +1235,7 @@ func manifest_Get_Schema2_ByTag_MissingTag(t *testing.T, opts ...configOpt) {
 	repoPath := "schema2/missingtag"
 
 	// Push up a manifest so that it exists within the registry. We'll attempt to
-	// get the manifest by a non-existant tag, which should fail.
+	// get the manifest by a non-existent tag, which should fail.
 	seedRandomSchema2Manifest(t, env, repoPath, putByTag(tagName))
 
 	manifestURL := buildManifestTagURL(t, env, repoPath, "faketag")

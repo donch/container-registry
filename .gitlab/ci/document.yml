@@ -22,7 +22,7 @@ generate-db-ERD:
       PGPASSWORD: "apassword"
     before_script:
       - apk update && apk add postgresql graphviz
-      # Load the prior db dump articfact generated in the "database:structure-sql" job and discard refrences to partitions before graphing.
+      # Load the prior db dump articfact generated in the "database:structure-sql" job and discard references to partitions before graphing.
       # This is done because there are too many partitions, having the effect of making the generated graph un-readable.
       - | 
         awk '/ATTACH[[:space:]]+PARTITION/,/;$/{ next } { print }' registry/datastore/migrations/structure.sql | 
