@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go/storage v1.31.0
 	github.com/Azure/azure-sdk-for-go v58.0.0+incompatible
 	github.com/DATA-DOG/go-sqlmock v1.5.0
-	github.com/Shopify/toxiproxy/v2 v2.5.0
+	github.com/Shopify/toxiproxy/v2 v2.6.0
 	github.com/alicebob/miniredis/v2 v2.30.5
 	github.com/aws/aws-sdk-go v1.44.327
 	github.com/benbjohnson/clock v1.3.5
@@ -125,7 +125,7 @@ require (
 	golang.org/x/exp v0.0.0-20230315142452-642cacee5cc0 // indirect
 	golang.org/x/mod v0.8.0 // indirect
 	golang.org/x/net v0.10.0 // indirect
-	golang.org/x/sys v0.8.0 // indirect
+	golang.org/x/sys v0.11.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
 	golang.org/x/tools v0.6.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
