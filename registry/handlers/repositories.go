@@ -893,7 +893,7 @@ func isRepositoryNameTaken(ctx context.Context, rStore datastore.RepositoryStore
 	}
 
 	// if a base path does not contain a repository, we still need to check
-	// that no sub-repositories potentially exist withing the nested path
+	// that no sub-repositories potentially exist within the nested path
 	if newRepo == nil {
 		// check that no sub-repositories exist for the path
 		subrepositories, err := rStore.CountPathSubRepositories(ctx, namespaceId, newPath)

@@ -113,7 +113,7 @@ func (bh *blobHandler) GetBlob(w http.ResponseWriter, r *http.Request) {
 		dgst = desc.Digest
 	}
 
-	// TODO: The unused returned meta object (i.e "_" ) is returned in preperation for tackling
+	// TODO: The unused returned meta object (i.e "_" ) is returned in preparation for tackling
 	// https://gitlab.com/gitlab-org/container-registry/-/issues/824. In that issue a refactor will be implemented
 	// to allow notifications to be emitted directly from the handlers (hence requiring the meta object presence).
 	if _, err := blobs.ServeBlob(bh, w, r, dgst); err != nil {

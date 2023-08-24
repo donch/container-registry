@@ -2112,7 +2112,7 @@ func TestExistingRenameLease_Prevents_Layer_Push(t *testing.T) {
 	env, redisController, tokenProvider := setupValidRenameEnv(t)
 
 	// Enact a project lease on "foo/bar" - indicating the project space is undergoing a rename
-	// Note: Project leases last for at most 6 seconds in the codebase - due to thier impact on other registry functions (i.e pushing & deleting resources).
+	// Note: Project leases last for at most 6 seconds in the codebase - due to their impact on other registry functions (i.e pushing & deleting resources).
 	// However, to test that a project lease is in effect we exaggerate the TTL of a lease to 1 hour. This makes sure we have enough time to assert the behaviour
 	// of an existing project lease while avoiding race-conditions/flakiness in the test.
 	acquireProjectLease(t, redisController.Cache, repoName, 1*time.Hour)
@@ -2162,7 +2162,7 @@ func TestExistingRenameLease_Prevents_Layer_Delete(t *testing.T) {
 	env, redisController, tokenProvider := setupValidRenameEnv(t)
 
 	// Enact a project lease on "foo/bar" - indicating the project space is undergoing a rename
-	// Note: Project leases last for at most 6 seconds in the codebase - due to thier impact on other registry functions (i.e pushing & deleting resources).
+	// Note: Project leases last for at most 6 seconds in the codebase - due to their impact on other registry functions (i.e pushing & deleting resources).
 	// However, to test that a project lease is in effect we exaggerate the TTL of a lease to 1 hour. This makes sure we have enough time to assert the behaviour
 	// of an existing project lease while avoiding race-conditions/flakiness in the test.
 	acquireProjectLease(t, redisController.Cache, repository.Name(), 1*time.Hour)
@@ -2202,7 +2202,7 @@ func TestExistingRenameLease_Prevents_Manifest_Push(t *testing.T) {
 	env, redisController, tokenProvider := setupValidRenameEnv(t)
 
 	// Enact a project lease on "foo/bar" - indicating the project space is undergoing a rename
-	// Note: Project leases last for at most 6 seconds in the codebase - due to thier impact on other registry functions (i.e pushing & deleting resources).
+	// Note: Project leases last for at most 6 seconds in the codebase - due to their impact on other registry functions (i.e pushing & deleting resources).
 	// However, to test that a project lease is in effect we exaggerate the TTL of a lease to 1 hour. This makes sure we have enough time to assert the behaviour
 	// of an existing project lease while avoiding race-conditions/flakiness in the test.
 	acquireProjectLease(t, redisController.Cache, repoName, 1*time.Hour)
@@ -2237,7 +2237,7 @@ func TestExistingRenameLeaseExpires_Eventually_Allows_Manifest_Push(t *testing.T
 	env, redisController, tokenProvider := setupValidRenameEnv(t)
 
 	// Enact a project lease on "foo/bar" - indicating the project space is undergoing a rename
-	// Note: Project leases last for at most 6 seconds in the codebase - due to thier impact on other registry functions (i.e pushing & deleting resources).
+	// Note: Project leases last for at most 6 seconds in the codebase - due to their impact on other registry functions (i.e pushing & deleting resources).
 	// However, to test that a project lease is in effect we exaggerate the TTL of a lease to 1 hour. This makes sure we have enough time to assert the behaviour
 	// of an existing project lease while avoiding race-conditions/flakiness in the test.
 	acquireProjectLease(t, redisController.Cache, repoName, 1*time.Hour)
@@ -2282,7 +2282,7 @@ func TestExistingRenameLease_Prevents_Manifest_Delete(t *testing.T) {
 	env, redisController, tokenProvider := setupValidRenameEnv(t)
 
 	// Enact a project lease on "foo/bar" - indicating the project space is undergoing a rename
-	// Note: Project leases last for at most 6 seconds in the codebase - due to thier impact on other registry functions (i.e pushing & deleting resources).
+	// Note: Project leases last for at most 6 seconds in the codebase - due to their impact on other registry functions (i.e pushing & deleting resources).
 	// However, to test that a project lease is in effect we exaggerate the TTL of a lease to 1 hour. This makes sure we have enough time to assert the behaviour
 	// of an existing project lease while avoiding race-conditions/flakiness in the test.
 	acquireProjectLease(t, redisController.Cache, repoName, 1*time.Hour)
@@ -2320,7 +2320,7 @@ func TestExistingRenameLease_Prevents_Tag_Delete(t *testing.T) {
 	env, redisController, tokenProvider := setupValidRenameEnv(t)
 
 	// Enact a project lease on "foo/bar" - indicating the project space is undergoing a rename
-	// Note: Project leases last for at most 6 seconds in the codebase - due to thier impact on other registry functions (i.e pushing & deleting resources).
+	// Note: Project leases last for at most 6 seconds in the codebase - due to their impact on other registry functions (i.e pushing & deleting resources).
 	// However, to test that a project lease is in effect we exaggerate the TTL of a lease to 1 hour. This makes sure we have enough time to assert the behaviour
 	// of an existing project lease while avoiding race-conditions/flakiness in the test.
 	acquireProjectLease(t, redisController.Cache, repoName, 1*time.Hour)
@@ -2362,7 +2362,7 @@ func TestExistingRenameLease_Allows_Reads(t *testing.T) {
 	env, redisController, tokenProvider := setupValidRenameEnv(t, withFSDriver(rootDir))
 
 	// Enact a project lease on "foo/bar" - indicating the project space is undergoing a rename
-	// Note: Project leases last for at most 6 seconds in the codebase - due to thier impact on other registry functions (i.e pushing & deleting resources).
+	// Note: Project leases last for at most 6 seconds in the codebase - due to their impact on other registry functions (i.e pushing & deleting resources).
 	// However, to test that a project lease is in effect we exaggerate the TTL of a lease to 1 hour. This makes sure we have enough time to assert the behaviour
 	// of an existing project lease while avoiding race-conditions/flakiness in the test.
 	acquireProjectLease(t, redisController.Cache, repoName, 1*time.Hour)
@@ -2463,7 +2463,7 @@ func TestExistingRenameLease_Checks_Skipped(t *testing.T) {
 			if test.redisEnabled && test.redisUnReachable {
 				redisController.Close()
 			}
-			// Try pushing to the repository allegdly undergoing a rename and ensusre it is successfull.
+			// Try pushing to the repository allegedly undergoing a rename and ensure it is successful.
 			// This signifies that a lease check on the enacted lease is never actioned upon.
 			seedRandomSchema2Manifest(t, env, repoName, putByTag("latest"), withAuthToken(token))
 		})

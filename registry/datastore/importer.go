@@ -248,7 +248,7 @@ func (imp *Importer) importManifestV2(ctx context.Context, fsRepo distribution.R
 	}
 
 	// Use the generic octet stream media type for common blob storage, but set
-	// the orginal media type on the *models.Blob object populated by CreateOrFind.
+	// the original media type on the *models.Blob object populated by CreateOrFind.
 	// This way, when the configuration is stored with the manifest, the media
 	// type will match what is present in the manifest JSON.
 	dbConfigBlob.MediaType = mtOctetStream

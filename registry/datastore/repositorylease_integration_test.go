@@ -369,7 +369,7 @@ func TestRepositoryLeaseStore_RenameLease_CreateLease_Fails(t *testing.T) {
 	// create a lease
 	createdLease, err := s.UpsertRename(suite.ctx, repoLease)
 
-	// verify the lease is created succesfully
+	// verify the lease is created successfully
 	require.Error(t, err)
 	require.Empty(t, createdLease)
 }
