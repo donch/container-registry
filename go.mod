@@ -42,7 +42,7 @@ require (
 	github.com/trim21/go-redis-prometheus v0.0.0
 	github.com/vmihailenco/msgpack v4.0.4+incompatible
 	github.com/xanzy/go-gitlab v0.73.1
-	gitlab.com/gitlab-org/labkit v1.19.0
+	gitlab.com/gitlab-org/labkit v1.20.0
 	go.uber.org/automaxprocs v1.5.3
 	golang.org/x/crypto v0.9.0
 	golang.org/x/oauth2 v0.8.0
