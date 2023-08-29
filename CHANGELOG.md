@@ -1,3 +1,30 @@
+## [3.81.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.80.0-gitlab...v3.81.0-gitlab) (2023-08-29)
+
+
+### ✨ Features ✨
+
+* add subject_id to manifests table ([8361276](https://gitlab.com/gitlab-org/container-registry/commit/836127676dae03ad8fda9c8c580d2efbfa7c39cc))
+* **api/v2:** deprecate DELETE /v2/<name>/tags/reference/<tag> API endpoint ([fb43d7e](https://gitlab.com/gitlab-org/container-registry/commit/fb43d7ed7645f7827f0db5cdd3fddaee4a1d2c72))
+
+
+### 🐛 Bug Fixes 🐛
+
+* **v2:** handle content range header during layer chunk upload ([fae36b7](https://gitlab.com/gitlab-org/container-registry/commit/fae36b77c5d39775ba13558b9ae85376a78d0cca))
+
+
+### ⚙️ Build ⚙️
+
+* **deps:** update module github.com/alicebob/miniredis/v2 to v2.30.5 ([bad3cba](https://gitlab.com/gitlab-org/container-registry/commit/bad3cba18b776076a2c2a8a9f8c193fbe89fa5b5))
+* **deps:** update module github.com/aws/aws-sdk-go to v1.44.323 ([c595854](https://gitlab.com/gitlab-org/container-registry/commit/c595854cedecf9a9cac2c2fdd697437fa56936be))
+* **deps:** update module github.com/aws/aws-sdk-go to v1.44.327 ([b630712](https://gitlab.com/gitlab-org/container-registry/commit/b6307123d41a1114e9874724a91a1fc093bc1cc2))
+* **deps:** update module github.com/aws/aws-sdk-go to v1.44.332 ([109c0ce](https://gitlab.com/gitlab-org/container-registry/commit/109c0cedb2806bd1a5fa1350aa1fa361e3636f5e))
+* **deps:** update module github.com/eko/gocache/lib/v4 to v4.1.4 ([dde91b3](https://gitlab.com/gitlab-org/container-registry/commit/dde91b39d33de7aac73a21087cb96a8e0f7c1d36))
+* **deps:** update module github.com/redis/go-redis/v9 to v9.1.0 ([60a4928](https://gitlab.com/gitlab-org/container-registry/commit/60a49283a53fc2c877044870bb99fa56444a5ba2))
+* **deps:** update module github.com/shopify/toxiproxy to v2.5.0 ([5d54bb2](https://gitlab.com/gitlab-org/container-registry/commit/5d54bb2be6be3bc1e3acd827da706d9f0e431aee))
+* **deps:** update module github.com/shopify/toxiproxy/v2 to v2.6.0 ([e9d67aa](https://gitlab.com/gitlab-org/container-registry/commit/e9d67aa90a6906f6fe42bd38a23e49085bd7defc))
+* **deps:** update module github.com/spf13/cobra to v1.7.0 ([3dea471](https://gitlab.com/gitlab-org/container-registry/commit/3dea471257e651f3e4bd1a6f0940a3229567d68f))
+* **deps:** update module github.com/spf13/viper to v1.16.0 ([825f022](https://gitlab.com/gitlab-org/container-registry/commit/825f02270d92039b10b36445f478cb31ab94f8d3))
+
 ## [3.80.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.79.0-gitlab...v3.80.0-gitlab) (2023-08-14)
 
 
