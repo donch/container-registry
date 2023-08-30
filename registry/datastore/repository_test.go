@@ -11,7 +11,7 @@ import (
 	"github.com/docker/distribution/registry/internal/testutil"
 
 	"github.com/stretchr/testify/require"
-	"github.com/vmihailenco/msgpack"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 func TestCentralRepositoryCache(t *testing.T) {
