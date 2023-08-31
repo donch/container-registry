@@ -25,6 +25,7 @@ import (
 	"github.com/docker/distribution/manifest/ocischema"
 	"github.com/docker/distribution/manifest/schema1"
 	"github.com/docker/distribution/manifest/schema2"
+	"github.com/docker/distribution/notifications"
 	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/api/errcode"
 	v2 "github.com/docker/distribution/registry/api/v2"
@@ -106,6 +107,7 @@ func TestAPIConformance(t *testing.T) {
 		tags_Get_EmptyRepository,
 		tags_Get_RepositoryNotFound,
 		tags_Delete,
+		tags_Delete_WithAuth,
 		tags_Delete_AllowedMethods,
 		tags_Delete_AllowedMethodsReadOnly,
 		tags_Delete_ReadOnly,
@@ -3008,6 +3010,58 @@ func tags_Delete(t *testing.T, opts ...configOpt) {
 
 	if env.ns != nil {
 		expectedEvent := buildEventManifestDeleteByTag(schema2.MediaTypeManifest, "foo/bar", tag)
+		env.ns.AssertEventNotification(t, expectedEvent)
+	}
+}
+
+func tags_Delete_WithAuth(t *testing.T, opts ...configOpt) {
+	env := newTestEnv(t, opts...)
+	defer env.Shutdown()
+
+	imageName, err := reference.WithName("foo/bar")
+	checkErr(t, err, "building named object")
+
+	tag := "latest"
+	createRepository(t, env, imageName.Name(), tag)
+
+	ref, err := reference.WithTag(imageName, tag)
+	checkErr(t, err, "building tag reference")
+
+	tokenProvider := NewAuthTokenProvider(t)
+	opts = append(opts, withTokenAuth(tokenProvider.CertPath(), defaultIssuerProps()))
+
+	// override registry config/setup to use token based authorization for all proceeding requests
+	env = newTestEnv(t, opts...)
+
+	tagURL, err := env.builder.BuildTagURL(ref)
+	checkErr(t, err, "building tag URL")
+
+	req, err := http.NewRequest(http.MethodDelete, tagURL, nil)
+
+	// attach authourization header to request
+	req = tokenProvider.RequestWithAuthActions(req, deleteAccessToken("foo/bar"))
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	msg := "checking tag delete"
+	checkResponse(t, msg, resp, http.StatusAccepted)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Empty(t, body)
+
+	if env.ns != nil {
+		// see the token.ClaimSet inside generateAuthToken
+		opt := func(e *notifications.Event) {
+			e.Actor = notifications.ActorRecord{
+				Name:     authUsername,
+				UserType: authUserType,
+				User:     authUserJWT,
+			}
+		}
+		expectedEvent := buildEventManifestDeleteByTag(schema2.MediaTypeManifest, "foo/bar", tag, opt)
 		env.ns.AssertEventNotification(t, expectedEvent)
 	}
 }

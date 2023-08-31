@@ -889,12 +889,14 @@ func buildEventManifestDeleteByDigest(mediaType, repoPath string, dgst digest.Di
 	return buildEventManifestDelete(mediaType, repoPath, "", dgst)
 }
 
-func buildEventManifestDeleteByTag(mediaType, repoPath, tag string) notifications.Event {
-	return buildEventManifestDelete(mediaType, repoPath, tag, "")
+func buildEventManifestDeleteByTag(mediaType, repoPath, tag string, opts ...eventOpt) notifications.Event {
+	return buildEventManifestDelete(mediaType, repoPath, tag, "", opts...)
 }
 
-func buildEventManifestDelete(mediaType, repoPath, tagName string, dgst digest.Digest) notifications.Event {
-	return notifications.Event{
+type eventOpt func(event *notifications.Event)
+
+func buildEventManifestDelete(mediaType, repoPath, tagName string, dgst digest.Digest, opts ...eventOpt) notifications.Event {
+	event := notifications.Event{
 		Action: "delete",
 		Target: notifications.Target{
 			Descriptor: distribution.Descriptor{
@@ -905,6 +907,12 @@ func buildEventManifestDelete(mediaType, repoPath, tagName string, dgst digest.D
 			Tag:        tagName,
 		},
 	}
+
+	for _, opt := range opts {
+		opt(&event)
+	}
+
+	return event
 }
 
 func buildManifestTagURL(t *testing.T, env *testEnv, repoPath, tagName string) string {
@@ -1682,13 +1690,14 @@ func generateAuthToken(t *testing.T, user string, access []*token.ResourceAction
 	claimSet := &token.ClaimSet{
 		Issuer:     issuer.Issuer,
 		Subject:    user,
-		AuthType:   "gitlab_test",
+		AuthType:   authUserType,
 		Audience:   issuer.Service,
 		Expiration: issuer.ExpireFunc(),
 		NotBefore:  time.Now().Unix(),
 		IssuedAt:   time.Now().Unix(),
 		JWTID:      base64.URLEncoding.EncodeToString(randomBytes),
 		Access:     access,
+		User:       authUserJWT,
 	}
 
 	var joseHeaderBytes, claimSetBytes []byte
@@ -1748,9 +1757,15 @@ func NewAuthTokenProvider(t *testing.T) *authTokenProvider {
 	}
 }
 
+const (
+	authUsername = "test-user"
+	authUserType = "gitlab_test"
+	authUserJWT  = "user-jwt"
+)
+
 // TokenWithActions generates a token for a specified set of actions
 func (a *authTokenProvider) TokenWithActions(tra []*token.ResourceActions) string {
-	return generateAuthToken(a.t, "test-user", tra, defaultIssuerProps(), a.privateKey)
+	return generateAuthToken(a.t, authUsername, tra, defaultIssuerProps(), a.privateKey)
 }
 
 // RequestWithAuthActions wraps a request with a bearer authorization header
@@ -1787,6 +1802,13 @@ func fullAccessTokenWithProjectMeta(projectPath, repositoryName string) []*token
 	return []*token.ResourceActions{
 		{Type: "repository", Name: repositoryName, Actions: []string{"pull", "push"}, Meta: &token.Meta{ProjectPath: projectPath}},
 		{Type: "repository", Name: repositoryName + "/*", Actions: []string{"pull"}},
+	}
+}
+
+// deleteAccessToken grants a delete action scope token for the specified repository
+func deleteAccessToken(repositoryName string) []*token.ResourceActions {
+	return []*token.ResourceActions{
+		{Type: "repository", Name: repositoryName, Actions: []string{"delete"}},
 	}
 }
 
