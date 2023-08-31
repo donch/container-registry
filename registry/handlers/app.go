@@ -1378,6 +1378,7 @@ func (app *App) queueBridge(ctx *Context, r *http.Request) *notifications.QueueB
 	actor := notifications.ActorRecord{
 		Name:     getUserName(ctx, r),
 		UserType: getUserType(ctx),
+		User:     getUserJWT(ctx),
 	}
 	request := notifications.NewRequestRecord(dcontext.GetRequestID(ctx), r)
 
