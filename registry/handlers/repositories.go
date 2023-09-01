@@ -321,7 +321,7 @@ func filterParamsFromRequest(r *http.Request) (datastore.FilterParams, error) {
 	var filters datastore.FilterParams
 
 	q := r.URL.Query()
-	maxEntries := maximumReturnedEntries
+	maxEntries := defaultMaximumReturnedEntries
 	if q.Has(nQueryParamKey) {
 		val, valid := isQueryParamTypeInt(q.Get(nQueryParamKey))
 		if !valid {

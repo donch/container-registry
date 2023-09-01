@@ -1177,7 +1177,7 @@ The error codes encountered via the API are enumerated in the following table:
  `UNSUPPORTED` | The operation is unsupported. | The operation was unsupported due to a missing implementation or invalid set of parameters.
  `RENAME_IN_PROGRESS` | the base repository path is undergoing a rename. | This is returned when the path where a repository resides is undergoing a rename.
  `CONTENT_RANGE_INVALID` | invalid content range | A layer chunked upload is checked against the pre-uploaded chunks - using the content range header, this error code is returned when a layer chunk is uploaded out of order.
-
+ `PAGINATION_NUMBER_INVALID` | `invalid number of results requested` | `Returned when the "n" parameter (number of results to return) is not an integer, "n" is negative or "n" is bigger than the maximum allowed.`
 
 
 ### Base

@@ -179,5 +179,22 @@ var (
 		Message:        "invalid content range",
 		Description:    "If a layer chunk is uploaded with the range out of order, this error will be returned",
 		HTTPStatusCode: http.StatusRequestedRangeNotSatisfiable,
+        })
+
+	// ErrorCodeInvalidLimitParam is returned when the value of the limit query parameter is invalid.
+	ErrorCodeInvalidLimitParam = errcode.Register(errGroup, errcode.ErrorDescriptor{
+		Value:          "INVALID_LIMIT_PARAMETER_VALUE",
+		Message:        "invalid limit query parameter value",
+		Description:    "The value of a limit query parameter is invalid",
+		HTTPStatusCode: http.StatusBadRequest,
+	})
+
+	// ErrorCodePaginationNumberInvalid is returned when the `n` parameter is not valid.
+	ErrorCodePaginationNumberInvalid = errcode.Register(errGroup, errcode.ErrorDescriptor{
+		Value:   "PAGINATION_NUMBER_INVALID",
+		Message: "invalid number of results requested",
+		Description: `Returned when the "n" parameter (number of results
+		to return) is not an integer, "n" is negative or "n" is bigger than the maximum allowed.`,
+		HTTPStatusCode: http.StatusBadRequest,
 	})
 )
