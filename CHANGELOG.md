@@ -1,3 +1,23 @@
+## [3.82.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.81.0-gitlab...v3.82.0-gitlab) (2023-09-01)
+
+
+### ✨ Features ✨
+
+* forward user JWT claims for webhook notifications ([715cb0c](https://gitlab.com/gitlab-org/container-registry/commit/715cb0c060349b9640f848003d43feb01b778f84))
+
+
+### 🐛 Bug Fixes 🐛
+
+* **handlers:** limit max v2/_catalog entries to 1000 ([cf635c3](https://gitlab.com/gitlab-org/container-registry/commit/cf635c335646013547aabc0a1e2270d01b2d8cde))
+
+
+### ⚙️ Build ⚙️
+
+* **deps:** update module github.com/azure/azure-sdk-for-go to v68.0.0 ([47df1ee](https://gitlab.com/gitlab-org/container-registry/commit/47df1ee68097871e92a703772a9cefda37965940))
+* **deps:** update module gitlab.com/gitlab-org/labkit to v1.20.0 ([3815349](https://gitlab.com/gitlab-org/container-registry/commit/3815349ca0f07236d971971014f85c4e9c935cfb))
+* **deps:** update module golang.org/x/crypto to v0.12.0 ([b897961](https://gitlab.com/gitlab-org/container-registry/commit/b89796111f3b7a81f9f33d60029ea353708f9863))
+* upgrade github.com/vmihailenco/msgpack to v5 ([c9a0f3d](https://gitlab.com/gitlab-org/container-registry/commit/c9a0f3d2eee5a484fed026fc093923799adaf2c9))
+
 ## [3.81.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.80.0-gitlab...v3.81.0-gitlab) (2023-08-29)
 
 
