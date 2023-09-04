@@ -41,7 +41,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/trim21/go-redis-prometheus v0.0.0
 	github.com/vmihailenco/msgpack/v5 v5.3.5
-	github.com/xanzy/go-gitlab v0.73.1
+	github.com/xanzy/go-gitlab v0.91.1
 	gitlab.com/gitlab-org/labkit v1.20.0
 	go.uber.org/automaxprocs v1.5.3
 	golang.org/x/crypto v0.12.0
@@ -89,7 +89,7 @@ require (
 	github.com/googleapis/gax-go/v2 v2.11.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
-	github.com/hashicorp/go-retryablehttp v0.7.1 // indirect
+	github.com/hashicorp/go-retryablehttp v0.7.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
