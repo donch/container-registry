@@ -9,7 +9,9 @@ import (
 )
 
 func init() {
-	var ups []string
+	var ups = []string{
+		"SET statement_timeout TO 0",
+	}
 
 	for i := 0; i <= 12; i++ {
 		ups = append(ups, fmt.Sprintf(
@@ -29,6 +31,8 @@ func init() {
 			END;
 			$$`, i, i))
 	}
+
+	ups = append(ups, "RESET statement_timeout")
 
 	m := &Migration{
 		Migration: &migrate.Migration{
