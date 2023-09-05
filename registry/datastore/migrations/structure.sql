@@ -7100,11 +7100,7 @@ CREATE TABLE public.repositories (
     updated_at timestamp with time zone,
     name text NOT NULL,
     path text NOT NULL,
-    migration_status text DEFAULT 'native' ::text NOT NULL,
     deleted_at timestamp with time zone,
-    migration_error text,
-    CONSTRAINT check_repositories_migration_error_length CHECK ((char_length(migration_error) <= 255)),
-    CONSTRAINT check_repositories_migration_status_length CHECK ((char_length(migration_status) <= 255)),
     CONSTRAINT check_repositories_name_length CHECK ((char_length(name) <= 255)),
     CONSTRAINT check_repositories_path_length CHECK ((char_length(path) <= 255))
 );
