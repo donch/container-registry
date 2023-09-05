@@ -1,3 +1,23 @@
+## [3.82.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.82.0-gitlab...v3.82.1-gitlab) (2023-09-05)
+
+
+### 🐛 Bug Fixes 🐛
+
+* **datastore:** drop repositories table unused migration columns ([4e7d5bb](https://gitlab.com/gitlab-org/container-registry/commit/4e7d5bb68f5eee32dc3262540d5ce99bb8f902e2))
+* disable statement timeout for subject ID FK validation migrations ([7e8ecb3](https://gitlab.com/gitlab-org/container-registry/commit/7e8ecb39cc7a871450a6333afee411e085a3c542))
+
+
+### ⏮️️ Reverts ⏮️️
+
+* drop repositories table unused migration columns ([6576a7e](https://gitlab.com/gitlab-org/container-registry/commit/6576a7e10afecbab5479955c1aa767f9ddd23852))
+
+
+### ⚙️ Build ⚙️
+
+* **deps:** update module github.com/aws/aws-sdk-go to v1.45.2 ([33cd579](https://gitlab.com/gitlab-org/container-registry/commit/33cd579f913fb7dbf6cf9c79f9113d2591a900da))
+* **deps:** update module github.com/xanzy/go-gitlab to v0.91.1 ([b3e045a](https://gitlab.com/gitlab-org/container-registry/commit/b3e045a2bf474e70c3fe41942cf194d0d052000d))
+* **deps:** update module golang.org/x/oauth2 to v0.11.0 ([c586de0](https://gitlab.com/gitlab-org/container-registry/commit/c586de0d0669ad3751f5ae5707209a9002d674ea))
+
 ## [3.82.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.81.0-gitlab...v3.82.0-gitlab) (2023-09-01)
 
 
