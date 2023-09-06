@@ -1,3 +1,16 @@
+## [3.82.2](https://gitlab.com/gitlab-org/container-registry/compare/v3.82.1-gitlab...v3.82.2-gitlab) (2023-09-06)
+
+
+### 🐛 Bug Fixes 🐛
+
+* **datastore:** drop repositories table unused migration columns ([09fafa5](https://gitlab.com/gitlab-org/container-registry/commit/09fafa592386e4b8581f6e6bf423a035c83e0f88))
+* do not log unknown env var for feature flags ([12c905c](https://gitlab.com/gitlab-org/container-registry/commit/12c905c278e5e107010e1dbfce627881d24b135d))
+
+
+### ⚙️ Build ⚙️
+
+* **deps:** update module google.golang.org/api to v0.138.0 ([6000de4](https://gitlab.com/gitlab-org/container-registry/commit/6000de4d6237b34b73816f013495a2ad11a39ccb))
+
 ## [3.82.1](https://gitlab.com/gitlab-org/container-registry/compare/v3.82.0-gitlab...v3.82.1-gitlab) (2023-09-05)
 
 
