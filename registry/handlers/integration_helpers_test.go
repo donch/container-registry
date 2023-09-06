@@ -25,6 +25,7 @@ import (
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/configuration"
+	"github.com/docker/distribution/internal/feature"
 	"github.com/docker/distribution/manifest"
 	"github.com/docker/distribution/manifest/manifestlist"
 	"github.com/docker/distribution/manifest/ocischema"
@@ -39,7 +40,6 @@ import (
 	"github.com/docker/distribution/registry/datastore/migrations"
 	datastoretestutil "github.com/docker/distribution/registry/datastore/testutil"
 	registryhandlers "github.com/docker/distribution/registry/handlers"
-	"github.com/docker/distribution/registry/internal/feature"
 	internaltestutil "github.com/docker/distribution/registry/internal/testutil"
 	rtestutil "github.com/docker/distribution/registry/internal/testutil"
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
