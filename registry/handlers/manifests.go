@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/docker/distribution"
+	"github.com/docker/distribution/internal/feature"
 	"github.com/docker/distribution/log"
 	"github.com/docker/distribution/manifest"
 	"github.com/docker/distribution/manifest/manifestlist"
@@ -25,7 +26,6 @@ import (
 	"github.com/docker/distribution/registry/auth"
 	"github.com/docker/distribution/registry/datastore"
 	"github.com/docker/distribution/registry/datastore/models"
-	"github.com/docker/distribution/registry/internal/feature"
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
 	"github.com/docker/distribution/registry/storage/validation"
 	"github.com/gorilla/handlers"

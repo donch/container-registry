@@ -19,6 +19,7 @@ import (
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/configuration"
+	"github.com/docker/distribution/internal/feature"
 	"github.com/docker/distribution/manifest"
 	"github.com/docker/distribution/manifest/manifestlist"
 	mlcompat "github.com/docker/distribution/manifest/manifestlist/compat"
@@ -30,7 +31,6 @@ import (
 	v2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/docker/distribution/registry/datastore"
 	"github.com/docker/distribution/registry/datastore/models"
-	"github.com/docker/distribution/registry/internal/feature"
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
 	"github.com/docker/distribution/registry/storage/driver/factory"
 	"github.com/docker/distribution/testutil"

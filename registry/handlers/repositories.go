@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/docker/distribution/internal/feature"
 	"github.com/docker/distribution/log"
 	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/api/errcode"
@@ -22,12 +23,11 @@ import (
 	"github.com/docker/distribution/registry/auth"
 	"github.com/docker/distribution/registry/datastore"
 	"github.com/docker/distribution/registry/datastore/models"
-	"github.com/docker/distribution/registry/internal/feature"
-	"gitlab.com/gitlab-org/labkit/errortracking"
 
 	"github.com/gorilla/handlers"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
+	"gitlab.com/gitlab-org/labkit/errortracking"
 )
 
 type repositoryHandler struct {
