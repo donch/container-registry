@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -68,7 +69,7 @@ type blobUploadHandler struct {
 	State blobUploadState
 }
 
-func dbMountBlob(ctx context.Context, db datastore.Queryer, fromRepoPath, toRepoPath string, d digest.Digest) error {
+func dbMountBlob(ctx context.Context, rStore datastore.RepositoryStore, fromRepoPath, toRepoPath string, d digest.Digest) error {
 	l := log.GetLogger(log.WithContext(ctx)).WithFields(log.Fields{
 		"source":      fromRepoPath,
 		"destination": toRepoPath,
@@ -76,14 +77,11 @@ func dbMountBlob(ctx context.Context, db datastore.Queryer, fromRepoPath, toRepo
 	})
 	l.Debug("cross repository blob mounting")
 
-	rStore := datastore.NewRepositoryStore(db)
-
 	// find source blob from source repository
 	b, err := dbFindRepositoryBlob(ctx, rStore, distribution.Descriptor{Digest: d}, fromRepoPath)
 	if err != nil {
 		return err
 	}
-
 	destRepo, err := rStore.CreateOrFindByPath(ctx, toRepoPath)
 	if err != nil {
 		return err
@@ -97,12 +95,20 @@ func dbMountBlob(ctx context.Context, db datastore.Queryer, fromRepoPath, toRepo
 // blob writer session, optionally mounting the blob from a separate repository.
 func (buh *blobUploadHandler) StartBlobUpload(w http.ResponseWriter, r *http.Request) {
 	var options []distribution.BlobCreateOption
+	var rStore datastore.RepositoryStore
+	if buh.useDatabase {
+		var opts []datastore.RepositoryStoreOption
+		if buh.App.redisCache != nil {
+			opts = append(opts, datastore.WithRepositoryCache(datastore.NewCentralRepositoryCache(buh.App.redisCache)))
+		}
+
+		rStore = datastore.NewRepositoryStore(buh.db, opts...)
+	}
 
 	fromRepo := r.FormValue("from")
 	mountDigest := r.FormValue("mount")
-
 	if mountDigest != "" && fromRepo != "" {
-		opt, err := buh.createBlobMountOption(fromRepo, mountDigest)
+		opt, err := buh.createBlobMountOption(fromRepo, mountDigest, rStore)
 		if opt != nil && err == nil {
 			options = append(options, opt)
 		}
@@ -112,9 +118,10 @@ func (buh *blobUploadHandler) StartBlobUpload(w http.ResponseWriter, r *http.Req
 	upload, err := blobs.Create(buh, options...)
 
 	if err != nil {
-		if ebm, ok := err.(distribution.ErrBlobMounted); ok {
+		var ebm distribution.ErrBlobMounted
+		if errors.As(err, &ebm) {
 			if buh.useDatabase {
-				if err = dbMountBlob(buh.Context, buh.db, ebm.From.Name(), buh.Repository.Named().Name(), ebm.Descriptor.Digest); err != nil {
+				if err = dbMountBlob(buh.Context, rStore, ebm.From.Name(), buh.Repository.Named().Name(), ebm.Descriptor.Digest); err != nil {
 					e := fmt.Errorf("failed to mount blob in database: %w", err)
 					buh.Errors = append(buh.Errors, errcode.FromUnknownError(e))
 					return
@@ -123,7 +130,7 @@ func (buh *blobUploadHandler) StartBlobUpload(w http.ResponseWriter, r *http.Req
 			if err = buh.writeBlobCreatedHeaders(w, ebm.Descriptor); err != nil {
 				buh.Errors = append(buh.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
 			}
-		} else if err == distribution.ErrUnsupported {
+		} else if errors.Is(err, distribution.ErrUnsupported) {
 			buh.Errors = append(buh.Errors, errcode.ErrorCodeUnsupported)
 		} else {
 			buh.Errors = append(buh.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
@@ -453,7 +460,7 @@ func (buh *blobUploadHandler) blobUploadResponse(w http.ResponseWriter, r *http.
 // mountBlob attempts to mount a blob from another repository by its digest. If
 // successful, the blob is linked into the blob store and 201 Created is
 // returned with the canonical url of the blob.
-func (buh *blobUploadHandler) createBlobMountOption(fromRepo, mountDigest string) (distribution.BlobCreateOption, error) {
+func (buh *blobUploadHandler) createBlobMountOption(fromRepo, mountDigest string, rStore datastore.RepositoryStore) (distribution.BlobCreateOption, error) {
 	dgst, err := digest.Parse(mountDigest)
 	if err != nil {
 		return nil, err
@@ -473,14 +480,8 @@ func (buh *blobUploadHandler) createBlobMountOption(fromRepo, mountDigest string
 		return storage.WithMountFrom(canonical), nil
 	}
 
-	var opts []datastore.RepositoryStoreOption
-	if buh.App.redisCache != nil {
-		opts = append(opts, datastore.WithRepositoryCache(datastore.NewCentralRepositoryCache(buh.App.redisCache)))
-	}
-
 	// Check for blob access on the database and pass that information via the
 	// BlobCreateOption.
-	rStore := datastore.NewRepositoryStore(buh.db, opts...)
 	b, err := dbFindRepositoryBlob(buh, rStore, distribution.Descriptor{Digest: dgst}, ref.Name())
 	if err != nil {
 		return nil, err
