@@ -12,6 +12,11 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+const (
+	// RedisCacheTTL defines a duration for the test cache TTL.
+	RedisCacheTTL = 30 * time.Second
+)
+
 // RedisServer start a new miniredis server and registers the cleanup after the test is done.
 // See https://github.com/alicebob/miniredis.
 func RedisServer(tb testing.TB) *miniredis.Miniredis {
