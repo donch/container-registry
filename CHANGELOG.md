@@ -1,3 +1,15 @@
+## [3.83.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.82.2-gitlab...v3.83.0-gitlab) (2023-09-08)
+
+
+### ✨ Features ✨
+
+* use repository cache for start blob upload including blob mount ([70b62a9](https://gitlab.com/gitlab-org/container-registry/commit/70b62a97dd338d6d4996755f6adb5ee1c73a9c09))
+
+
+### ⚙️ Build ⚙️
+
+* **deps:** update module golang.org/x/crypto to v0.13.0 ([60a51bb](https://gitlab.com/gitlab-org/container-registry/commit/60a51bb0df00ed7feefc7d6be25b793c717e2e58))
+
 ## [3.82.2](https://gitlab.com/gitlab-org/container-registry/compare/v3.82.1-gitlab...v3.82.2-gitlab) (2023-09-06)
 
 
