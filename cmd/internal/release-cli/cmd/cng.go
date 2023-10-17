@@ -43,18 +43,17 @@ var cngCmd = &cobra.Command{
 
 		gitlabClient := client.NewClient(accessToken)
 
-
 		patternStr := fmt.Sprintf(`Update gitlab-org/container-registry from .* to %s`, version)
 		pattern, err := regexp.Compile(patternStr)
 		if err != nil {
 			log.Fatalf("Error compiling regex pattern: %v", err)
 		}
-		
+
 		exists, err := gitlabClient.MergeRequestExistsByPattern(release.ProjectID, pattern)
 		if err != nil {
-			log.Fatalf("Error checking if MR exists: %v", err)
+			log.Printf("Error checking if MR exists: %v", err)
 		}
-		
+
 		if exists {
 			log.Printf("Merge Request matching pattern '%s' already exists. Aborting.", patternStr)
 			return

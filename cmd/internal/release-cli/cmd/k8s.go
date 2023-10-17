@@ -71,7 +71,7 @@ var k8sCmd = &cobra.Command{
 
 		exists, err := k8sClient.BranchExists(release.ProjectID, release.BranchName)
 		if err != nil {
-			log.Fatalf("Error checking if branch exists: %v", err)
+			log.Printf("Error checking if branch exists: %v", err)
 		}
 
 		if exists {
