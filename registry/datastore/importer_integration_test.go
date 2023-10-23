@@ -520,20 +520,28 @@ func TestImporter_Import_BadManifestListRef(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestImporter_PreImport_UnknownLayerMediaType(t *testing.T) {
+func TestImporter_PreImportAll_UnknownLayerMediaType(t *testing.T) {
 	require.NoError(t, testutil.TruncateAllTables(suite.db))
 
 	imp := newImporterWithRoot(t, suite.db, "unknown-layer-mediatype")
-	err := imp.PreImport(suite.ctx, "a-simple")
-	require.EqualError(t, err, "pre importing tagged manifests: pre importing manifest: associating layer blob with manifest: unknown media type: application/foo.bar.layer.v1.tar+gzip")
+	err := imp.PreImportAll(suite.ctx)
+	require.EqualError(t, err, "pre importing all repositories: pre importing tagged manifests: pre importing manifest: associating layer blob with manifest: unknown media type: application/foo.bar.layer.v1.tar+gzip")
 }
 
-func TestImporter_Import_UnknownLayerMediaType(t *testing.T) {
+func TestImporter_FullImport_UnknownLayerMediaType(t *testing.T) {
 	require.NoError(t, testutil.TruncateAllTables(suite.db))
 
 	imp := newImporterWithRoot(t, suite.db, "unknown-layer-mediatype")
-	err := imp.Import(suite.ctx, "a-simple")
-	require.EqualError(t, err, "importing tags: importing manifest: associating layer blob with manifest: unknown media type: application/foo.bar.layer.v1.tar+gzip")
+	err := imp.FullImport(suite.ctx)
+	require.EqualError(t, err, "pre importing all repositories: pre importing tagged manifests: pre importing manifest: associating layer blob with manifest: unknown media type: application/foo.bar.layer.v1.tar+gzip")
+}
+
+func TestImporter_ImportAllRepositories_UnknownLayerMediaType(t *testing.T) {
+	require.NoError(t, testutil.TruncateAllTables(suite.db))
+
+	imp := newImporterWithRoot(t, suite.db, "unknown-layer-mediatype")
+	err := imp.ImportAllRepositories(suite.ctx)
+	require.EqualError(t, err, "importing all repositories: importing tags: importing manifest: associating layer blob with manifest: unknown media type: application/foo.bar.layer.v1.tar+gzip")
 }
 
 func TestImporter_PreImport_UnknownManifestMediaType(t *testing.T) {
