@@ -1,148 +1,317 @@
-# Contributing to the registry
+## Developer Certificate of Origin and License
 
-## Before reporting an issue...
+By contributing to GitLab B.V., you accept and agree to the following terms and
+conditions for your present and future contributions submitted to GitLab B.V.
+Except for the license granted herein to GitLab B.V. and recipients of software
+distributed by GitLab B.V., you reserve all right, title, and interest in and to
+your Contributions.
 
-### If your problem is with...
+All contributions are subject to the
+[Developer Certificate of Origin and License](https://docs.gitlab.com/ee/legal/developer_certificate_of_origin).
 
- - automated builds
- - your account on the [Docker Hub](https://hub.docker.com/)
- - any other [Docker Hub](https://hub.docker.com/) issue
+_This notice should stay as the first item in the CONTRIBUTING.md file._
 
-Then please do not report your issue here - you should instead report it to [https://support.docker.com](https://support.docker.com)
+## Code of conduct
 
-### If you...
+As contributors and maintainers of this project, we pledge to respect all people
+who contribute through reporting issues, posting feature requests, updating
+documentation, submitting pull requests or patches, and other activities.
 
- - need help setting up your registry
- - can't figure out something
- - are not sure what's going on or what your problem is
+We are committed to making participation in this project a harassment-free
+experience for everyone, regardless of level of experience, gender, gender
+identity and expression, sexual orientation, disability, personal appearance,
+body size, race, ethnicity, age, or religion.
 
-Then please do not open an issue here yet - you should first try one of the following support forums:
+Examples of unacceptable behavior by participants include the use of sexual
+language or imagery, derogatory comments or personal attacks, trolling, public
+or private harassment, insults, or other unprofessional conduct.
 
- - irc: #docker-distribution on freenode
- - mailing-list: <distribution@dockerproject.org> or https://groups.google.com/a/dockerproject.org/forum/#!forum/distribution
+Project maintainers have the right and responsibility to remove, edit, or reject
+comments, commits, code, wiki edits, issues, and other contributions that are
+not aligned to this Code of Conduct. Project maintainers who do not follow the
+Code of Conduct may be removed from the project team.
 
-### Reporting security issues
+This code of conduct applies both within project spaces and in public spaces
+when an individual is representing the project or its community.
 
-The Docker maintainers take security seriously. If you discover a security
-issue, please bring it to their attention right away!
+Instances of abusive, harassing, or otherwise unacceptable behavior can be
+reported by emailing contact@gitlab.com.
 
-Please **DO NOT** file a public issue, instead send your report privately to
-[security@docker.com](mailto:security@docker.com).
+This Code of Conduct is adapted from the [Contributor Covenant](https://contributor-covenant.org), version 1.1.0,
+available at [https://contributor-covenant.org/version/1/1/0/](https://contributor-covenant.org/version/1/1/0/).
 
-## Reporting an issue properly
+## Style guides
 
-By following these simple rules you will get better and faster feedback on your issue.
+See [Go standards and style guidelines](https://docs.gitlab.com/ee/development/go_guide).
 
- - search the bugtracker for an already reported issue
+## Commits
 
-### If you found an issue that describes your problem:
+In this project we value good commit hygiene. Clean commits makes it much
+easier to discover when bugs have been introduced, why changes have been made,
+and what their reasoning was.
 
- - please read other user comments first, and confirm this is the same issue: a given error condition might be indicative of different problems - you may also find a workaround in the comments
- - please refrain from adding "same thing here" or "+1" comments
- - you don't need to comment on an issue to get notified of updates: just hit the "subscribe" button
- - comment if you have some new, technical and relevant information to add to the case
- - __DO NOT__ comment on closed issues or merged PRs. If you think you have a related problem, open up a new issue and reference the PR or issue.
+When you submit a merge request, expect the changes to be reviewed
+commit-by-commit. To make it easier for the reviewer, please submit your MR
+with nicely formatted commit messages and changes tied together step-by-step.
 
-### If you have not found an existing issue that describes your problem:
+### Write small, atomic commits
 
- 1. create a new issue, with a succinct title that describes your issue:
-   - bad title: "It doesn't work with my docker"
-   - good title: "Private registry push fail: 400 error with E_INVALID_DIGEST"
- 2. copy the output of:
-   - `docker version`
-   - `docker info`
-   - `docker exec <registry-container> registry --version`
- 3. copy the command line you used to launch your Registry
- 4. restart your docker daemon in debug mode (add `-D` to the daemon launch arguments)
- 5. reproduce your problem and get your docker daemon logs showing the error
- 6. if relevant, copy your registry logs that show the error
- 7. provide any relevant detail about your specific Registry configuration (e.g., storage backend used)
- 8. indicate if you are using an enterprise proxy, Nginx, or anything else between you and your Registry
+Commits should be as small as possible but not smaller than required to make a
+logically complete change. If you struggle to find a proper summary for your
+commit message, it's a good indicator that the changes you make in this commit may
+not be focused enough.
 
-## Contributing a patch for a known bug, or a small correction
+`git add -p` is useful to add only relevant changes. Often you only notice that
+you require additional changes to achieve your goal when halfway through the
+implementation. Use `git stash` to help you stay focused on this additional
+change until you have implemented it in a separate commit.
 
-You should follow the basic GitHub workflow:
+### Split up refactors and behavioral changes
 
- 1. fork
- 2. commit a change
- 3. make sure the tests pass
- 4. PR
+Introducing changes in behavior very often requires preliminary refactors. You
+should never squash refactoring and behavioral changes into a single commit,
+because that makes it very hard to spot the actual change later.
 
-Additionally, you must [sign your commits](https://github.com/docker/docker/blob/master/CONTRIBUTING.md#sign-your-work). It's very simple:
+### Tell a story
 
- - configure your name with git: `git config user.name "Real Name" && git config user.email mail@example.com`
- - sign your commits using `-s`: `git commit -s -m "My commit"`
+When splitting up commits into small and logical changes, there will be many
+interdependencies between all commits of your feature branch. If you make
+changes to simply prepare another change, you should briefly mention the overall
+goal that this commit is heading towards.
 
-Some simple rules to ensure quick merge:
+### Describe why you make changes, not what you change
 
- - clearly point to the issue(s) you want to fix in your PR comment (e.g., `closes #12345`)
- - prefer multiple (smaller) PRs addressing individual issues over a big one trying to address multiple issues at once
- - if you need to amend your PR following comments, please squash instead of adding more commits
+When writing commit messages, you should typically explain why a given change is
+being made. For example, if you have pondered several potential solutions, you
+can explain why you settled on the specific implementation you chose. What has
+changed is typically visible from the diff itself.
 
-## Contributing new features
+A good commit message answers the following questions:
 
-You are heavily encouraged to first discuss what you want to do. You can do so on the irc channel, or by opening an issue that clearly describes the use case you want to fulfill, or the problem you are trying to solve.
+- What is the current situation?
+- Why does that situation need to change?
+- How does your change fix that situation?
+- Are there relevant resources which help further the understanding? If so,
+  provide references.
 
-If this is a major new feature, you should then submit a proposal that describes your technical solution and reasoning.
-If you did discuss it first, this will likely be greenlighted very fast. It's advisable to address all feedback on this proposal before starting actual work.
+You may want to set up a [message template](https://thoughtbot.com/blog/better-commit-messages-with-a-gitmessage-template)
+to pre-populate your editor when executing `git commit`.
 
-Then you should submit your implementation, clearly linking to the issue (and possible proposal).
+### Message format
 
-Your PR will be reviewed by the community, then ultimately by the project maintainers, before being merged.
+Commit messages must be:
 
-It's mandatory to:
+- Formatted following the
+  [Conventional Commits 1.0](https://www.conventionalcommits.org/en/v1.0.0/)
+  specification;
 
- - interact respectfully with other community members and maintainers - more generally, you are expected to abide by the [Docker community rules](https://github.com/docker/docker/blob/master/CONTRIBUTING.md#docker-community-guidelines)
- - address maintainers' comments and modify your submission accordingly
- - write tests for any new code
+- Be all lower case, except for acronyms and source code identifiers;
 
-Complying to these simple rules will greatly accelerate the review process, and will ensure you have a pleasant experience in contributing code to the Registry.
+- For localized changes, have the affected package in the scope portion, minus
+  the root package prefix (`registry/`). For changes affecting multiple
+  packages, use the parent package name that is common to all, unless it's the
+  root one;
 
-Have a look at a great, successful contribution: the [Swift driver PR](https://github.com/docker/distribution/pull/493)
+- Use one of the commit types defined in the [Angular convention](https://github.com/angular/angular/blob/main/CONTRIBUTING.md#type);
 
-## Coding Style
+- For dependencies, use `build` type and `deps` scope. Include the module name
+  and the target version if upgrading or adding a dependency;
 
-Unless explicitly stated, we follow all coding guidelines from the Go
-community. While some of these standards may seem arbitrary, they somehow seem
-to result in a solid, consistent codebase.
+- End with ` (<issue reference>)` if the commit is fixing an issue;
 
-It is possible that the code base does not currently comply with these
-guidelines. We are not looking for a massive PR that fixes this, since that
-goes against the spirit of the guidelines. All new contributions should make a
-best effort to clean up and make the code base better than they left it.
-Obviously, apply your best judgement. Remember, the goal here is to make the
-code base easier for humans to navigate and understand. Always keep that in
-mind when nudging others to comply.
+- Subjects shouldn't exceed 72 characters.
 
-The rules:
+#### Examples
 
-1. All code should be formatted with `gofmt -s`.
-2. All code should pass the default levels of
-   [`golint`](https://github.com/golang/lint).
-3. All code should follow the guidelines covered in [Effective
-   Go](http://golang.org/doc/effective_go.html) and [Go Code Review
-   Comments](https://github.com/golang/go/wiki/CodeReviewComments).
-4. Comment the code. Tell us the why, the history and the context.
-5. Document _all_ declarations and methods, even private ones. Declare
-   expectations, caveats and anything else that may be important. If a type
-   gets exported, having the comments already there will ensure it's ready.
-6. Variable name length should be proportional to its context and no longer.
-   `noCommaALongVariableNameLikeThisIsNotMoreClearWhenASimpleCommentWouldDo`.
-   In practice, short methods will have short variable names and globals will
-   have longer names.
-7. No underscores in package names. If you need a compound name, step back,
-   and re-examine why you need a compound name. If you still think you need a
-   compound name, lose the underscore.
-8. No utils or helpers packages. If a function is not general enough to
-   warrant its own package, it has not been written generally enough to be a
-   part of a util package. Just leave it unexported and well-documented.
-9. All tests should run with `go test` and outside tooling should not be
-   required. No, we don't need another unit testing framework. Assertion
-   packages are acceptable if they provide _real_ incremental value.
-10. Even though we call these "rules" above, they are actually just
-    guidelines. Since you've read all the rules, you now know that.
+```text
+build(deps): upgrade cloud.google.com/go/storage to v1.16.0
+```
 
-If you are having trouble getting into the mood of idiomatic Go, we recommend
-reading through [Effective Go](http://golang.org/doc/effective_go.html). The
-[Go Blog](http://blog.golang.org/) is also a great resource. Drinking the
-kool-aid is a lot easier than going thirsty.
+```text
+fix(handlers): handle manifest not found errors gracefully (#12345)
+```
+
+```text
+perf(storage/driver/gcs): improve blob upload performance
+```
+
+### Mention the original commit that introduced bugs
+
+When implementing bugfixes, it's often useful information to see why a bug was
+introduced and when it was introduced. Therefore, mentioning the original commit
+that introduced a given bug is recommended. You can use `git blame` or `git
+bisect` to help you identify that commit.
+
+The format used to mention commits is typically the abbreviated object ID
+followed by the commit subject and the commit date. You may create an alias for
+this to have it easily available. For example:
+
+```shell
+$ git config alias.reference "show -s --pretty=reference"
+$ git reference HEAD
+cf7f9ffe5 (style: Document best practices for commit hygiene, 2020-11-20)
+```
+
+### Use interactive rebases to arrange your commit series
+
+Use interactive rebases to end up with commit series that are readable and
+therefore also easily reviewable one-by-one. Use interactive rebases to
+rearrange commits, improve their commit messages, or squash multiple commits
+into one.
+
+### Create fixup commits
+
+When you create multiple commits as part of feature branches, you
+frequently discover bugs in one of the commits you've just written. Instead of
+creating a separate commit, you can easily create a fixup commit and squash it
+directly into the original source of bugs via `git commit --fixup=ORIG_COMMIT`
+and `git rebase --interactive --autosquash`.
+
+### Avoid merge commits
+
+During development other changes might be made to the target branch. These
+changes might cause a conflict with your changes. Instead of merging the target
+branch into your topic branch, rebase your branch onto the target
+branch. Consider setting up `git rerere` to avoid resolving the same conflict
+over and over again.
+
+### Ensure that all commits build and pass tests
+
+To keep history bisectable using `git bisect`, you should ensure that all of
+your commits build and pass tests.
+
+### Example
+
+A great commit message could look something like:
+
+```plaintext
+fix(package): summarize change in 50 characters or less (#123)
+
+The first line of the commit message is the summary. The summary should
+start with a capital letter and not end with a period. Optionally
+prepend the summary with the package name, feature, file, or piece of
+the codebase where the change belongs to.
+
+After an empty line the commit body provides a more detailed explanatory
+text. This body is wrapped at 72 characters. The body can consist of
+several paragraphs, each separated with a blank line.
+
+The body explains the problem that this commit is solving. Focus on why
+you are making this change as opposed to what (the code explains this).
+Are there side effects or other counterintuitive consequences of
+this change? Here's the place to explain them.
+
+- Bullet points are okay, too
+
+- Typically a hyphen or asterisk is used for the bullet, followed by a
+  single space, with blank lines in between
+
+- Use a hanging indent
+
+These guidelines are pretty similar to those described in the Git Book
+[1]. If you like you can use footnotes to include a lengthy hyperlink
+that would otherwise clutter the text.
+
+You can provide links to the related issue, or the issue that's fixed by
+the change at the bottom using a trailer. A trailer is a token, without
+spaces, directly followed with a colon and a value. Order of trailers
+doesn't matter.
+
+1. https://www.git-scm.com/book/en/v2/Distributed-Git-Contributing-to-a-Project#_commit_guidelines
+
+Signed-off-by: Alice <alice@example.com>
+```
+
+## Changelog
+
+The [`CHANGELOG.md`](CHANGELOG.md) is automatically generated using
+[semantic-release](https://semantic-release.gitbook.io/semantic-release/) when
+a new tag is pushed.
+
+## Maintainers and reviewers
+
+The list of project maintainers and reviewers can be found
+[here](https://about.gitlab.com/handbook/engineering/projects/#container-registry).
+
+Maintainers can be pinged using `@gitlab-org/maintainers/container-registry`.
+
+## Review Process
+
+Merge requests need **approval by at least two** members, including at least one
+[maintainer](#maintainers-and-reviewers).
+
+We use the [reviewer roulette](https://docs.gitlab.com/ee/development/code_review.html#reviewer-roulette)
+to identify available reviewers and maintainers for every open merge request.
+Feel free to override these selections if you think someone else would be
+better-suited to review your change.
+
+## Releases
+
+We use [semantic-release](https://semantic-release.gitbook.io/semantic-release/)
+to generate changelog entries, release commits and new git tags. A new release
+is created by the project maintainers, using the `make release` command,
+invoked from their local development machine. A `make release-dry-run` command
+is available to anyone and allows previewing the next release.
+
+If this is the first time you are generating a release, you must invoke the
+`make dev-tools` command to install the required dependencies. This requires
+having [Node.js](https://nodejs.org/en/) and [npm](https://docs.npmjs.com/cli/)
+installed locally.
+
+Once a new tag is pushed to this repository, a CI pipeline is created
+([sample](https://gitlab.com/gitlab-org/container-registry/-/pipelines/713632199)).
+Within the `release` stage, there are several ordered jobs that Maintainers
+are responsible for triggering. These jobs are responsible for releasing in
+several GitLab projects and their sequence is described in the
+[Release Plan](https://gitlab.com/gitlab-org/container-registry/-/blob/master/.gitlab/issue_templates/Release%20Plan.md)
+issue template. A new issue based on the same template is automatically
+created as part of the CI pipeline with title
+`Release Version vX.Y.Z-gitlab`.
+
+## Golang Version Support
+
+Please see [Supporting multiple Go versions](https://docs.gitlab.com/ee/development/go_guide/go_upgrade.html#supporting-multiple-go-versions).
+
+Support for individual versions is ensured via the `.gitlab-ci.yml` file in the
+root of this repository. If you modify this file to add additional jobs, please
+ensure that those jobs run against all supported versions.
+
+## Development Process
+
+We follow the engineering process as described in the
+[handbook](https://about.gitlab.com/handbook/engineering/workflow/),
+with the exception that our
+[issue tracker](https://gitlab.com/gitlab-org/container-registry/issues/) is
+on the Container Registry project.
+
+### Development Guides
+
+- [Development Environment Setup](docs-gitlab/development-environment-setup.md)
+- [Local Integration Testing](docs-gitlab/storage-driver-integration-testing-guide.md)
+- [Offline Garbage Collection Testing](docs-gitlab/garbage-collection-testing-guide.md)
+- [Database Development Guidelines](docs-gitlab/database-dev-guidelines.md)
+- [Database Migrations](docs-gitlab/database-migrations.md)
+- [Feature Flags](docs-gitlab/feature-flags.md)
+
+### Technical Documentation
+
+- [Metadata Import](docs-gitlab/database-import-tool.md)
+- [Push/pull Request Flow](docs-gitlab/push-pull-request-flow.md)
+- [Authentication Request Flow](docs-gitlab/auth-request-flow.md)
+- [Online Garbage Collection](docs-gitlab/db/online-garbage-collection.md)
+- [HTTP API Queries](docs-gitlab/db/http-api-queries.md)
+
+You can find the technical documentation inherited from the upstream Docker
+Distribution Registry under [`docs`](docs), namely:
+
+- [README](docs/README.md)
+- [Architecture](docs/architecture.md)
+- [Configuration](docs/configuration.md)
+- [Docker Registry HTTP API V2](docs/spec/api.md)
+
+When making changes to the HTTP API V2 or application configuration, please
+make sure to always update the respective documentation linked above.
+
+### Troubleshooting
+
+- [Cleanup Invalid Link Files](docs-gitlab/cleanup-invalid-link-files.md)
