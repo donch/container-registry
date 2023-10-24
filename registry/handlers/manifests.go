@@ -509,12 +509,7 @@ func (p *dbManifestWriter) Tag(imh *manifestHandler, mfst distribution.Manifest,
 	repoName := imh.Repository.Named().Name()
 
 	// To be removed on completion of: https://gitlab.com/groups/gitlab-org/-/epics/9050
-	var repoCache datastore.RepositoryCache
-	if imh.App.redisCache != nil {
-		repoCache = datastore.NewCentralRepositoryCache(imh.App.redisCache)
-	} else {
-		repoCache = imh.repoCache
-	}
+	repoCache := getRepoCache(imh)
 
 	if err := dbTagManifest(imh, imh.db, repoCache, imh.Digest, imh.Tag, repoName); err != nil {
 		if errors.Is(err, datastore.ErrManifestNotFound) {
@@ -529,7 +524,7 @@ func (p *dbManifestWriter) Tag(imh *manifestHandler, mfst distribution.Manifest,
 			if err = p.Put(imh, mfst); err != nil {
 				return fmt.Errorf("failed to recreate manifest in database: %w", err)
 			}
-			if err = dbTagManifest(imh, imh.db, imh.repoCache, imh.Digest, imh.Tag, repoName); err != nil {
+			if err = dbTagManifest(imh, imh.db, repoCache, imh.Digest, imh.Tag, repoName); err != nil {
 				return fmt.Errorf("failed to create tag in database after manifest recreate: %w", err)
 			}
 		} else {
@@ -854,7 +849,7 @@ func dbTagManifest(ctx context.Context, db datastore.Handler, cache datastore.Re
 }
 
 func dbPutManifestOCI(imh *manifestHandler, manifest *ocischema.DeserializedManifest, payload []byte) error {
-	repoReader := datastore.NewRepositoryStore(imh.App.db, datastore.WithRepositoryCache(imh.repoCache))
+	repoReader := datastore.NewRepositoryStore(imh.App.db, datastore.WithRepositoryCache(getRepoCache(imh)))
 	repoPath := imh.Repository.Named().Name()
 
 	v := validation.NewOCIValidator(
@@ -873,7 +868,7 @@ func dbPutManifestOCI(imh *manifestHandler, manifest *ocischema.DeserializedMani
 }
 
 func dbPutManifestSchema2(imh *manifestHandler, manifest *schema2.DeserializedManifest, payload []byte) error {
-	repoReader := datastore.NewRepositoryStore(imh.App.db, datastore.WithRepositoryCache(imh.repoCache))
+	repoReader := datastore.NewRepositoryStore(imh.App.db, datastore.WithRepositoryCache(getRepoCache(imh)))
 	repoPath := imh.Repository.Named().Name()
 
 	v := validation.NewSchema2Validator(
@@ -901,7 +896,7 @@ func dbPutManifestV2(imh *manifestHandler, mfst distribution.ManifestV2, payload
 	})
 
 	// create or find target repository
-	rStore := datastore.NewRepositoryStore(imh.App.db, datastore.WithRepositoryCache(imh.repoCache))
+	rStore := datastore.NewRepositoryStore(imh.App.db, datastore.WithRepositoryCache(getRepoCache(imh)))
 	dbRepo, err := rStore.CreateOrFindByPath(imh, repoPath)
 	if err != nil {
 		return err
@@ -1089,7 +1084,7 @@ func dbPutManifestList(imh *manifestHandler, manifestList *manifestlist.Deserial
 	})
 	l.Debug("putting manifest list")
 
-	rStore := datastore.NewRepositoryStore(imh.App.db, datastore.WithRepositoryCache(imh.repoCache))
+	rStore := datastore.NewRepositoryStore(imh.App.db, datastore.WithRepositoryCache(getRepoCache(imh)))
 	v := validation.NewManifestListValidator(
 		&datastore.RepositoryManifestService{
 			RepositoryReader: rStore,
@@ -1267,7 +1262,7 @@ func (imh *manifestHandler) applyResourcePolicy(manifest distribution.Manifest) 
 // index to a valid OCI image manifest and validates it accordingly. The original index digest and payload are
 // preserved when stored on the database.
 func dbPutBuildkitIndex(imh *manifestHandler, ml *manifestlist.DeserializedManifestList, payload []byte) error {
-	repoReader := datastore.NewRepositoryStore(imh.db, datastore.WithRepositoryCache(imh.repoCache))
+	repoReader := datastore.NewRepositoryStore(imh.db, datastore.WithRepositoryCache(getRepoCache(imh)))
 	repoPath := imh.Repository.Named().Name()
 
 	// convert to OCI manifest and process as if it was one
@@ -1462,12 +1457,7 @@ func (imh *manifestHandler) deleteManifest() error {
 		}
 	} else {
 		// To be removed on completion of: https://gitlab.com/groups/gitlab-org/-/epics/9050
-		var repoCache datastore.RepositoryCache
-		if imh.App.redisCache != nil {
-			repoCache = datastore.NewCentralRepositoryCache(imh.App.redisCache)
-		} else {
-			repoCache = imh.repoCache
-		}
+		repoCache := getRepoCache(imh)
 
 		if err := dbDeleteManifest(imh.Context, imh.db, repoCache, imh.Repository.Named().String(), imh.Digest); err != nil {
 			return err
@@ -1541,4 +1531,15 @@ func logIfManifestListInvalid(ctx context.Context, ml *manifestlist.Deserialized
 		"unknown_reference_media_types": strings.Join(unknownReferenceMediaTypes, ","),
 	})
 	l.Warn("invalid manifest list/index reference(s), please report this issue to GitLab at https://gitlab.com/gitlab-org/container-registry/-/issues/409")
+}
+
+// getRepoCache selects the cache type to be used for a repository cache. It selects between the (default)
+// in-memory cache and a redis cache. The redis cache takes precedence if it is avaialible.
+func getRepoCache(imh *manifestHandler) (repoCache datastore.RepositoryCache) {
+	if imh.App != nil && imh.App.redisCache != nil {
+		repoCache = datastore.NewCentralRepositoryCache(imh.App.redisCache)
+	} else {
+		repoCache = imh.repoCache
+	}
+	return
 }

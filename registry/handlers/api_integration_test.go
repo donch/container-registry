@@ -1373,7 +1373,21 @@ func TestManifestAPI_Put_OCIImageIndexByTagManifestsNotPresentInDatabase(t *test
 }
 
 func TestManifestAPI_Put_ManifestWithAllPossibleMediaTypeAndContentTypeCombinations(t *testing.T) {
-	env := newTestEnv(t)
+	tt := []struct{ withRedisCache bool }{{withRedisCache: true}, {withRedisCache: false}}
+	for _, test := range tt {
+		testManifestAPI_Put_ManifestWithAllPossibleMediaTypeAndContentTypeCombinations(t, test.withRedisCache)
+	}
+}
+
+func testManifestAPI_Put_ManifestWithAllPossibleMediaTypeAndContentTypeCombinations(t *testing.T, redisCacheEnabled bool) {
+	var opts []configOpt
+
+	if redisCacheEnabled {
+		redisController := internaltestutil.NewRedisCacheController(t, 0)
+		opts = append(opts, withRedisCache(redisController.Addr()))
+	}
+
+	env := newTestEnv(t, opts...)
 	defer env.Shutdown()
 
 	unknownMediaType := "application/vnd.foo.manifest.v1+json"
@@ -1531,7 +1545,21 @@ func TestManifestAPI_Put_ManifestWithAllPossibleMediaTypeAndContentTypeCombinati
 }
 
 func TestManifestAPI_Put_ManifestListWithAllPossibleMediaTypeAndContentTypeCombinations(t *testing.T) {
-	env := newTestEnv(t)
+	tt := []struct{ withRedisCache bool }{{withRedisCache: true}, {withRedisCache: false}}
+	for _, test := range tt {
+		testManifestAPI_Put_ManifestListWithAllPossibleMediaTypeAndContentTypeCombinations(t, test.withRedisCache)
+	}
+}
+
+func testManifestAPI_Put_ManifestListWithAllPossibleMediaTypeAndContentTypeCombinations(t *testing.T, redisCacheEnabled bool) {
+	var opts []configOpt
+
+	if redisCacheEnabled {
+		redisController := internaltestutil.NewRedisCacheController(t, 0)
+		opts = append(opts, withRedisCache(redisController.Addr()))
+	}
+
+	env := newTestEnv(t, opts...)
 	defer env.Shutdown()
 
 	unknownMediaType := "application/vnd.foo.manifest.list.v1+json"
