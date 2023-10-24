@@ -301,16 +301,28 @@ on the Container Registry project.
 - [Online Garbage Collection](docs-gitlab/db/online-garbage-collection.md)
 - [HTTP API Queries](docs-gitlab/db/http-api-queries.md)
 
-You can find the technical documentation inherited from the upstream Docker
+You can find some technical documentation inherited from the upstream Docker
 Distribution Registry under [`docs`](docs), namely:
 
-- [README](docs/README.md)
-- [Architecture](docs/architecture.md)
-- [Configuration](docs/configuration.md)
-- [Docker Registry HTTP API V2](docs/spec/api.md)
+- [Configuration](docs/configuration.md) - We keep a local copy of this file
+  because we extended the [upstream](https://distribution.github.io/distribution/about/configuration/)
+  version with additional configuration settings over time.
+- [Docker Registry HTTP API V2](docs/spec/docker/v2/api.md) - We keep a local 
+  copy of this spec because we had the need to extend the
+  [upstream](https://distribution.github.io/distribution/spec/api/)
+  functionality.
 
 When making changes to the HTTP API V2 or application configuration, please
 make sure to always update the respective documentation linked above.
+
+Apart from the above, you can find the following technical documentation
+upstream. These are all relevant for the GitLab Container Registry:
+
+- [Storage Drivers](https://distribution.github.io/distribution/storage-drivers/)
+- [Token Authentication Specification](https://distribution.github.io/distribution/spec/auth/token/)
+- [Oauth2 Token Authentication](https://distribution.github.io/distribution/spec/auth/oauth/)
+- [Token Authentication Implementation](https://distribution.github.io/distribution/spec/auth/jwt/)
+- [Token Scope Documentation](https://distribution.github.io/distribution/spec/auth/scope/)
 
 ### Troubleshooting
 
