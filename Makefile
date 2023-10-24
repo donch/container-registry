@@ -18,7 +18,7 @@ GO_TEST ?='go test'
 
 
 # Project binaries.
-COMMANDS=registry digest registry-api-descriptor-template
+COMMANDS=registry digest
 
 # Allow turning off function inlining and variable registerization
 ifeq (${DISABLE_OPTIMIZATION},true)

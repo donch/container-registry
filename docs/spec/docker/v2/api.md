@@ -422,8 +422,8 @@ reference may include a tag or digest.
 
 The client should include an Accept header indicating which manifest content
 types it supports. For more details on the manifest formats and their content
-types, see [manifest-v2-1.md](manifest-v2-1.md) and
-[manifest-v2-2.md](manifest-v2-2.md). In a successful response, the Content-Type
+types, see [Image Manifest Version 2, Schema 1](https://distribution.github.io/distribution/spec/deprecated-schema-v1) and
+[Image Manifest Version 2, Schema 2](https://distribution.github.io/distribution/spec/manifest-v2-2). In a successful response, the Content-Type
 header will indicate which manifest type is being returned.
 
 A `404 Not Found` response will be returned if the image is unknown to the
@@ -840,7 +840,7 @@ image manifest. An image can be pushed using the following request format:
 The `name` and `reference` fields of the response body must match those
 specified in the URL. The `reference` field may be a "tag" or a "digest". The
 content type should match the type of the manifest being uploaded, as specified
-in [manifest-v2-1.md](manifest-v2-1.md) and [manifest-v2-2.md](manifest-v2-2.md).
+in [Image Manifest Version 2, Schema 1](https://distribution.github.io/distribution/spec/deprecated-schema-v1) and [Image Manifest Version 2, Schema 2](https://distribution.github.io/distribution/spec/manifest-v2-2/).
 
 If there is a problem with pushing the manifest, a relevant 4xx response will
 be returned with a JSON error message. Please see the
