@@ -1,35 +1,14 @@
-# GitLab Container Registry
+# Differences From Upstream
 
-## Guides
+Here is the list of the most significant differences when compared with the upstream
+[Docker Distribution Registry](https://github.com/docker-archive/docker-registry),
+now [CNCF Distribution](https://github.com/distribution/distribution).
 
-### Development
+## Configuration
 
-- [Development Environment Setup](development-environment-setup.md)
-- [Local Integration Testing](storage-driver-integration-testing-guide.md)
-- [Offline Garbage Collection Testing](garbage-collection-testing-guide.md)
-- [Database Development Guidelines](database-dev-guidelines.md)
-- [Database Migrations](database-migrations.md)
-- [Feature Flags](feature-flags.md)
+### S3 Storage Driver
 
-### Technical Documentation
-
-- [Metadata Import](database-import-tool.md)
-- [Push/pull Request Flow](push-pull-request-flow.md)
-- [Authentication Request Flow](auth-request-flow.md)
-- [Online Garbage Collection](db/online-garbage-collection.md)
-- [HTTP API Queries](db/http-api-queries.md)
-
-### Troubleshooting
-
-- [Cleanup Invalid Link Files](cleanup-invalid-link-files.md)
-
-## Differences From Upstream
-
-### Configuration
-
-#### S3 Storage Driver
-
-##### Additional parameters
+#### Additional parameters
 
 `pathstyle`
 
@@ -62,9 +41,9 @@ in errors from the Amazon S3 service.
 The maximum number of times the driver will attempt to retry failed requests.
 Set to `0` to disable retries entirely.
 
-#### Azure Storage Driver
+### Azure Storage Driver
 
-##### Additional parameters
+#### Additional parameters
 
 `rootdirectory`
 
@@ -88,9 +67,9 @@ as the root directory. When `legacyrootprefix` is set to `true` the azure driver
 When this parameter is specified together with `trimlegacyrootprefix` the registry will fail to start if the parameters conflict
 ( i.e `trimlegacyrootprefix: true` and `legacyrootprefix: true` or `legacyrootprefix: false` and `trimlegacyrootprefix: true`).
 
-#### GCS Storage Driver
+### GCS Storage Driver
 
-##### Additional parameters
+#### Additional parameters
 
 `parallelwalk`
 
@@ -99,9 +78,9 @@ most notably garbage collection, using multiple concurrent goroutines. This
 feature will improve the performance of garbage collection, but will
 increase the memory and CPU usage of this command as compared to the default.
 
-### Garbage Collection
+## Garbage Collection
 
-#### Invalid Link Files
+### Invalid Link Files
 
 If a bad link file (e.g. 0B in size or invalid checksum) is found during the
 *mark* stage, instead of stopping the garbage collector (standard behaviour)
@@ -112,7 +91,7 @@ Blobs related with invalid link files will be automatically swept away in the
 See [Cleanup Invalid Link Files](cleanup-invalid-link-files.md) for a guide on
 how to detect and clean these files based on the garbage collector output log.
 
-#### Estimating Freed Storage
+### Estimating Freed Storage
 
 Garbage collection now estimates the amount of storage that will be freed.
 It's possible to estimate freed storage without setting the registry to
@@ -121,21 +100,21 @@ the accuracy of the estimate. Without the registry being read-only, blobs may be
 re-referenced, which would lead to an overestimate. Blobs might be
 dereferenced, leading to an underestimate.
 
-#### Debug Server
+### Debug Server
 
 A pprof debug server can be used to collect profiling information on a
 garbage collection run by providing an `address:port` to the command via
 the `--debug-server` (`--s`) flag. Usage information for this server can be
 found in the documentation for pprof: https://golang.org/pkg/net/http/pprof/
 
-### API
+## API
 
-#### Tag Delete
+### Tag Delete
 
 A new route, `DELETE /v2/<name>/tags/reference/<reference>`, was added to the
 API, enabling the deletion of tags by name.
 
-#### Broken link files when fetching a manifest by tag
+### Broken link files when fetching a manifest by tag
 
 When fetching a manifest by tag, through `GET /v2/<name>/manifests/<tag>`, if
 the manifest link file in
@@ -148,7 +127,7 @@ If for some reason a tag manifest link file is broken, in practice, it's as if
 it didn't exist at all, thus the `404 Not Found`. Re-pushing the tag will fix
 the broken link file.
 
-#### Custom Headers on `GET /v2/`
+### Custom Headers on `GET /v2/`
 
 The following headers were added to the response of `GET /v2/` requests:
 
@@ -164,66 +143,3 @@ The following headers were added to the response of `GET /v2/` requests:
 
 This is necessary to detect whether a registry is the GitLab Container Registry
 and which extra features it supports.
-
-## Releases
-
-We use [semantic-release](https://semantic-release.gitbook.io/semantic-release/)
-to generate changelog entries, release commits and new git tags. A new release
-is created by the project maintainers, using the `make release` command,
-invoked from their local development machine. A `make release-dry-run` command
-is available to anyone and allows previewing the next release.
-
-**Note:** If you are a maintainer and this is the first time you are generating a
-release, you must invoke the `make dev-tools` command to install the required
-dependencies. This requires having [Node.js](https://nodejs.org/en/) and
-[npm](https://docs.npmjs.com/cli/) installed locally.
-
-Once a new tag is pushed to this repository, a CI pipeline is created
-([sample](https://gitlab.com/gitlab-org/container-registry/-/pipelines/713632199)).
-Within the `release` stage, there are several ordered jobs that Maintainers
-are responsible for triggering. These jobs are responsible for releasing in several GitLab
-projects and their sequence is described in the [Release Plan](https://gitlab.com/gitlab-org/container-registry/-/blob/master/.gitlab/issue_templates/Release%20Plan.md) issue template. A new issue based on the the same
-template is automatically created as part of the CI pipeline with title `Release Version vX.Y.Z-gitlab`.
-
-## Contributing
-
-### Commit Messages
-
-Commit messages must:
-
-- Be formatted following the
-  [Conventional Commits 1.0](https://www.conventionalcommits.org/en/v1.0.0/)
-  specification;
-
-- Be all lower case, except for acronyms and source code identifiers;
-
-- Have the affected package full path in the scope portion, whenever applicable;
-
-- For dependencies, use `build` type and `deps` scope. Include the module name
-  and the target version if upgrading or adding a dependency;
-
-- End with ` (<issue reference>)` if the commit is fixing an issue.
-
-Please see [this](https://github.com/angular/angular/blob/8ce1ac603a9936784225c28f5526226d208eeb27/CONTRIBUTING.md) for additional information about the supported commit types.
-
-#### Examples
-
-```
-build(deps): upgrade cloud.google.com/go/storage to v1.16.0
-```
-
-```
-fix(handlers): handle manifest not found errors gracefully (#12345)
-```
-
-```
-perf(registry/storage/driver/gcs): improve blob upload performance
-```
-
-### Golang Version Support
-
-Please see the [Supporting multiple Go versions](https://docs.gitlab.com/ee/development/go_guide/go_upgrade.html#supporting-multiple-go-versions).
-
-Support for individual versions is ensured via the `.gitlab-ci.yml` file in the
-root of this repository. If you modify this file to add additional jobs, please
-ensure that those jobs run against all supported versions.

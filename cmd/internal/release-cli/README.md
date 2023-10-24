@@ -2,7 +2,9 @@
 
 This README is pertaining to the `release-cli` tool used by the Container Registry team
 to release to various projects within GitLab. To find more about the release process
-refer to the [Release Plan](https://gitlab.com/gitlab-org/container-registry/-/blob/master/.gitlab/issue_templates/Release%20Plan.md) issue template or the [release section](https://gitlab.com/gitlab-org/container-registry/-/blob/master/docs-gitlab/README.md#releases) in the Readme.
+refer to the [Release Plan](https://gitlab.com/gitlab-org/container-registry/-/blob/master/.gitlab/issue_templates/Release%20Plan.md)
+issue template or the [release section](https://gitlab.com/gitlab-org/container-registry/-/blob/master/CONTRIBUTING.md#releases)
+in the contributing guide.
 
 ## How to use
 
