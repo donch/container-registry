@@ -150,11 +150,6 @@ func BlobDescriptorServiceFactory(factory distribution.BlobDescriptorServiceFact
 // NewRegistry. It creates a cached blob statter for use by the
 // registry.
 func BlobDescriptorCacheProvider(blobDescriptorCacheProvider cache.BlobDescriptorCacheProvider) RegistryOption {
-	// TODO(aaronl): The duplication of statter across several objects is
-	// ugly, and prevents us from using interface types in the registry
-	// struct. Ideally, blobStore and blobServer should be lazily
-	// initialized, and use the current value of
-	// blobDescriptorCacheProvider.
 	return func(registry *registry) error {
 		if blobDescriptorCacheProvider != nil {
 			statter := cache.NewCachedBlobStatter(blobDescriptorCacheProvider, registry.statter)

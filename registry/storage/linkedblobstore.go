@@ -104,10 +104,6 @@ func (lbs *linkedBlobStore) Put(ctx context.Context, mediaType string, p []byte)
 		return distribution.Descriptor{}, err
 	}
 
-	// TODO(stevvooe): Write out mediatype if incoming differs from what is
-	// returned by Put above. Note that we should allow updates for a given
-	// repository.
-
 	return desc, lbs.linkBlob(ctx, desc)
 }
 
@@ -372,10 +368,6 @@ func (lbs *linkedBlobStore) linkBlob(ctx context.Context, canonical distribution
 
 	dgsts := append([]digest.Digest{canonical.Digest}, aliases...)
 
-	// TODO(stevvooe): Need to write out mediatype for only canonical hash
-	// since we don't care about the aliases. They are generally unused except
-	// for tarsum but those versions don't care about mediatype.
-
 	// Don't make duplicate links.
 	seenDigests := make(map[digest.Digest]struct{}, len(dgsts))
 
@@ -430,9 +422,6 @@ func (lbs *linkedBlobStatter) Stat(ctx context.Context, dgst digest.Digest) (dis
 		// Track when we are doing cross-digest domain lookups. ie, sha512 to sha256.
 		dcontext.GetLogger(ctx).Warnf("looking up blob with canonical target: %v -> %v", dgst, target)
 	}
-
-	// TODO(stevvooe): Look up repository local mediatype and replace that on
-	// the returned descriptor.
 
 	return lbs.blobStore.statter.Stat(ctx, target)
 }

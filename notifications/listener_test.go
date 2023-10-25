@@ -117,11 +117,6 @@ func (tl *testListener) RepoDeleted(repo reference.Named) error {
 // checkExerciseRegistry takes the registry through all of its operations,
 // carrying out generic checks.
 func checkExerciseRepository(t *testing.T, repository distribution.Repository, remover distribution.RepositoryRemover) {
-	// TODO(stevvooe): This would be a nice testutil function. Basically, it
-	// takes the registry through a common set of operations. This could be
-	// used to make cross-cutting updates by changing internals that affect
-	// update counts. Basically, it would make writing tests a lot easier.
-
 	ctx := context.Background()
 	tag := "thetag"
 	// todo: change this to use Builder

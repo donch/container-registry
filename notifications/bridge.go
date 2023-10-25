@@ -33,7 +33,6 @@ type URLBuilder interface {
 // NewBridge returns a notification listener that writes records to sink,
 // using the actor and source. Any urls populated in the events created by
 // this bridge will be created using the URLBuilder.
-// TODO(stevvooe): Update this to simply take a context.Context object.
 func NewBridge(ub URLBuilder, source SourceRecord, actor ActorRecord, request RequestRecord, sink Sink, includeReferences bool) Listener {
 	return &bridge{
 		ub:                ub,

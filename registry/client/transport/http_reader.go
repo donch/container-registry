@@ -27,7 +27,6 @@ type ReadSeekCloser interface {
 // NewHTTPReadSeeker handles reading from an HTTP endpoint using a GET
 // request. When seeking and starting a read from a non-zero offset
 // the a "Range" header will be added which sets the offset.
-// TODO(dmcgowan): Move this into a separate utility package
 func NewHTTPReadSeeker(client *http.Client, url string, errorHandler func(*http.Response) error) ReadSeekCloser {
 	return &httpReadSeeker{
 		client:       client,

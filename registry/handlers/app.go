@@ -134,9 +134,6 @@ func NewApp(ctx context.Context, config *configuration.Configuration) (*App, err
 	var err error
 	app.driver, err = factory.Create(config.Storage.Type(), storageParams)
 	if err != nil {
-		// TODO(stevvooe): Move the creation of a service into a protected
-		// method, where this is created lazily. Its status can be queried via
-		// a health check.
 		return nil, err
 	}
 
@@ -755,12 +752,6 @@ func (app *App) registerDistribution(routeName string, dispatch dispatchFunc) {
 		)
 	}
 
-	// TODO(stevvooe): This odd dispatcher/route registration is by-product of
-	// some limitations in the gorilla/mux router. We are using it to keep
-	// routing consistent between the client and server, but we may want to
-	// replace it with manual routing and structure-based dispatch for better
-	// control over the request execution.
-
 	app.router.distribution.GetRoute(routeName).Handler(handler)
 }
 
@@ -774,12 +765,6 @@ func (app *App) registerGitlab(route v1.Route, dispatch dispatchFunc) {
 			metricskit.WithLabelValues(map[string]string{"route": route.ID}),
 		)
 	}
-
-	// TODO(stevvooe): This odd dispatcher/route registration is by-product of
-	// some limitations in the gorilla/mux router. We are using it to keep
-	// routing consistent between the client and server, but we may want to
-	// replace it with manual routing and structure-based dispatch for better
-	// control over the request execution.
 
 	app.router.gitlab.GetRoute(route.Name).Handler(handler)
 }
@@ -808,10 +793,6 @@ func (app *App) configureEvents(configuration *configuration.Configuration) {
 
 	}
 
-	// NOTE(stevvooe): Moving to a new queuing implementation is as easy as
-	// replacing broadcaster with a rabbitmq implementation. It's recommended
-	// that the registry instances also act as the workers to keep deployment
-	// simple.
 	// TODO: replace broadcaster with a new worker that will consume events from the queue
 	// https://gitlab.com/gitlab-org/container-registry/-/issues/765
 	app.events.sink = notifications.NewBroadcaster(sinks...)
@@ -1084,9 +1065,6 @@ func distributionAPIVersionMiddleware(next http.Handler) http.Handler {
 // specific handlers for each endpoint without creating a new router for each
 // request.
 type dispatchFunc func(ctx *Context, r *http.Request) http.Handler
-
-// TODO(stevvooe): dispatchers should probably have some validation error
-// chain with proper error reporting.
 
 // dispatcher returns a handler that constructs a request specific context and
 // handler, using the dispatch factory function.
@@ -1366,9 +1344,6 @@ func (app *App) authorized(w http.ResponseWriter, r *http.Request, context *Cont
 	}
 
 	dcontext.GetLogger(ctx, auth.UserNameKey, auth.UserTypeKey, auth.ResourceProjectPathsKey).Info("authorized request")
-	// TODO(stevvooe): This pattern needs to be cleaned up a bit. One context
-	// should be replaced by another, rather than replacing the context on a
-	// mutable object.
 	context.Context = ctx
 	return nil
 }

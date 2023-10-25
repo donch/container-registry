@@ -33,11 +33,6 @@ type Envelope struct {
 	Events []Event `json:"events,omitempty"`
 }
 
-// TODO(stevvooe): The event type should be separate from the json format. It
-// should be defined as an interface. Leaving as is for now since we don't
-// need that at this time. If we make this change, the struct below would be
-// called "EventRecord".
-
 // Event provides the fields required to describe a registry event.
 type Event struct {
 	// ID provides a unique identifier for the event.
@@ -76,8 +71,6 @@ type Meta interface{}
 
 // Target uniquely describes the target of the event.
 type Target struct {
-	// TODO(stevvooe): Use http.DetectContentType for layers, maybe.
-
 	distribution.Descriptor
 
 	// Length in bytes of content. Same as Size field in Descriptor.
@@ -117,14 +110,6 @@ type ActorRecord struct {
 	// User is a JWT that GitLab Rails generates during authentication. It is forwarded in the notification
 	// events for tracking purposes. See https://gitlab.com/gitlab-org/container-registry/-/issues/1097.
 	User string `json:"user,omitempty"`
-
-	// TODO(stevvooe): Look into setting a session cookie to get this
-	// without docker daemon.
-	//    SessionID
-
-	// TODO(stevvooe): Push the "Docker-Command" header to replace cookie and
-	// get the actual command.
-	//    Command
 }
 
 // RequestRecord covers the request that generated the event.

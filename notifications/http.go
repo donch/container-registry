@@ -19,9 +19,6 @@ type httpSink struct {
 	closed    bool
 	client    *http.Client
 	listeners []httpStatusListener
-
-	// TODO(stevvooe): Allow one to configure the media type accepted by this
-	// sink and choose the serialization based on that.
 }
 
 // newHTTPSink returns an unreliable, single-flight http sink. Wrap in other
@@ -66,10 +63,6 @@ func (hs *httpSink) Write(event *Event) error {
 		Events: []Event{*event},
 	}
 
-	// TODO(stevvooe): It is not ideal to keep re-encoding the request body on
-	// retry but we are going to do it to keep the code simple. It is likely
-	// we could change the event struct to manage its own buffer.
-
 	p, err := json.MarshalIndent(envelope, "", "   ")
 	if err != nil {
 		for _, listener := range hs.listeners {
@@ -96,10 +89,6 @@ func (hs *httpSink) Write(event *Event) error {
 		for _, listener := range hs.listeners {
 			listener.success(resp.StatusCode, event)
 		}
-
-		// TODO(stevvooe): This is a little accepting: we may want to support
-		// unsupported media type responses with retries using the correct
-		// media type. There may also be cases that will never work.
 
 		return nil
 	default:

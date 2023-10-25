@@ -28,7 +28,6 @@ type node interface {
 type dir struct {
 	common
 
-	// TODO(stevvooe): Use sorted slice + search.
 	children map[string]node
 }
 

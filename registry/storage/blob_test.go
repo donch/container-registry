@@ -265,7 +265,7 @@ func TestSimpleBlobRead(t *testing.T) {
 	}
 	bs := repository.Blobs(ctx)
 
-	randomLayerReader, dgst, err := testutil.CreateRandomTarFile() // TODO(stevvooe): Consider using just a random string.
+	randomLayerReader, dgst, err := testutil.CreateRandomTarFile()
 	if err != nil {
 		t.Fatalf("error creating random data: %v", err)
 	}

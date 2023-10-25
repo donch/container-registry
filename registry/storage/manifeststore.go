@@ -57,9 +57,6 @@ func (ms *manifestStore) Get(ctx context.Context, dgst digest.Digest, options ..
 	log := dcontext.GetLogger(ms.ctx)
 	log.Debug("(*manifestStore).Get")
 
-	// TODO(stevvooe): Need to check descriptor from above to ensure that the
-	// mediatype is as we expect for the manifest store.
-
 	content, err := ms.blobStore.Get(ctx, dgst)
 	if err != nil {
 		if err == distribution.ErrBlobUnknown {

@@ -191,8 +191,6 @@ func TestNewApp(t *testing.T) {
 		t.Fatalf("error creating baseURL: %v", err)
 	}
 
-	// TODO(stevvooe): The rest of this test might belong in the API tests.
-
 	// Just hit the app and make sure we get a 401 Unauthorized error.
 	req, err := http.Get(baseURL)
 	if err != nil {

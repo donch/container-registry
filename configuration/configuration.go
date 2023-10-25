@@ -916,8 +916,6 @@ func (auth *Auth) UnmarshalYAML(unmarshal func(interface{}) error) error {
 				types = append(types, k)
 			}
 
-			// TODO(stevvooe): May want to change this slightly for
-			// authorization to allow multiple challenges.
 			return fmt.Errorf("must provide exactly one type. Provided: %v", types)
 		}
 		*auth = m

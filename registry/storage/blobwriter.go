@@ -353,8 +353,6 @@ func (bw *blobWriter) moveBlob(ctx context.Context, desc distribution.Descriptor
 	}).Info("new blob uploaded")
 	metrics.BlobUpload(desc.Size)
 
-	// TODO(stevvooe): We should also write the mediatype when executing this move.
-
 	return bw.blobStore.driver.Move(ctx, bw.path, blobPath)
 }
 

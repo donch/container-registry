@@ -111,9 +111,6 @@ type Error struct {
 	Code    ErrorCode   `json:"code"`
 	Message string      `json:"message"`
 	Detail  interface{} `json:"detail,omitempty"`
-
-	// TODO(duglin): See if we need an "args" property so we can do the
-	// variable substitution right before showing the message to the user
 }
 
 var _ error = Error{}

@@ -279,10 +279,6 @@ type retryingSinkListener interface {
 	retry(events ...Event)
 }
 
-// TODO(stevvooe): We are using circuit break here, which actually doesn't
-// make a whole lot of sense for this use case, since we always retry. Move
-// this to use bounded exponential backoff.
-
 // newRetryingSink returns a sink that will retry writes to a sink, backing
 // off on failure. Parameters threshold and backoff adjust the behavior of the
 // circuit breaker.

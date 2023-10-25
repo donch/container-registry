@@ -160,7 +160,7 @@ func PeriodicThresholdChecker(check Checker, period time.Duration, threshold int
 }
 
 // CheckStatus returns a map with all the current health check errors
-func (registry *Registry) CheckStatus() map[string]string { // TODO(stevvooe) this needs a proper type
+func (registry *Registry) CheckStatus() map[string]string {
 	registry.mu.RLock()
 	defer registry.mu.RUnlock()
 	statusKeys := make(map[string]string)

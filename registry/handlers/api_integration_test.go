@@ -183,9 +183,6 @@ func TestBlobDeleteDisabled(t *testing.T) {
 }
 
 func testBlobAPI(t *testing.T, env *testEnv, args blobArgs) *testEnv {
-	// TODO(stevvooe): This test code is complete junk but it should cover the
-	// complete flow. This must be broken down and checked against the
-	// specification *before* we submit the final to docker core.
 	imageName := args.imageName
 	layerFile := args.layerFile
 	layerDigest := args.layerDigest

@@ -156,9 +156,6 @@ func (buh *blobUploadHandler) GetUploadStatus(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// TODO(dmcgowan): Set last argument to false in blobUploadResponse when
-	// resumable upload is supported. This will enable returning a non-zero
-	// range for clients to begin uploading at an offset.
 	if err := buh.blobUploadResponse(w, r, true); err != nil {
 		buh.Errors = append(buh.Errors, errcode.ErrorCodeUnknown.WithDetail(err))
 		return
@@ -178,7 +175,6 @@ func (buh *blobUploadHandler) PatchBlobData(w http.ResponseWriter, r *http.Reque
 	ct := r.Header.Get("Content-Type")
 	if ct != "" && ct != "application/octet-stream" {
 		buh.Errors = append(buh.Errors, errcode.ErrorCodeUnknown.WithDetail(fmt.Errorf("bad Content-Type")))
-		// TODO(dmcgowan): encode error
 		return
 	}
 
@@ -260,7 +256,7 @@ func (buh *blobUploadHandler) PutBlobUploadComplete(w http.ResponseWriter, r *ht
 		return
 	}
 
-	dgstStr := r.FormValue("digest") // TODO(stevvooe): Support multiple digest parameters!
+	dgstStr := r.FormValue("digest")
 
 	if dgstStr == "" {
 		// no digest? return error, but allow retry.
@@ -282,10 +278,6 @@ func (buh *blobUploadHandler) PutBlobUploadComplete(w http.ResponseWriter, r *ht
 
 	desc, err := buh.Upload.Commit(buh, distribution.Descriptor{
 		Digest: dgst,
-
-		// TODO(stevvooe): This isn't wildly important yet, but we should
-		// really set the mediatype. For now, we can let the backend take care
-		// of this.
 	})
 
 	l := log.GetLogger(log.WithContext(buh))
@@ -425,7 +417,6 @@ func (buh *blobUploadHandler) ResumeBlobUpload(ctx *Context, r *http.Request) ht
 // uploads always start at a 0 offset. This allows disabling resumable push by
 // always returning a 0 offset on check status.
 func (buh *blobUploadHandler) blobUploadResponse(w http.ResponseWriter, r *http.Request, fresh bool) error {
-	// TODO(stevvooe): Need a better way to manage the upload state automatically.
 	buh.State.Name = buh.Repository.Named().Name()
 	buh.State.UUID = buh.Upload.ID()
 	buh.Upload.Close()

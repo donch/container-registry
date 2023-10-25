@@ -94,8 +94,6 @@ func (d *driver) PutContent(ctx context.Context, p string, contents []byte) erro
 
 	f, err := d.root.mkfile(normalized)
 	if err != nil {
-		// TODO(stevvooe): Again, we need to clarify when this is not a
-		// directory in StorageDriver API.
 		return fmt.Errorf("not a file")
 	}
 
@@ -189,7 +187,7 @@ func (d *driver) List(ctx context.Context, path string) ([]string, error) {
 	found := d.root.find(normalized)
 
 	if !found.isdir() {
-		return nil, fmt.Errorf("not a directory") // TODO(stevvooe): Need error type for this...
+		return nil, fmt.Errorf("not a directory")
 	}
 
 	entries, err := found.(*dir).list(normalized)

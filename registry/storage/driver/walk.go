@@ -30,10 +30,6 @@ func WalkFallback(ctx context.Context, driver StorageDriver, from string, f Walk
 	}
 	sort.Stable(sort.StringSlice(children))
 	for _, child := range children {
-		// TODO(stevvooe): Calling driver.Stat for every entry is quite
-		// expensive when running against backends with a slow Stat
-		// implementation, such as s3. This is very likely a serious
-		// performance bottleneck.
 		fileInfo, err := driver.Stat(ctx, child)
 		if err != nil {
 			switch err.(type) {
@@ -135,10 +131,6 @@ func doWalkParallel(ctx context.Context, driver StorageDriver, semaphore chan st
 			go func() {
 				defer wg.Done()
 
-				// TODO(stevvooe): Calling driver.Stat for every entry is quite
-				// expensive when running against backends with a slow Stat
-				// implementation, such as s3. This is very likely a serious
-				// performance bottleneck.
 				fileInfo, err := driver.Stat(ctx, c)
 				if err != nil {
 					switch err.(type) {

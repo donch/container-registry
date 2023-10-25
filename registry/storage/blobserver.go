@@ -14,7 +14,6 @@ import (
 	"github.com/opencontainers/go-digest"
 )
 
-// TODO(stevvooe): This should configurable in the future.
 const blobCacheControlMaxAge = 365 * 24 * time.Hour
 
 type redirect struct {
