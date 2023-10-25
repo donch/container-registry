@@ -88,7 +88,6 @@ var ServeCmd = &cobra.Command{
 }
 
 // A Registry represents a complete instance of the registry.
-// TODO(aaronl): It might make sense for Registry to become an interface.
 type Registry struct {
 	config *configuration.Configuration
 	app    *handlers.App
@@ -112,7 +111,7 @@ func NewRegistry(ctx context.Context, config *configuration.Configuration) (*Reg
 		return nil, fmt.Errorf("configuring application: %w", err)
 	}
 
-	// TODO(aaronl): The global scope of the health checks means NewRegistry
+	// aaronl: The global scope of the health checks means NewRegistry
 	// can only be called once per process.
 	if err := app.RegisterHealthChecks(); err != nil {
 		return nil, err

@@ -415,7 +415,7 @@ var routeDescriptors = []RouteDescriptor{
 										Format:      "<comma separated list of features>",
 									},
 									{
-										Name:      "Gitlab-Container-Registry-Database-Enabled",
+										Name:        "Gitlab-Container-Registry-Database-Enabled",
 										Type:        "string",
 										Description: "A boolean indicating whether the registry database is enabled.",
 										Format:      "<bool>",
@@ -1041,10 +1041,6 @@ var routeDescriptors = []RouteDescriptor{
 					},
 				},
 			},
-
-			// TODO(stevvooe): We may want to add a PUT request here to
-			// kickoff an upload of a blob, integrated with the blob upload
-			// API.
 		},
 	},
 

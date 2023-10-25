@@ -43,10 +43,6 @@ type Context struct {
 
 	repoCache datastore.RepositoryCache
 
-	// TODO(stevvooe): The goal is too completely factor this context and
-	// dispatching out of the web application. Ideally, we should lean on
-	// context.Context for injection of these resources.
-
 	// queueBridge is used to connect the handler with the notifications.Queue
 	queueBridge *notifications.QueueBridge
 }

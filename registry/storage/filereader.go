@@ -10,11 +10,6 @@ import (
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
 )
 
-// TODO(stevvooe): Set an optimal buffer size here. We'll have to
-// understand the latency characteristics of the underlying network to
-// set this correctly, so we may want to leave it to the driver. For
-// out of process drivers, we'll have to optimize this buffer size for
-// local communication.
 const fileReaderBufferSize = 4 << 20
 
 // remoteFileReader provides a read seeker interface to files stored in

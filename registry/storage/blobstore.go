@@ -76,7 +76,6 @@ func (bs *blobStore) Put(ctx context.Context, mediaType string, p []byte) (distr
 		return distribution.Descriptor{}, err
 	}
 
-	// TODO(stevvooe): Write out mediatype here, as well.
 	return distribution.Descriptor{
 		Size: int64(len(p)),
 
@@ -203,10 +202,6 @@ func (bs *blobStatter) Stat(ctx context.Context, dgst digest.Digest) (distributi
 		dcontext.GetLogger(ctx).Warnf("blob path should not be a directory: %q", path)
 		return distribution.Descriptor{}, distribution.ErrBlobUnknown
 	}
-
-	// TODO(stevvooe): Add method to resolve the mediatype. We can store and
-	// cache a "global" media type for the blob, even if a specific repo has a
-	// mediatype that overrides the main one.
 
 	return distribution.Descriptor{
 		Size: fi.Size(),

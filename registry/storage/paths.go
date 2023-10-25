@@ -217,11 +217,6 @@ func pathFor(spec pathSpec) (string, error) {
 			return "", err
 		}
 
-		// TODO(stevvooe): Right now, all blobs are linked under "_layers". If
-		// we have future migrations, we may want to rename this to "_blobs".
-		// A migration strategy would simply leave existing items in place and
-		// write the new paths, commit a file then delete the old files.
-
 		blobLinkPathComponents := append(repoPrefix, v.name, "_layers")
 
 		return path.Join(path.Join(append(blobLinkPathComponents, components...)...), "link"), nil
@@ -263,7 +258,6 @@ func pathFor(spec pathSpec) (string, error) {
 	case lockFilePathSpec:
 		return path.Join(storagePathRoot, "lockfiles", v.name), nil
 	default:
-		// TODO(sday): This is an internal error. Ensure it doesn't escape (panic?).
 		return "", fmt.Errorf("unknown path spec: %#v", v)
 	}
 }

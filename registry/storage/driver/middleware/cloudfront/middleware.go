@@ -1,6 +1,5 @@
 // Package middleware - cloudfront wrapper for storage libs
 // N.B. currently only works with S3, not arbitrary sites
-//
 package middleware
 
 import (
@@ -38,7 +37,9 @@ var _ storagedriver.StorageDriver = &cloudFrontStorageMiddleware{}
 
 // Optional options: ipFilteredBy, awsregion
 // ipfilteredby: valid value "none|aws|awsregion". "none", do not filter any IP, default value. "aws", only aws IP goes
-//               to S3 directly. "awsregion", only regions listed in awsregion options goes to S3 directly
+//
+//	to S3 directly. "awsregion", only regions listed in awsregion options goes to S3 directly
+//
 // awsregion: a comma separated string of AWS regions.
 func newCloudFrontStorageMiddleware(storageDriver storagedriver.StorageDriver, options map[string]interface{}) (storagedriver.StorageDriver, error) {
 	// parse baseurl
@@ -190,7 +191,6 @@ type S3BucketKeyer interface {
 // URLFor attempts to find a url which may be used to retrieve the file at the given path.
 // Returns an error if the file cannot be found.
 func (lh *cloudFrontStorageMiddleware) URLFor(ctx context.Context, path string, options map[string]interface{}) (string, error) {
-	// TODO(endophage): currently only supports S3
 	keyer, ok := lh.StorageDriver.(S3BucketKeyer)
 	if !ok {
 		dcontext.GetLogger(ctx).Warn("the CloudFront middleware does not support this backend storage driver")
