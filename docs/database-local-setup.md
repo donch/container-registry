@@ -8,7 +8,7 @@ Follow this guide to enable the Registry with the metadata database configured.
 Requirements:
 
 - Standalone development environment setup (see **NOTE** below) 
-- A container runtime, see [Docker Desktop alternatives](./development-environment-setup.md#alternatives-to-docker-desktop)
+- A container runtime, see [Docker Desktop alternatives](development-environment-setup.md#alternatives-to-docker-desktop)
 - The `docker` CLI
 
 **NOTE**: if you have an instance of the GDK running, you can use its postgres
@@ -72,7 +72,7 @@ When we created the `postgres-registry` database container, we specified the
 `POSTGRES_DB=registry_dev` environment variable. This will create that database
 and will be used as default.
 You should now be able to verify the database exists and you will be ready
-to run the [database migrations](./database-migrations.md).
+to run the [database migrations](database-migrations.md).
 
 1. Connect to the database as shown in the last step of the previous section.
 2. Verify that the `registry_dev` database exists (you should already be connected by default), for example type
@@ -250,7 +250,7 @@ registry_dev-# select r.name as repo_name, r.path as repo_path, r.created_at, t.
 ```
 
 4. You can also verify that the API is running properly by making a request to the
-[get repository details API](./api.md#get-repository-details)
+[get repository details API](spec/gitlab/api.md#get-repository-details)
 
 ```shell
 $ curl http://localhost:5000/gitlab/v1/repositories/root/registry-tests/alpine/

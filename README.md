@@ -18,10 +18,10 @@ to detach from upstream and proceed on our own path.
 
 Since then, we have implemented and released several major performance
 improvements and bug fixes. For a list of changes, please see
-[differences from upstream](docs-gitlab/upstream-differences.md).
+[differences from upstream](docs/upstream-differences.md).
 These changes culminated on a new architecture based on a relational metadata
 database and the original goal, enabling
-[online garbage collection](docs-gitlab/db/online-garbage-collection.md).
+[online garbage collection](docs/spec/gitlab/online-garbage-collection.md).
 
 ## Contributing
 

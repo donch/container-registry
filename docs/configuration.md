@@ -1273,7 +1273,7 @@ Other use cases are expected to follow and will be documented here.
 The registry is currently applying a non-configurable TTL of 6 hours to all cached keys. We intend to fine-tune this
 value and make it configurable once the feature is considered stable.
 
-Please read the corresponding development documentation [here](../docs-gitlab/redis-dev-guidelines.md) for more details about caching in Redis, such as key and value formats.
+Please read the corresponding development documentation [here](redis-dev-guidelines.md) for more details about caching in Redis, such as key and value formats.
 
 All the Redis connection parameters in the parent section are also available here. The only addition is a new
 `enabled` parameter to toggle the caching functionality without having to comment or remove the whole subsection. Please
@@ -1418,7 +1418,7 @@ one of the `allow` regular expressions **and** one of the following holds:
 
 ## `gc`
 
-The `gc` subsection configures online Garbage Collection (GC). See the [specification](../docs-gitlab/db/online-garbage-collection.md) for an explanation of how it works. Please note that these configuration settings only apply to the last stage of online GC: processing blob and manifest tasks, determining eligibility for deletion and deleting from database and storage backends, if eligible.
+The `gc` subsection configures online Garbage Collection (GC). See the [specification](spec/gitlab/online-garbage-collection.md) for an explanation of how it works. Please note that these configuration settings only apply to the last stage of online GC: processing blob and manifest tasks, determining eligibility for deletion and deleting from database and storage backends, if eligible.
 
 ```yaml
 gc:

@@ -46,7 +46,7 @@ This command will start the registry in the foreground, listening at
 The configuration file [`config/filesystem.yml`](../config/filesystem.yml) is a sample
 configuration file with the minimum required settings, plus some recommended
 ones for a better development experience. Please see the [configuration
-documentation](../docs/configuration.md) for more details and additional
+documentation](configuration.md) for more details and additional
 settings.
 
 ## Docker
@@ -113,7 +113,7 @@ docker run -d \
 The configuration file [`config/filesystem.yml`](../config/filesystem.yml) is a sample
 configuration file with the minimum required settings, plus some recommended
 ones for a better development experience. Please see the [configuration
-documentation](../docs/configuration.md) for more details and additional
+documentation](configuration.md) for more details and additional
 settings.
 
 ### Logs
@@ -159,7 +159,7 @@ If you are using macOS, you may need to use `0.0.0.0` instead of `localhost`.
 
 ## Metadata database setup
 
-Follow [this document](./database-local-setup.md) for local environment setup with the metadata database enabled.
+Follow [this document](database-local-setup.md) for local environment setup with the metadata database enabled.
 
 ## Alternatives to Docker Desktop
 

@@ -52,11 +52,11 @@ After configuring and deploying the registry, we need to push images to it to
 seed data for the garbage collection process.
 
 We can use a Dockerfile included with this repository,
-[Dockerfile-Walk](scripts/Dockerfile-Walk) that will enable us to
+[Dockerfile-Walk](../script/dev/seed/Dockerfile-Walk) that will enable us to
 generate unique layers that will not be shared across all images, without
 needing to alter the contents of the Dockerfile itself.
 
-This [seed.sh](scripts/seed.sh) script will use the Dockerfile we created in
+This [seed.sh](../script/dev/seed/seed.sh) script will use the Dockerfile we created in
 order to build images and push them to the registry. If you are not running the
 container registry locally, you will need to replace `localhost:5000` with the
 IP address of your container registry.

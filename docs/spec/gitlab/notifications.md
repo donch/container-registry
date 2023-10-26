@@ -1,7 +1,7 @@
 # Event notifications spec
 
 The current notification system for the container registry is a simple component that sends events to a configured endpoint(s).
-The registry can be configured to send such notifications as [shown in the documentation](../../docs/configuration.md#notifications).
+The registry can be configured to send such notifications as [shown in the documentation](../../configuration.md#notifications).
 
 ## Events payload
 

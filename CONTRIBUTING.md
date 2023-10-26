@@ -286,20 +286,20 @@ on the Container Registry project.
 
 ### Development Guides
 
-- [Development Environment Setup](docs-gitlab/development-environment-setup.md)
-- [Local Integration Testing](docs-gitlab/storage-driver-integration-testing-guide.md)
-- [Offline Garbage Collection Testing](docs-gitlab/garbage-collection-testing-guide.md)
-- [Database Development Guidelines](docs-gitlab/database-dev-guidelines.md)
-- [Database Migrations](docs-gitlab/database-migrations.md)
-- [Feature Flags](docs-gitlab/feature-flags.md)
+- [Development Environment Setup](docs/development-environment-setup.md)
+- [Local Integration Testing](docs/storage-driver-integration-testing-guide.md)
+- [Offline Garbage Collection Testing](docs/garbage-collection-testing-guide.md)
+- [Database Development Guidelines](docs/database-dev-guidelines.md)
+- [Database Migrations](docs/database-migrations.md)
+- [Feature Flags](docs/feature-flags.md)
 
 ### Technical Documentation
 
-- [Metadata Import](docs-gitlab/database-import-tool.md)
-- [Push/pull Request Flow](docs-gitlab/push-pull-request-flow.md)
-- [Authentication Request Flow](docs-gitlab/auth-request-flow.md)
-- [Online Garbage Collection](docs-gitlab/db/online-garbage-collection.md)
-- [HTTP API Queries](docs-gitlab/db/http-api-queries.md)
+- [Metadata Import](docs/database-import-tool.md)
+- [Push/pull Request Flow](docs/push-pull-request-flow.md)
+- [Authentication Request Flow](docs/auth-request-flow.md)
+- [Online Garbage Collection](docs/spec/gitlab/online-garbage-collection.md)
+- [HTTP API Queries](docs/spec/gitlab/http-api-queries.md)
 
 You can find some technical documentation inherited from the upstream Docker
 Distribution Registry under [`docs`](docs), namely:
@@ -326,4 +326,4 @@ upstream. These are all relevant for the GitLab Container Registry:
 
 ### Troubleshooting
 
-- [Cleanup Invalid Link Files](docs-gitlab/cleanup-invalid-link-files.md)
+- [Cleanup Invalid Link Files](docs/cleanup-invalid-link-files.md)

@@ -12,7 +12,7 @@ Please review the [feedback issue](https://gitlab.com/gitlab-org/gitlab/-/issues
 before using this feature.
 
 The metadata database enables you make use of many new features, such as
-[online garbage collection](./db/online-garbage-collection.md) and increases the
+[online garbage collection](spec/gitlab/online-garbage-collection.md) and increases the
 efficiency of many registry operations.
 
 [TOC]
@@ -34,7 +34,7 @@ the database and it will delete good data.
 
 ## Prepare the Database Instance
 
-If you only wish to experiment, follow [this document](./database-local-setup.md)
+If you only wish to experiment, follow [this document](database-local-setup.md)
 for local environment setup with the metadata database enabled, stopping when
 the guide indicates that you are ready to run migrations.
 
