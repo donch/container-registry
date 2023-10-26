@@ -4035,7 +4035,8 @@ CREATE TABLE public.manifests (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 )
 PARTITION BY HASH (top_level_namespace_id);
 
@@ -4054,7 +4055,8 @@ CREATE TABLE partitions.manifests_p_0 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_0
@@ -4075,7 +4077,8 @@ CREATE TABLE partitions.manifests_p_1 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_1
@@ -4096,7 +4099,8 @@ CREATE TABLE partitions.manifests_p_10 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_10
@@ -4117,7 +4121,8 @@ CREATE TABLE partitions.manifests_p_11 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_11
@@ -4138,7 +4143,8 @@ CREATE TABLE partitions.manifests_p_12 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_12
@@ -4159,7 +4165,8 @@ CREATE TABLE partitions.manifests_p_13 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_13
@@ -4180,7 +4187,8 @@ CREATE TABLE partitions.manifests_p_14 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_14
@@ -4201,7 +4209,8 @@ CREATE TABLE partitions.manifests_p_15 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_15
@@ -4222,7 +4231,8 @@ CREATE TABLE partitions.manifests_p_16 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_16
@@ -4243,7 +4253,8 @@ CREATE TABLE partitions.manifests_p_17 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_17
@@ -4264,7 +4275,8 @@ CREATE TABLE partitions.manifests_p_18 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_18
@@ -4285,7 +4297,8 @@ CREATE TABLE partitions.manifests_p_19 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_19
@@ -4306,7 +4319,8 @@ CREATE TABLE partitions.manifests_p_2 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_2
@@ -4327,7 +4341,8 @@ CREATE TABLE partitions.manifests_p_20 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_20
@@ -4348,7 +4363,8 @@ CREATE TABLE partitions.manifests_p_21 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_21
@@ -4369,7 +4385,8 @@ CREATE TABLE partitions.manifests_p_22 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_22
@@ -4390,7 +4407,8 @@ CREATE TABLE partitions.manifests_p_23 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_23
@@ -4411,7 +4429,8 @@ CREATE TABLE partitions.manifests_p_24 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_24
@@ -4432,7 +4451,8 @@ CREATE TABLE partitions.manifests_p_25 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_25
@@ -4453,7 +4473,8 @@ CREATE TABLE partitions.manifests_p_26 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_26
@@ -4474,7 +4495,8 @@ CREATE TABLE partitions.manifests_p_27 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_27
@@ -4495,7 +4517,8 @@ CREATE TABLE partitions.manifests_p_28 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_28
@@ -4516,7 +4539,8 @@ CREATE TABLE partitions.manifests_p_29 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_29
@@ -4537,7 +4561,8 @@ CREATE TABLE partitions.manifests_p_3 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_3
@@ -4558,7 +4583,8 @@ CREATE TABLE partitions.manifests_p_30 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_30
@@ -4579,7 +4605,8 @@ CREATE TABLE partitions.manifests_p_31 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_31
@@ -4600,7 +4627,8 @@ CREATE TABLE partitions.manifests_p_32 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_32
@@ -4621,7 +4649,8 @@ CREATE TABLE partitions.manifests_p_33 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_33
@@ -4642,7 +4671,8 @@ CREATE TABLE partitions.manifests_p_34 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_34
@@ -4663,7 +4693,8 @@ CREATE TABLE partitions.manifests_p_35 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_35
@@ -4684,7 +4715,8 @@ CREATE TABLE partitions.manifests_p_36 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_36
@@ -4705,7 +4737,8 @@ CREATE TABLE partitions.manifests_p_37 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_37
@@ -4726,7 +4759,8 @@ CREATE TABLE partitions.manifests_p_38 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_38
@@ -4747,7 +4781,8 @@ CREATE TABLE partitions.manifests_p_39 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_39
@@ -4768,7 +4803,8 @@ CREATE TABLE partitions.manifests_p_4 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_4
@@ -4789,7 +4825,8 @@ CREATE TABLE partitions.manifests_p_40 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_40
@@ -4810,7 +4847,8 @@ CREATE TABLE partitions.manifests_p_41 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_41
@@ -4831,7 +4869,8 @@ CREATE TABLE partitions.manifests_p_42 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_42
@@ -4852,7 +4891,8 @@ CREATE TABLE partitions.manifests_p_43 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_43
@@ -4873,7 +4913,8 @@ CREATE TABLE partitions.manifests_p_44 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_44
@@ -4894,7 +4935,8 @@ CREATE TABLE partitions.manifests_p_45 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_45
@@ -4915,7 +4957,8 @@ CREATE TABLE partitions.manifests_p_46 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_46
@@ -4936,7 +4979,8 @@ CREATE TABLE partitions.manifests_p_47 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_47
@@ -4957,7 +5001,8 @@ CREATE TABLE partitions.manifests_p_48 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_48
@@ -4978,7 +5023,8 @@ CREATE TABLE partitions.manifests_p_49 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_49
@@ -4999,7 +5045,8 @@ CREATE TABLE partitions.manifests_p_5 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_5
@@ -5020,7 +5067,8 @@ CREATE TABLE partitions.manifests_p_50 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_50
@@ -5041,7 +5089,8 @@ CREATE TABLE partitions.manifests_p_51 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_51
@@ -5062,7 +5111,8 @@ CREATE TABLE partitions.manifests_p_52 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_52
@@ -5083,7 +5133,8 @@ CREATE TABLE partitions.manifests_p_53 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_53
@@ -5104,7 +5155,8 @@ CREATE TABLE partitions.manifests_p_54 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_54
@@ -5125,7 +5177,8 @@ CREATE TABLE partitions.manifests_p_55 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_55
@@ -5146,7 +5199,8 @@ CREATE TABLE partitions.manifests_p_56 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_56
@@ -5167,7 +5221,8 @@ CREATE TABLE partitions.manifests_p_57 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_57
@@ -5188,7 +5243,8 @@ CREATE TABLE partitions.manifests_p_58 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_58
@@ -5209,7 +5265,8 @@ CREATE TABLE partitions.manifests_p_59 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_59
@@ -5230,7 +5287,8 @@ CREATE TABLE partitions.manifests_p_6 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_6
@@ -5251,7 +5309,8 @@ CREATE TABLE partitions.manifests_p_60 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_60
@@ -5272,7 +5331,8 @@ CREATE TABLE partitions.manifests_p_61 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_61
@@ -5293,7 +5353,8 @@ CREATE TABLE partitions.manifests_p_62 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_62
@@ -5314,7 +5375,8 @@ CREATE TABLE partitions.manifests_p_63 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_63
@@ -5335,7 +5397,8 @@ CREATE TABLE partitions.manifests_p_7 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_7
@@ -5356,7 +5419,8 @@ CREATE TABLE partitions.manifests_p_8 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_8
@@ -5377,7 +5441,8 @@ CREATE TABLE partitions.manifests_p_9 (
     non_conformant boolean DEFAULT FALSE,
     total_size bigint NOT NULL,
     non_distributable_layers boolean DEFAULT FALSE,
-    subject_id bigint
+    subject_id bigint,
+    artifact_media_type_id bigint
 );
 
 ALTER TABLE ONLY public.manifests ATTACH PARTITION partitions.manifests_p_9
@@ -16092,6 +16157,198 @@ CREATE TRIGGER gc_track_tmp_blobs_manifests_trigger
     AFTER INSERT ON public.manifests
     FOR EACH ROW
     EXECUTE FUNCTION public.gc_track_tmp_blobs_manifests ();
+
+ALTER TABLE ONLY partitions.manifests_p_0
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_1
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_2
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_3
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_4
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_5
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_6
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_7
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_8
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_9
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_10
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_11
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_12
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_13
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_14
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_15
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_16
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_17
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_18
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_19
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_20
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_21
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_22
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_23
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_24
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_25
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_26
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_27
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_28
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_29
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_30
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_31
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_32
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_33
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_34
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_35
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_36
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_37
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_38
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_39
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_40
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_41
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_42
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_43
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_44
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_45
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_46
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_47
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_48
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_49
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_50
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_51
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_52
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_53
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_54
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_55
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_56
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_57
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_58
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_59
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_60
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_61
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_62
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
+
+ALTER TABLE ONLY partitions.manifests_p_63
+    ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types FOREIGN KEY (artifact_media_type_id) REFERENCES public.media_types (id);
 
 ALTER TABLE public.blobs
     ADD CONSTRAINT fk_blobs_media_type_id_media_types FOREIGN KEY (media_type_id) REFERENCES public.media_types (id);
