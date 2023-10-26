@@ -2,7 +2,7 @@
 
 This document is the specification for the new GitLab Container Registry API.
 
-This is not intended to replace the [Docker Registry HTTP API V2](https://docs.docker.com/registry/spec/api/), superseded by the [OCI Distribution Spec](https://github.com/opencontainers/distribution-spec/blob/main/spec.md), which clients use to upload, download and delete images. That will continue to be maintained and available at `/v2/` (documented [here](../docs/spec/docker/v2/api.md)).
+This is not intended to replace the [Docker Registry HTTP API V2](https://docs.docker.com/registry/spec/api/), superseded by the [OCI Distribution Spec](https://github.com/opencontainers/distribution-spec/blob/main/spec.md), which clients use to upload, download and delete images. That will continue to be maintained and available at `/v2/` (documented [here](../docker/v2/api.md)).
 
 This new API intends to provide additional functionality not covered by the `/v2/` to support the development of new features tailored explicitly for GitLab the product. This API requires the new metadata database and will not be implemented for filesystem metadata.
 
@@ -449,7 +449,7 @@ The error codes encountered via this API are enumerated in the following table.
 
 Rename a repository's base path (i.e a path corresponding to a GitLab project path) and all sub repositories under it. 
 
-For more information, see the in-depth [flow diagram `rename operation`](./rename-base-repository-request-flow.md).
+For more information, see the in-depth [flow diagram `rename operation`](../../rename-base-repository-request-flow.md).
 
 ### Request
 
@@ -541,7 +541,7 @@ The error codes encountered via this API are enumerated in the following table.
 
 In case of an error, the response body payload (if any) follows the format defined in the
 [OCI Distribution Spec](https://github.com/opencontainers/distribution-spec/blob/main/spec.md#error-codes), which is the
-same format found on the [V2 API](../docs/spec/docker/v2/api.md#errors):
+same format found on the [V2 API](../docker/v2/api.md#errors):
 
 ```json
 {
