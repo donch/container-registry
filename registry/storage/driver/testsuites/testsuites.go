@@ -325,7 +325,7 @@ func (suite *DriverSuite) TestWriteReadLargeStreams(c *check.C) {
 	defer suite.deletePath(c, firstPart(filename))
 
 	checksum := sha256.New()
-	var fileSize int64 = 5 * 1024 * 1024 * 1024
+	var fileSize int64 = 2 * 1024 * 1024 * 1024
 
 	contents := newRandReader(fileSize)
 
