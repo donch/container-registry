@@ -38,7 +38,6 @@ import (
 	"github.com/docker/distribution/registry/gc"
 	"github.com/docker/distribution/registry/gc/worker"
 	"github.com/docker/distribution/registry/internal"
-	"github.com/docker/distribution/registry/internal/dns"
 	redismetrics "github.com/docker/distribution/registry/internal/metrics/redis"
 	registrymiddleware "github.com/docker/distribution/registry/middleware/registry"
 	repositorymiddleware "github.com/docker/distribution/registry/middleware/repository"
@@ -323,45 +322,41 @@ func NewApp(ctx context.Context, config *configuration.Configuration) (*App, err
 		// Do not write or check for repository layer link metadata on the filesystem when the database is enabled.
 		options = append(options, storage.DisableMirrorFS)
 
-		// TODO: this function only exists to test https://gitlab.com/gitlab-org/container-registry/-/issues/890
-		// as the migration code runs on a separate container that does not output any searchable logs.
+		// TODO: this function only exists to test that we are able to connect to the primary database node via its FQDN
+		// This function (and everything related to service discovery) will be removed upon verifying the registry can
+		// establish a connection directly to the primary database node FQDN
 		go func() {
-			if config.Database.Discovery.Nameserver == "" {
+			// reuse existing service discovery config to obtain the primary database node FQDN
+			if config.Database.Discovery.PrimaryRecord == "" {
 				return
 			}
 
 			sd := config.Database.Discovery
-			network := "udp"
-			if sd.TCP {
-				network = "tcp"
-			}
-
-			resolver := dns.NewResolver(sd.Nameserver, sd.Port, network)
-			// Try to resolve the SRV records for from the nameserver.
-			// At least 1 record will be returned or an error if not found.
-			srvRecords, err := resolver.LookupSRV(sd.PrimaryRecord)
+			db, err := datastore.Open(&datastore.DSN{
+				Host:           sd.PrimaryRecord,
+				Port:           config.Database.Port,
+				User:           config.Database.User,
+				Password:       config.Database.Password,
+				DBName:         config.Database.DBName,
+				SSLMode:        config.Database.SSLMode,
+				SSLCert:        config.Database.SSLCert,
+				SSLKey:         config.Database.SSLKey,
+				SSLRootCert:    config.Database.SSLRootCert,
+				ConnectTimeout: config.Database.ConnectTimeout,
+			})
+			defer db.Close()
 			if err != nil {
-				log.WithError(err).Error("failed to lookup SRV record")
+				log.WithError(err).Error("failed to open connection to primary database node")
 				return
 			}
 
-			log.Info("DNS lookup found SRV records")
-			for k, ip := range srvRecords {
-				log.Infof("DNS SRV record: %d - ip: %+v", k, ip)
-			}
-
-			// Always use the first record from the primary address
-			record := srvRecords[0]
-			ips, err := resolver.LookupA(record.Target)
+			err = db.Ping()
 			if err != nil {
-				log.WithError(err).Error("failed to lookup A record")
+				log.WithError(err).Error("failed to ping primary database node")
 				return
 			}
 
-			log.Info("DNS lookup found A records")
-			for k, ip := range ips {
-				log.Infof("DNS A record: %d - ip: %+v", k, ip)
-			}
+			log.Info("successfully connected to primary database node")
 		}()
 
 		db, err := datastore.Open(&datastore.DSN{
