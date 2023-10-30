@@ -16,9 +16,9 @@ func init() {
 						pg_catalog.pg_constraint
 					WHERE
 						conrelid = 'public.manifests'::regclass
-						AND conname = 'fk_manifests_subject_id_manifests'
+						AND conname = 'fk_manifests_artifact_media_type_id_media_types'
 					) THEN
-						ALTER TABLE manifests ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_type
+						ALTER TABLE manifests ADD CONSTRAINT fk_manifests_artifact_media_type_id_media_types
 							FOREIGN KEY (artifact_media_type_id)
 							REFERENCES media_types(id);
 					END IF;
@@ -26,7 +26,7 @@ func init() {
 				$$`,
 			},
 			Down: []string{
-				`ALTER TABLE manifests DROP CONSTRAINT IF EXISTS fk_manifests_artifact_media_type_id_media_type`,
+				`ALTER TABLE manifests DROP CONSTRAINT IF EXISTS fk_manifests_artifact_media_type_id_media_types`,
 			},
 			DisableTransactionUp:   true,
 			DisableTransactionDown: true,
