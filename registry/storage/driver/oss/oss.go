@@ -24,6 +24,7 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/denverdino/aliyungo/oss"
+	"github.com/docker/distribution/log"
 	"github.com/docker/distribution/registry/internal"
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
 	"github.com/docker/distribution/registry/storage/driver/base"
@@ -67,6 +68,8 @@ func init() {
 type ossDriverFactory struct{}
 
 func (factory *ossDriverFactory) Create(parameters map[string]interface{}) (storagedriver.StorageDriver, error) {
+	log.GetLogger().Warn("the OSS storage driver is deprecated and will be removed in GitLab 17.0. See " +
+		"https://docs.gitlab.com/ee/update/deprecations.html#container-registry-support-for-the-swift-and-oss-storage-drivers for more details")
 	return FromParameters(parameters)
 }
 

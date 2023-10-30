@@ -121,7 +121,7 @@ storage:
     loglevel: logdebug
     maxretries: 10
     objectownership: false
-  swift:
+  swift: # Deprecated see: https://docs.gitlab.com/ee/update/deprecations.html#container-registry-support-for-the-swift-and-oss-storage-drivers
     username: username
     password: password
     authurl: https://storage.myprovider.com/auth/v1.0 or https://storage.myprovider.com/v2.0 or https://storage.myprovider.com/v3/auth
@@ -133,7 +133,7 @@ storage:
     region: fr
     container: containername
     rootdirectory: /swift/object/name/prefix
-  oss:
+  oss: # Deprecated see: https://docs.gitlab.com/ee/update/deprecations.html#container-registry-support-for-the-swift-and-oss-storage-drivers
     accesskeyid: accesskeyid
     accesskeysecret: accesskeysecret
     region: OSS region name
@@ -460,7 +460,7 @@ storage:
     loglevel: logdebug
     maxretries: 10
     objectownership: false
-  swift:
+  swift: # Deprecated see: https://docs.gitlab.com/ee/update/deprecations.html#container-registry-support-for-the-swift-and-oss-storage-drivers
     username: username
     password: password
     authurl: https://storage.myprovider.com/auth/v1.0 or https://storage.myprovider.com/v2.0 or https://storage.myprovider.com/v3/auth
@@ -472,7 +472,7 @@ storage:
     region: fr
     container: containername
     rootdirectory: /swift/object/name/prefix
-  oss:
+  oss: # Deprecated see: https://docs.gitlab.com/ee/update/deprecations.html#container-registry-support-for-the-swift-and-oss-storage-drivers
     accesskeyid: accesskeyid
     accesskeysecret: accesskeysecret
     region: OSS region name
@@ -506,14 +506,14 @@ The `storage` option is **required** and defines which storage backend is in
 use. You must configure exactly one backend. If you configure more, the registry
 returns an error. You can choose any of these backend storage drivers:
 
-| Storage driver      | Description                                                                                                                                                                                                                                                                              |
-|---------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `filesystem`        | Uses the local disk to store registry files. It is ideal for development and may be appropriate for some small-scale production applications. See the [driver's reference documentation](https://github.com/docker/docker.github.io/tree/master/registry/storage-drivers/filesystem.md). |
-| `azure`             | Uses Microsoft Azure Blob Storage. See the [driver's reference documentation](https://github.com/docker/docker.github.io/tree/master/registry/storage-drivers/azure.md).                                                                                                                 |
-| `gcs`               | Uses Google Cloud Storage. See the [driver's reference documentation](https://github.com/docker/docker.github.io/tree/master/registry/storage-drivers/gcs.md).                                                                                                                           |
-| `s3`                | Uses Amazon Simple Storage Service (S3) and compatible Storage Services. See the [driver's reference documentation](https://github.com/distribution/distribution/blob/main/docs/storage-drivers/s3.md), or the [extra parameters documentation](#s3)                                 |
-| `swift`             | Uses Openstack Swift object storage. See the [driver's reference documentation](https://github.com/docker/docker.github.io/tree/master/registry/storage-drivers/swift.md).                                                                                                               |
-| `oss`               | Uses Aliyun OSS for object storage. See the [driver's reference documentation](https://github.com/docker/docker.github.io/tree/master/registry/storage-drivers/oss.md).                                                                                                                  |
+| Storage driver         | Description                                                                                                                                                                                                                                                                              |
+|------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `filesystem`           | Uses the local disk to store registry files. It is ideal for development and may be appropriate for some small-scale production applications. See the [driver's reference documentation](https://github.com/docker/docker.github.io/tree/master/registry/storage-drivers/filesystem.md). |
+| `azure`                | Uses Microsoft Azure Blob Storage. See the [driver's reference documentation](https://github.com/docker/docker.github.io/tree/master/registry/storage-drivers/azure.md).                                                                                                                 |
+| `gcs`                  | Uses Google Cloud Storage. See the [driver's reference documentation](https://github.com/docker/docker.github.io/tree/master/registry/storage-drivers/gcs.md).                                                                                                                           |
+| `s3`                   | Uses Amazon Simple Storage Service (S3) and compatible Storage Services. See the [driver's reference documentation](https://github.com/distribution/distribution/blob/main/docs/storage-drivers/s3.md), or the [extra parameters documentation](#s3)                                 |
+| `swift` **deprecated** | Uses Openstack Swift object storage. See the [driver's reference documentation](https://github.com/docker/docker.github.io/tree/master/registry/storage-drivers/swift.md).                                                                                                               |
+| `oss`   **deprecated** | Uses Aliyun OSS for object storage. See the [driver's reference documentation](https://github.com/docker/docker.github.io/tree/master/registry/storage-drivers/oss.md).                                                                                                                  |
 
 For testing only, you can use the [`inmemory` storage
 driver](https://github.com/docker/docker.github.io/tree/master/registry/storage-drivers/inmemory.md).
