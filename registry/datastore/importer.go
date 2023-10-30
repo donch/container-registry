@@ -216,7 +216,25 @@ func (imp *Importer) importLayers(ctx context.Context, dbRepo *models.Repository
 		if err := imp.importLayer(ctx, dbRepo, layer); err != nil {
 			return dbLayers, err
 		}
-		layer.MediaType = fsLayer.MediaType
+
+		// Check that the layer media type is known to the registry before replacing
+		// the generic media type with the specific layer media type.
+		//
+		// This code should be removed once dynamic media types are implemented:
+		// https://gitlab.com/gitlab-org/container-registry/-/issues/973
+		mtStore := NewMediaTypeStore(imp.db)
+
+		exists, err := mtStore.Exists(ctx, fsLayer.MediaType)
+		if err != nil {
+			// Log and continue on this failure.
+			l.WithFields(log.Fields{"media_type": fsLayer.MediaType}).WithError(err).Warn("error checking for existence of layer media type")
+		}
+
+		// Slightly paranoid, but let's not trust the boolean value returned by the
+		// existence check if there is an error.
+		if err == nil && exists {
+			layer.MediaType = fsLayer.MediaType
+		}
 
 		dbLayers = append(dbLayers, layer)
 	}
