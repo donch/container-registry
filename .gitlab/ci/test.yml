@@ -13,6 +13,10 @@
     matrix:
       - GO_VERSION: [ "1.18", "1.19", "1.20" ]
 
+# merged job with https://gitlab.com/gitlab-org/quality/pipeline-common/-/blob/master/ci/danger-review.yml
+danger-review:
+  allow_failure: true
+
 coverage:
   extends: .go-version-matrix
   stage: test
