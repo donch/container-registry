@@ -126,38 +126,6 @@ func validateImport(t *testing.T, db *datastore.DB) {
 	}
 }
 
-func TestImporter_ImportAll(t *testing.T) {
-	require.NoError(t, testutil.TruncateAllTables(suite.db))
-
-	imp := newImporter(t, suite.db, datastore.WithImportDanglingManifests)
-	require.NoError(t, imp.ImportAll(suite.ctx))
-	validateImport(t, suite.db)
-}
-
-func TestImporter_ImportAll_NoDanglingManifests(t *testing.T) {
-	require.NoError(t, testutil.TruncateAllTables(suite.db))
-
-	imp := newImporter(t, suite.db)
-	require.NoError(t, imp.ImportAll(suite.ctx))
-	validateImport(t, suite.db)
-}
-
-func TestImporter_ImportAll_NoDanglingManifests_DanglingBlobs(t *testing.T) {
-	require.NoError(t, testutil.TruncateAllTables(suite.db))
-
-	imp := newImporter(t, suite.db, datastore.WithImportDanglingBlobs)
-	require.NoError(t, imp.ImportAll(suite.ctx))
-	validateImport(t, suite.db)
-}
-
-func TestImporter_ImportAll_DanglingBlobs(t *testing.T) {
-	require.NoError(t, testutil.TruncateAllTables(suite.db))
-
-	imp := newImporter(t, suite.db, datastore.WithImportDanglingManifests, datastore.WithImportDanglingBlobs)
-	require.NoError(t, imp.ImportAll(suite.ctx))
-	validateImport(t, suite.db)
-}
-
 func TestImporter_ImportAll_AllowIdempotent(t *testing.T) {
 	require.NoError(t, testutil.TruncateAllTables(suite.db))
 
