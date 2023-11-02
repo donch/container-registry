@@ -1,3 +1,33 @@
+## [3.86.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.85.0-gitlab...v3.86.0-gitlab) (2023-11-02)
+
+
+### ✨ Features ✨
+
+* add artifact_type_id to manifests table ([851773b](https://gitlab.com/gitlab-org/container-registry/commit/851773b57c20c907fa831bc7a2f628f4f62b8386))
+* **cache:** use redis repository cache for manifest upload operation ([38ef156](https://gitlab.com/gitlab-org/container-registry/commit/38ef156ecdfb9a6f2d233e9fd2f6f2b3a3f7b973))
+* **datastore:** gracefully import manifests with unknown layer media types ([2400331](https://gitlab.com/gitlab-org/container-registry/commit/24003317ea285a3ee5c9a4d6a18fdfda49033553))
+* **storage:** deprecate OSS and Swift storage drivers ([f456ee0](https://gitlab.com/gitlab-org/container-registry/commit/f456ee00ff3cf226f96e5e86c225669e5e228cab))
+
+
+### 🐛 Bug Fixes 🐛
+
+* use correct name for manifests artifact ID FK constraint ([ab57e95](https://gitlab.com/gitlab-org/container-registry/commit/ab57e955fca4526c1b69d325b6d397be02dbbd1d))
+
+
+### ⚡️ Performance Improvements ⚡️
+
+* **db:** test connection to database fqdn ([e1f820b](https://gitlab.com/gitlab-org/container-registry/commit/e1f820b3baf09844552ebf5a0c61901d2254b528))
+
+
+### ⚙️ Build ⚙️
+
+* **deps:** update module cloud.google.com/go/storage to v1.33.0 ([e51df41](https://gitlab.com/gitlab-org/container-registry/commit/e51df41fae73b3f839952c415ea4cc27498d3157))
+* **deps:** update module github.com/alicebob/miniredis/v2 to v2.31.0 ([909c7a9](https://gitlab.com/gitlab-org/container-registry/commit/909c7a9f5e99f54e0af9909a9f3e4d2e44230e6d))
+* **deps:** update module github.com/aws/aws-sdk-go to v1.46.2 ([a5af822](https://gitlab.com/gitlab-org/container-registry/commit/a5af822c242728ea9a3fbd86ddae30ceae1fa014))
+* **deps:** update module github.com/aws/aws-sdk-go to v1.46.7 ([75dcdd4](https://gitlab.com/gitlab-org/container-registry/commit/75dcdd453c2a8e5bc4adbc55c79f996c57760965))
+* **deps:** update module github.com/eko/gocache/lib/v4 to v4.1.5 ([64e0218](https://gitlab.com/gitlab-org/container-registry/commit/64e02181d49caeb61ce99c7e25a039ceddea0c7e))
+* **deps:** update module github.com/shopify/toxiproxy/v2 to v2.7.0 ([dc61a8c](https://gitlab.com/gitlab-org/container-registry/commit/dc61a8cbcf01657c9681f4170867439ed0ad4651))
+
 ## [3.85.0](https://gitlab.com/gitlab-org/container-registry/compare/v3.84.0-gitlab...v3.85.0-gitlab) (2023-10-16)
 
 
