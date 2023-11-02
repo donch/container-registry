@@ -43,6 +43,10 @@ func TestCentralRepositoryCache(t *testing.T) {
 
 	redisMock.ExpectGet(key).SetVal(string(bytes))
 	r = cache.Get(ctx, repo.Path)
+	// msgpack uses time.Local as the Location for time.Time, but we expect UTC.
+	// This is irrelevant for this test as r.DeletedAt.Valid = false so we can clear the value.
+	// This is related to https://github.com/vmihailenco/msgpack/issues/332
+	r.DeletedAt = sql.NullTime{}
 	require.Equal(t, repo, r)
 
 	nilSizeRepo := repo

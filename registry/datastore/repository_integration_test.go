@@ -142,7 +142,13 @@ func TestRepositoryStore_FindByPath_WithCentralRepositoryCache(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, expected, got)
 
-	require.Equal(t, expected, cache.Get(ctx, path))
+	fromCache := cache.Get(ctx, path)
+	// msgpack uses time.Local as the Location for time.Time, but we expect UTC.
+	// This is irrelevant for this test as r.DeletedAt.Valid = false so we can clear the value.
+	// This is related to https://github.com/vmihailenco/msgpack/issues/332
+	fromCache.UpdatedAt.Time = time.Time{}
+	fromCache.DeletedAt.Time = time.Time{}
+	require.Equal(t, expected, fromCache)
 }
 
 func TestRepositoryStore_FindAll(t *testing.T) {
@@ -1698,7 +1704,13 @@ func TestRepositoryStore_Size_WithCentralRepositoryCache(t *testing.T) {
 	expectedRepoFromDB, err = s.FindByPath(suite.ctx, path)
 	require.NoError(t, err)
 	// Verify the repo object in the cache is identical to the one in the db:
-	require.Equal(t, expectedRepoFromDB, cache.Get(suite.ctx, path))
+	fromCache := cache.Get(suite.ctx, path)
+	// msgpack uses time.Local as the Location for time.Time, but we expect UTC.
+	// This is irrelevant for this test as r.DeletedAt.Valid = false so we can clear the value.
+	// This is related to https://github.com/vmihailenco/msgpack/issues/332
+	fromCache.UpdatedAt.Time = time.Time{}
+	fromCache.DeletedAt.Time = time.Time{}
+	require.Equal(t, expectedRepoFromDB, fromCache)
 
 	// The size of an existing repo is initially nil in the cache if no preceding calls to `Size`
 	// have been made to populate the calculated size attribute from the db into the cache
