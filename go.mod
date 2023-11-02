@@ -14,7 +14,7 @@ require (
 	github.com/denverdino/aliyungo v0.0.0-20230411124812-ab98a9173ace
 	github.com/docker/go-metrics v0.0.1
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7
-	github.com/eko/gocache/lib/v4 v4.1.4
+	github.com/eko/gocache/lib/v4 v4.1.5
 	github.com/eko/gocache/store/redis/v4 v4.2.0
 	github.com/getsentry/sentry-go v0.25.0
 	github.com/go-redis/redismock/v9 v9.0.3
@@ -119,7 +119,6 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
-	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/yuin/gopher-lua v1.1.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
