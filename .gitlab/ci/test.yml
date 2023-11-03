@@ -1,5 +1,4 @@
 .go-test:
-  image: golang:${GO_VERSION}-buster
   needs: ['modules:download']
   variables:
     GO_TEST: 'go run gotest.tools/gotestsum@$GOTESTSUM_VERSION --junitfile junit.xml --format standard-verbose --packages=$PACKAGE --'
@@ -11,7 +10,7 @@
   extends: .go-test
   parallel:
     matrix:
-      - GO_VERSION: [ "1.18", "1.19", "1.20" ]
+      - GO_VERSION: [ "1.19", "1.20", "1.21" ]
 
 # merged job with https://gitlab.com/gitlab-org/quality/pipeline-common/-/blob/master/ci/danger-review.yml
 danger-review:
@@ -30,7 +29,6 @@ coverage:
 # See https://github.com/opencontainers/distribution-spec/tree/main/conformance for documentation
 oci-conformance:
   stage: test
-  image: golang:${GO_VERSION}-buster
   needs: ['modules:download']
   allow_failure: true
   variables:
