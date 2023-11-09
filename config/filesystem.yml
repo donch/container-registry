@@ -16,7 +16,7 @@ storage:
     # Temp dir, rename if you need persistence.
     # registry/storage/paths.go describes the structure of the data
     # written to this directory
-    rootdirectory: "/tmp/registry"
+    rootdirectory: "/var/lib/registry"
 http:
   # Registry API will be accessible at localhost:5000
   addr: :5000
